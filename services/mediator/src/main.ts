@@ -14,7 +14,7 @@ import { IntakeService } from './intake.service';
 import { QueueRepository } from './queue.repository';
 import { CompletionService } from './completion.service';
 import { WorkerService } from './worker.service';
-import type { DeliveryTarget } from './target.interface';
+import { buildTargets } from './targets';
 
 const PORT = 3002;
 
@@ -32,10 +32,9 @@ export async function createMediatorApp(intake: IntakeService): Promise<INestApp
 async function bootstrap(): Promise<void> {
   const pool = getPool();
   const queue = new QueueRepository(pool);
-  // The delivery targets are registered here as they are built; a delivery whose
-  // target is missing is rescheduled with a loud error rather than dropped.
-  const targets: DeliveryTarget[] = [];
-  const worker = new WorkerService(queue, targets, pool, new CompletionService(pool));
+  const worker = new WorkerService(
+    queue, buildTargets(), pool, new CompletionService(pool),
+  );
 
   const app = await createMediatorApp(new IntakeService(pool, queue));
   await app.listen(PORT, '0.0.0.0');
