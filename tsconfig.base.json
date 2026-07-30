@@ -5,6 +5,10 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
+    // NestJS decorators use the legacy signature. emitDecoratorMetadata is
+    // deliberately NOT enabled: esbuild (vitest, tsx) cannot produce it, so the
+    // services inject by explicit token rather than by reflected parameter type.
+    "experimentalDecorators": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
