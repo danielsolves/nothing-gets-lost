@@ -120,6 +120,72 @@ h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
   opacity: 0.55;
 }
 
+/* Control panel ----------------------------------------------------------- */
+
+.board {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 48rem) {
+  .board { grid-template-columns: 1.4fr 1fr; align-items: start; }
+}
+
+.control-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.switch-row { display: grid; gap: 0.3rem; }
+.switch-label { font-size: 0.85rem; color: var(--muted); }
+.switch-states { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.control-panel button {
+  flex: 1 1 auto;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #1e222b;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.control-panel button.active {
+  border-color: var(--accent);
+  background: rgba(122, 162, 247, 0.18);
+}
+
+.control-panel button[data-invite='true'] {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.control-panel button[data-invite='true'].active {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #10131a;
+}
+
+.control-panel button.chaos { text-align: left; }
+
+.control-panel button.reset {
+  margin-top: 0.75rem;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fine-print { color: var(--muted); font-size: 0.78rem; margin: 0.75rem 0 0; }
+
 /* Timeline ---------------------------------------------------------------- */
 
 .timeline {

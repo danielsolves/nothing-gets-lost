@@ -2,6 +2,7 @@
 // The one page (spec 2). Order is the argument: the claim, the counters that back
 // it, the diagram, then the log — a phone shows them in exactly that sequence, and
 // a visitor who reads only the first screen has still seen the point.
+import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Diagram } from './Diagram';
 import { Timeline } from './Timeline';
@@ -34,6 +35,7 @@ export function App() {
 
       <section className="board">
         <Diagram switches={switches} deliveries={deliveries} />
+        <ControlPanel switches={switches} />
       </section>
 
       <section className="log">
