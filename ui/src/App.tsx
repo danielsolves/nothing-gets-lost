@@ -65,7 +65,7 @@ export function App() {
           </p>
         </header>
 
-        <Guide counters={counters} switches={switches} onFinished={revealOwnOrder} />
+        <Guide switches={switches} onFinished={revealOwnOrder} />
 
         {/* The live evidence stays on screen for every step of the walkthrough. */}
         <CountersBar counters={counters} />

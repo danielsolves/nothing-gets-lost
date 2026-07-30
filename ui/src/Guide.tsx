@@ -3,7 +3,7 @@
 // asks for exactly one thing at a time and says what to look for while it happens
 // (spec 2). Everything deeper sits behind the tabs below and stays out of the way.
 import { useState } from 'react';
-import type { Counters, SwitchState, SwitchableTarget } from '@ngl/contracts';
+import type { SwitchState, SwitchableTarget } from '@ngl/contracts';
 
 export type StepId = 'send' | 'cut' | 'sendAgain' | 'restore' | 'yours';
 
@@ -58,14 +58,14 @@ const STEPS: Record<StepId, Step> = {
 };
 
 interface GuideProps {
-  counters: Counters;
   switches: Record<SwitchableTarget, SwitchState>;
   onFinished: () => void;
 }
 
-export function Guide({ counters, switches, onFinished }: GuideProps) {
+export function Guide({ switches, onFinished }: GuideProps) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const id = ORDER[index] ?? 'yours';
@@ -79,7 +79,7 @@ export function Guide({ counters, switches, onFinished }: GuideProps) {
       if (id === 'send' || id === 'sendAgain') await post('/api/demo-order');
       if (id === 'cut') await post('/api/switches/hubspot', { state: 'cut' });
       if (id === 'restore') await post('/api/switches/hubspot', { state: 'up' });
-      if (id === 'yours') onFinished();
+      if (id === 'yours') { onFinished(); setFinished(true); }
       setIndex((current) => Math.min(current + 1, ORDER.length - 1));
     } catch (problem) {
       setError((problem as Error).message);
@@ -88,7 +88,9 @@ export function Guide({ counters, switches, onFinished }: GuideProps) {
     }
   }
 
-  const done = isLast && counters.received > 0;
+  // Only the last step's own action ends the walkthrough. Deriving this from the
+  // counters disabled the final button before it could ever be pressed.
+  const done = isLast && finished;
 
   return (
     <section className="guide" data-testid="guide">
