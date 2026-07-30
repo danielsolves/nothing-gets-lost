@@ -1,6 +1,6 @@
 # Nothing Gets Lost
 
-![The control panel with a target cut and the queue holding](docs/demo.gif)
+![An order runs through five systems, HubSpot is cut with a click, waiting climbs and lost stays at zero](docs/demo.gif)
 
 [![CI](https://github.com/OWNER/nothing-gets-lost/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/nothing-gets-lost/actions/workflows/ci.yml)
 
@@ -10,7 +10,7 @@ Nobody notices until somebody asks three weeks later.
 
 **This is a live lab for that problem. Break it on purpose and watch nothing get lost.**
 
-→ **[Try it](https://ngl.danielsolves.ai)** · switch a system off, place an order, switch it back on.
+→ **[Try it](https://ngl.danielsolves.ai)** · click a system to cut its line, send an order, click it back on.
 
 ## What you can check yourself
 
@@ -51,7 +51,9 @@ watch. Fill in `.env` when you want the real ones.
 
 ## How the failures work
 
-The control panel really does break things:
+Every system in the diagram is the switch that breaks it: one click cuts its line, one
+click puts it back. The panel behind **Control panel** has the full range, four states
+per system, and it really does break things:
 
 | Switch | What actually happens |
 |---|---|
