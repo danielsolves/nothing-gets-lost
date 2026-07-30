@@ -1,0 +1,62 @@
+// ui/src/Deeper.tsx
+// Everything that is not part of the sixty second walkthrough, behind tabs.
+//
+// These panels are the difference between a demo and a proof, but showing all of
+// them at once is what made the page unreadable: a visitor could not tell what to
+// do first. One tab is open at a time and none of them is open by default.
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+
+export type DeeperTab = 'panel' | 'connect' | 'sql';
+
+const TABS: Array<{ id: DeeperTab; label: string; hint: string }> = [
+  { id: 'panel', label: 'Control panel', hint: 'Break any of the five, four ways each' },
+  { id: 'connect', label: 'Your own systems', hint: 'Send the record somewhere you own' },
+  { id: 'sql', label: 'Query the database', hint: 'Read-only. Do not trust my screen' },
+];
+
+interface DeeperProps {
+  panel: ReactNode;
+  connect: ReactNode;
+  sql: ReactNode;
+}
+
+export function Deeper({ panel, connect, sql }: DeeperProps) {
+  const [open, setOpen] = useState<DeeperTab | null>(null);
+  const content: Record<DeeperTab, ReactNode> = { panel, connect, sql };
+
+  return (
+    <section className="deeper" data-testid="deeper">
+      <h2>Go further</h2>
+      <div className="deeper-tabs" role="tablist" aria-label="Further tools">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`tab-${tab.id}`}
+            aria-selected={open === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            className={open === tab.id ? 'open' : undefined}
+            onClick={() => setOpen(open === tab.id ? null : tab.id)}
+            data-testid={`deeper-tab-${tab.id}`}
+          >
+            <span className="deeper-label">{tab.label}</span>
+            <span className="deeper-hint">{tab.hint}</span>
+          </button>
+        ))}
+      </div>
+
+      {open && (
+        <div
+          role="tabpanel"
+          id={`panel-${open}`}
+          aria-labelledby={`tab-${open}`}
+          data-testid={`deeper-panel-${open}`}
+        >
+          {content[open]}
+        </div>
+      )}
+    </section>
+  );
+}

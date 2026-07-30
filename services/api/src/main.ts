@@ -20,6 +20,7 @@ import { oauthConfigFromEnv, tokenKeyFromEnv } from './oauth/oauth.config';
 import { OAuthService } from './oauth/oauth.service';
 import { SlackOAuthController } from './oauth/slack.controller';
 import { TokenStore } from './oauth/token.store';
+import { DemoOrderController } from './demo-order.controller';
 import { OrdersController, RATE_LIMITER } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
@@ -63,7 +64,8 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
 
 @Module({
   controllers: [
-    CatalogController, ChaosController, ConnectionsController, HubSpotOAuthController,
+    CatalogController, ChaosController, ConnectionsController, DemoOrderController,
+    HubSpotOAuthController,
     OrdersController, ProofController, ResetController, SlackOAuthController,
     SqlController, StateController, StreamController, StripeWebhookController,
     SwitchesController, VerifyController, WebhookTargetController,

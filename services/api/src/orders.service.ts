@@ -24,6 +24,18 @@ export class OrdersService {
     private readonly webhook?: WebhookUrlSource,
   ) {}
 
+  /**
+   * The walkthrough's order. No visitor email, so no mail is queued: the mail is
+   * the visitor's own proof and it would be meaningless addressed to the house.
+   */
+  async placeDemo(items: PlaceOrderRequest['items']): Promise<PlaceOrderResponse> {
+    return this.place({
+      customerName: 'Demo order',
+      customerEmail: 'demo@nothing-gets-lost.example',
+      items,
+    });
+  }
+
   async place(request: PlaceOrderRequest): Promise<PlaceOrderResponse> {
     if (request.items.length === 0) throw new Error('no items in the order');
     if (!EMAIL.test(request.customerEmail)) throw new Error('invalid email address');
