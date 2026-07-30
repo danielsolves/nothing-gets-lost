@@ -14,6 +14,12 @@ import { ChaosService } from './chaos.service';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
 import { MediatorIntake } from './mediator.intake';
+import { ConnectionsController } from './oauth/connections.controller';
+import { HubSpotOAuthController } from './oauth/hubspot.controller';
+import { oauthConfigFromEnv, tokenKeyFromEnv } from './oauth/oauth.config';
+import { OAuthService } from './oauth/oauth.service';
+import { SlackOAuthController } from './oauth/slack.controller';
+import { TokenStore } from './oauth/token.store';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
@@ -49,12 +55,14 @@ function getReadonlyPool(): Pool {
 // The read-back goes through the egress gate like every other outbound call, so a
 // cut connection fails the verification too instead of quietly bypassing it.
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
 
 @Module({
   controllers: [
-    CatalogController, ChaosController, OrdersController, ProofController,
-    ResetController, SqlController, StateController, StreamController,
-    StripeWebhookController, SwitchesController, VerifyController,
+    CatalogController, ChaosController, ConnectionsController, HubSpotOAuthController,
+    OrdersController, ProofController, ResetController, SlackOAuthController,
+    SqlController, StateController, StreamController, StripeWebhookController,
+    SwitchesController, VerifyController,
   ],
   providers: [
     PresenceService,
@@ -101,6 +109,13 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
         new DeliveryRecords(getPool()),
       ),
     },
+    { provide: TokenStore, useFactory: () => new TokenStore(getPool(), tokenKeyFromEnv()) },
+    {
+      provide: OAuthService,
+      useFactory: (tokens: TokenStore) =>
+        new OAuthService(oauthConfigFromEnv(), PUBLIC_BASE_URL, tokens),
+      inject: [TokenStore],
+    },
   ],
 })
 export class ApiModule {}
@@ -111,8 +126,12 @@ async function bootstrap(): Promise<void> {
 
   // Ten quiet minutes and the world repairs itself for the next visitor (spec 3).
   const autoReset = new AutoResetService(getPool());
+  // A lapsed token is already treated as absent; this is what actually removes the
+  // row, so "deleted after 24 hours" is true of the disk and not only of the answer.
+  const tokens = app.get(TokenStore);
   const timer = setInterval(() => {
     void autoReset.tick(new Date());
+    void tokens.purgeExpired();
   }, AUTO_RESET_INTERVAL_MS);
   app.enableShutdownHooks();
   process.on('beforeExit', () => clearInterval(timer));

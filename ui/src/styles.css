@@ -270,6 +270,9 @@ h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
 /* SQL console ------------------------------------------------------------- */
 
 .sql-console {
+/* Connections ------------------------------------------------------------- */
+
+.connections {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 0.6rem;
@@ -283,6 +286,24 @@ h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
 .sql-console textarea {
   width: 100%;
   padding: 0.5rem 0.6rem;
+.connections > p { color: var(--muted); margin: 0; }
+
+.connection {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.connection > span { font-weight: 600; }
+.connection small { grid-column: 1 / -1; color: var(--muted); font-size: 0.8rem; }
+.connection .error { grid-column: 1 / -1; color: var(--bad); margin: 0; }
+
+.connection input {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: 0.4rem;
   background: #12151c;
@@ -322,3 +343,26 @@ h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
 }
 
 .sql-console th { color: var(--muted); font-weight: 600; }
+  font: inherit;
+}
+
+.connection button,
+.connection .button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+@media (max-width: 30rem) {
+  .connection { grid-template-columns: 1fr; }
+}
