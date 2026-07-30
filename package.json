@@ -6,6 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "migrate": "tsx packages/db/src/migrate.ts"
   },
   "devDependencies": {

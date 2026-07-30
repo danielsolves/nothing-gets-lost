@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Tests index into query results constantly and assert on the row right
+    // after. Production code keeps the flag — that is where a missing row is a
+    // real bug rather than a failing assertion one line later.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["packages/*/test/**/*.ts", "services/*/test/**/*.ts"]
+}
