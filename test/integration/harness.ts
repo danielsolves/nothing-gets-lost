@@ -52,11 +52,27 @@ export async function startHarness() {
   };
   const worker = new WorkerService(queue, Object.values(targets), pool, completion);
 
-  /** Runs the loop until nothing is due, so tests do not sleep. */
-  async function drain(maxTicks = 50): Promise<void> {
-    for (let i = 0; i < maxTicks; i++) {
-      await pool.query(`UPDATE deliveries SET next_at = now() WHERE state = 'pending'`);
-      if ((await worker.tick()) === 0) return;
+  /**
+   * Runs the loop until nothing is left, so tests do not sleep.
+   *
+   * One round works through everything that is already due, and only then pulls
+   * the scheduled future forward once. Doing that per tick instead rewrites every
+   * pending row on every batch of ten, which is quadratic and is what made the
+   * soak run take longer than its timeout.
+   */
+  async function drain(maxRounds = 50): Promise<void> {
+    for (let round = 0; round < maxRounds; round++) {
+      let handled = 0;
+      for (;;) {
+        const done = await worker.tick();
+        if (done === 0) break;
+        handled += done;
+      }
+      const { rowCount } = await pool.query(
+        `UPDATE deliveries SET next_at = now()
+          WHERE state = 'pending' AND next_at > now()`,
+      );
+      if (handled === 0 && (rowCount ?? 0) === 0) return;
     }
   }
 
