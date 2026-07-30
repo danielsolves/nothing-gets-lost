@@ -77,14 +77,22 @@ export class DeliveriesService {
     }
     if (row.attempts === 0) return 'queued';
     // A wall-clock timestamp answers the wrong question. The visitor wants to know
-    // that the item is scheduled, not parked, so the wait is phrased as a countdown.
-    return `attempt ${row.attempts} failed, next try ${this.countdown(row.next_at)}` +
+    // that the item is scheduled, not parked, so the wait is phrased as a delay.
+    return `attempt ${row.attempts} failed, next try ${this.delay(row)}` +
       `${row.last_error ? ` (${row.last_error})` : ''}`;
   }
 
-  private countdown(nextAt: Date | null): string {
-    if (nextAt === null) return 'shortly';
-    const seconds = Math.round((nextAt.getTime() - Date.now()) / 1000);
+  /**
+   * Measured from when the attempt failed, not from now.
+   *
+   * A countdown against Date.now() re-words itself every second, and the stream
+   * re-sends the whole log every second, so one failure arrived as "in 34 s", then
+   * "in 35 s", then "in 36 s" and the page drew it as three separate events. Both
+   * ends of this subtraction are columns, so the line reads the same forever.
+   */
+  private delay(row: DeliveryRow): string {
+    if (row.next_at === null) return 'shortly';
+    const seconds = Math.round((row.next_at.getTime() - row.updated_at.getTime()) / 1000);
     if (seconds <= 0) return 'now';
     if (seconds < 60) return `in ${seconds} s`;
     return `in ${Math.round(seconds / 60)} min`;
