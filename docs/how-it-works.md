@@ -151,12 +151,23 @@ export function idempotencyKey(eventId: string, target: Target): string {
 |---|---|---|
 | Stripe | `idempotency-key` header on `POST /v1/payment_intents`. Stripe replays the original response instead of charging twice. | `targets/stripe.target.ts` |
 | HubSpot | Natural key. Search contacts by email, then `PATCH` the existing id or `POST` a new contact. A `409` or a missing id triggers a read back, because another worker may have won the race. | `targets/hubspot.target.ts` |
-| Slack | No key and no natural key. The delivery embeds `idempotencyKey` as a marker in the message text and checks `conversations.history` before posting. | `targets/slack.target.ts` |
+| Slack, my workspace | No key and no natural key. The delivery embeds `idempotencyKey` as a marker in the message text and reads `conversations.history` back before posting. My own app holds `channels:history`, so this is available here and only here. | `targets/slack.target.ts` |
+| Slack, your workspace | Same marker, no read. Connecting asks for `chat:write` and `incoming-webhook` only, so a row in `slack_visitor_sends` is written before the call and completed after it. | `slack-send.log.ts` |
 | ledger | `UNIQUE (event_id)` on `invoices`, plus `ON CONFLICT (event_id) DO NOTHING` and a read back, so a repeat returns the original invoice number rather than an error. | `services/ledger/src/invoice.service.ts` |
 | mailer | `UNIQUE (event_id)` on `sent_mail`. The claim row is inserted before the send inside a transaction and rolled back if the send throws. | `services/mailer/src/mail.service.ts` |
 | custom_webhook | We send `idempotency-key` and an HMAC in `x-demo-signature`. Honouring it is the receiver's business, and that is documented rather than glossed over. | `targets/webhook.target.ts` |
 
 The Slack technique is the weakest of the set and is labelled as such in its own file: a narrow window remains between the history check and the post. For a notification that is the right trade. For the invoice it would not be, which is why that one uses a database constraint.
+
+### Why your workspace is handled differently
+
+`conversations.history` requires `channels:history`. Asking a visitor for that would mean this demo could read the messages in their channel, in exchange for saving itself one database row. For a project whose entire subject is being worth trusting, that is the wrong trade, so the scope list stops at `chat:write` and `incoming-webhook`.
+
+`incoming-webhook` is in the list on purpose and not for the webhook url. Without it `oauth.v2.access` returns no channel id at all, `target_ref` stays null and the delivery has nowhere to post. With it, Slack shows a channel picker during install and adds the app to the channel that is chosen, which also removes the `not_in_channel` error a hand-typed channel id would run into.
+
+What that costs is one case. If the worker dies in the window between calling Slack and recording the outcome, the send log holds a row with no `message_ts` and nobody alive can say whether the message landed. Posting again might duplicate a message in someone else's Slack; giving up would lose it. So that delivery is parked in **needs a human** with the reason in plain text and the retry button beside it, and `lost` stays at 0 because parked is not lost (spec 6.6). It is the only failure in the system that skips the retry schedule, since five more attempts would each hit the same wall.
+
+Everything the worker itself lives through, including a cut connection, clears the row and retries normally. That is what keeps the control panel demo healing for a visitor who connected their own Slack, and it is integration test 6 in `test/integration/own-connection.test.ts`.
 
 ## The hard case: the call went out and then the worker died
 

@@ -23,6 +23,13 @@ You do not have to take my word for any of it:
 | **The proof chain** | the gap between those two timestamps is the outage you caused |
 | **SQL console** | query the database yourself, read-only |
 | **Your own endpoint** | give it a url and see the retries arrive on your server |
+| **Your own Slack** | connect a workspace and the notification appears in the channel you pick |
+| **Your own HubSpot** | connect a portal and the contact appears in your CRM, with HubSpot's own `hs_createdate` |
+
+Connecting is optional and lasts 24 hours. Slack is asked for `chat:write` and
+`incoming-webhook`, HubSpot for `crm.objects.contacts.read` and `.write`, and nothing
+else. There is a **Disconnect** button, and the token is deleted rather than merely
+ignored.
 
 The read-back against **my** HubSpot portal is an indication, not proof. I render that
 answer, so you would be right not to trust it. It is labelled as such in the interface.
@@ -83,14 +90,16 @@ zero through arbitrary chaos.
 - **There is one world, not one per visitor.** If somebody else is experimenting you
   will see their traffic, and the page says so. Per-visitor sandboxes would mean the
   switches were not really switching anything.
-- **Connecting your own Slack or HubSpot is not finished.** The OAuth flows work
-  and the token is stored encrypted with a 24 hour life, but no delivery reads it
-  yet: the record still goes to my workspace, not yours. Until that is wired the
-  page offers the connection and nothing lands on your side, so treat that button
-  as unfinished rather than as one of the proofs above.
-- **Slack deduplication is weaker than the rest.** It checks channel history before
-  posting, which leaves a narrow race. For a notification that is the right trade; for
-  the invoice it would not be, which is why that one uses a database constraint.
+- **Slack deduplication is weaker than the rest.** In my workspace it reads the channel
+  back before posting, which leaves a narrow race. For a notification that is the right
+  trade; for the invoice it would not be, which is why that one uses a database
+  constraint. In your workspace it cannot read at all, which is the next point.
+- **In your Slack, an interrupted send is parked rather than repeated.** Connecting
+  asks for `chat:write` and `incoming-webhook`, and for nothing that reads your
+  messages. So if this demo dies in the moment between calling Slack and recording the
+  result, nobody can establish whether the message arrived. Rather than push a possible
+  duplicate into your workspace, that delivery goes to **needs a human** with the
+  reason written out. `lost` still reads 0, because parked is not lost.
 - **The queue is hand-built on purpose**, and that is not general advice. See
   [why no queue library](docs/why-no-queue-library.md).
 
