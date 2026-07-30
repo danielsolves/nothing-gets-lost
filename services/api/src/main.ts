@@ -16,6 +16,9 @@ import { MediatorIntake } from './mediator.intake';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
+import { ProofController } from './proof.controller';
+import { ProofLogService } from './proof-log.service';
+import { ProofLookups, ProofService } from './proof.service';
 import { ResetController } from './reset.controller';
 import { StateController } from './state.controller';
 import { StreamController } from './stream.controller';
@@ -23,15 +26,24 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeVerifier } from './stripe-verifier';
 import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
+import { VerifyController } from './verify.controller';
+import { DeliveryRecords, VerifyService } from './verify.service';
+import { HubSpotClient } from '../../mediator/src/targets/hubspot.target';
+import { SlackClient } from '../../mediator/src/targets/slack.target';
 import { EVENT_INTAKE, POOL, STRIPE_VERIFIER } from './tokens';
 
 const PORT = 3001;
 const AUTO_RESET_INTERVAL_MS = 30_000;
 
+// The read-back goes through the egress gate like every other outbound call, so a
+// cut connection fails the verification too instead of quietly bypassing it.
+const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
+
 @Module({
   controllers: [
-    CatalogController, ChaosController, OrdersController, ResetController,
-    StateController, StreamController, StripeWebhookController, SwitchesController,
+    CatalogController, ChaosController, OrdersController, ProofController,
+    ResetController, StateController, StreamController, StripeWebhookController,
+    SwitchesController, VerifyController,
   ],
   providers: [
     PresenceService,
@@ -53,6 +65,24 @@ const AUTO_RESET_INTERVAL_MS = 30_000;
       provide: ChaosService,
       useFactory: (intake: MediatorIntake) => new ChaosService(getPool(), intake),
       inject: [EVENT_INTAKE],
+    },
+    { provide: ProofService, useFactory: () => new ProofService(new ProofLookups(getPool())) },
+    { provide: ProofLogService, useFactory: () => new ProofLogService(getPool()) },
+    {
+      provide: VerifyService,
+      useFactory: () => new VerifyService(
+        {
+          hubspot: new HubSpotClient(
+            `${EGRESS_URL}/proxy/hubspot`, process.env.HUBSPOT_TOKEN ?? '',
+          ),
+          slack: new SlackClient(
+            `${EGRESS_URL}/proxy/slack`,
+            process.env.SLACK_BOT_TOKEN ?? '',
+            process.env.SLACK_CHANNEL_ID ?? '',
+          ),
+        },
+        new DeliveryRecords(getPool()),
+      ),
     },
   ],
 })
