@@ -20,7 +20,7 @@ import { oauthConfigFromEnv, tokenKeyFromEnv } from './oauth/oauth.config';
 import { OAuthService } from './oauth/oauth.service';
 import { SlackOAuthController } from './oauth/slack.controller';
 import { TokenStore } from './oauth/token.store';
-import { OrdersController } from './orders.controller';
+import { OrdersController, RATE_LIMITER } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
 import { ProofController } from './proof.controller';
@@ -37,6 +37,7 @@ import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
 import { WebhookTargetController, WEBHOOK_TARGET_STORE } from './webhook-target.controller';
 import { WebhookTargetStore } from './webhook-target.store';
+import { RateLimiter } from './rate-limit.guard';
 import { VerifyController } from './verify.controller';
 import { DeliveryRecords, VerifyService } from './verify.service';
 import { HubSpotClient, SlackClient } from '@ngl/mediator';
@@ -119,6 +120,7 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
       inject: [TokenStore],
     },
     { provide: WEBHOOK_TARGET_STORE, useFactory: () => new WebhookTargetStore(getPool()) },
+    { provide: RATE_LIMITER, useFactory: () => new RateLimiter(getPool()) },
   ],
 })
 export class ApiModule {}
