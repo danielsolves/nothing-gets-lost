@@ -5,7 +5,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Model } from './extract.service';
 
-const MODEL = 'claude-opus-5';
+// Pinned by the spec (section 5). Reading one short mail is routine work, and
+// the two checks downstream are what guard correctness — not model size. The
+// public demo also caps live calls per IP, so the cheap model is the right one.
+const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 2048;
 
 class AnthropicModel implements Model {
@@ -15,9 +18,6 @@ class AnthropicModel implements Model {
     const response = await this.client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      // Reading one short mail is routine work; the two checks downstream are
-      // what guard correctness here, not the size of the reasoning budget.
-      output_config: { effort: 'low' },
       system,
       messages: [{ role: 'user', content: user }],
     });
