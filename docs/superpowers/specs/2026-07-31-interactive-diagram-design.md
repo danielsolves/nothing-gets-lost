@@ -65,9 +65,14 @@ change from end to end.
 
 A node-and-edge layout is the hardest thing to keep legible on a narrow screen, and the
 specification says the typical visitor may arrive from one. Below the breakpoint the
-layout collapses to a single column: the mediator on top, the targets stacked under it,
-connectors becoming short vertical stubs that the dots travel down. No horizontal
-scrolling, no pan-and-zoom, no second layout to maintain.
+drawing turns a quarter rather than changing: the mediator moves on top, the bus becomes
+a rail down the left side, and each system keeps its own short branch off that rail. No
+horizontal scrolling, no pan-and-zoom, no second layout to maintain.
+
+The first attempt put a vertical stub between each pair of boxes instead. It fitted, and
+it was wrong: it read as Stripe, then HubSpot, then Invoices, a chain, when these are
+five deliveries going out in parallel. A layout that fits but says something false about
+the system is worse than one that needs a scroll.
 
 ## What stays
 

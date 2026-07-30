@@ -1,18 +1,23 @@
 // ui/src/App.tsx
-// The one page (spec 2). It is a walkthrough, not a dashboard: the claim, the live
-// evidence, then one instruction at a time. Everything that is not part of those
-// sixty seconds sits behind the tabs at the bottom, so a first-time visitor is
-// never asked to choose between nine things at once.
-import { useRef, useState } from 'react';
+// The one page (spec 2). The claim, then the machine itself, then the evidence it
+// produces. Everything that is not part of the first sixty seconds sits behind the
+// tabs at the bottom, so a first-time visitor is never asked to choose between nine
+// things at once.
+//
+// It used to open with a five-step walkthrough. Once the diagram became clickable
+// that meant two things on screen telling the visitor what to do, so the walkthrough
+// went and the diagram carries it: one loud button to send an order, and every system
+// in the picture is the switch that breaks it.
+import { useState } from 'react';
 import { Connections } from './Connections';
 import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
-import { Guide } from './Guide';
 import { OwnOrder } from './OwnOrder';
 import { ProofPanel } from './ProofPanel';
 import { SqlConsole } from './SqlConsole';
+import { Stage } from './Stage';
 import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
@@ -21,17 +26,6 @@ export function App() {
     counters, switches, deliveries, timeline, viewers, connected, extractorMode,
   } = useStream();
   const [placed, setPlaced] = useState<string | null>(null);
-  const [ownOrderOpen, setOwnOrderOpen] = useState(false);
-  const ownOrder = useRef<HTMLDivElement>(null);
-
-  function revealOwnOrder(): void {
-    setOwnOrderOpen(true);
-    // The form is the payoff of the walkthrough, so take the visitor to it rather
-    // than leaving them to find it.
-    requestAnimationFrame(() => {
-      ownOrder.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
 
   return (
     <>
@@ -40,53 +34,34 @@ export function App() {
       <div className="grain" aria-hidden="true" />
 
       <main className="page">
-        <header className="claim">
-          <h1>Nothing gets lost. Not even when you break it.</h1>
-          <p className="sub">
-            An order here runs through four real systems. Break one on purpose and
-            watch what happens to the orders already on their way.
-          </p>
-          <p className="status">
-            <span className={connected ? 'live' : 'offline'} data-testid="connection">
-              {connected ? 'live' : 'reconnecting'}
-            </span>
-            {extractorMode === 'recorded' && (
-              <span data-testid="extractor-mode">
-                Recorded operation. No model key is configured, so the reading step
-                replays answers captured earlier.
-              </span>
-            )}
-            {viewers > 1 && (
-              <span data-testid="presence">
-                Somebody else is experimenting right now. You are watching their
-                events too.
-              </span>
-            )}
-          </p>
-        </header>
+        <Stage connected={connected} viewers={viewers} />
 
-        <Guide switches={switches} onFinished={revealOwnOrder} />
-
-        {/* The live evidence stays on screen for every step of the walkthrough. */}
+        {/* The counters stay above everything: spec 2 wants the running score
+            on screen for every second of the demo, lost included. */}
         <CountersBar counters={counters} />
 
+        {/* The machine, and the evidence it produces, both always on screen. */}
         <section className="board">
           <Diagram switches={switches} deliveries={deliveries} />
-          <div className="log">
+          <section className="log">
             <h2>What just happened</h2>
             <Timeline entries={timeline} />
-          </div>
+          </section>
         </section>
 
-        <div ref={ownOrder}>
-          {ownOrderOpen ? (
-            <OwnOrder onPlaced={setPlaced} />
-          ) : (
-            <p className="own-order-locked" data-testid="own-order-locked">
-              The last step of the walkthrough opens the form for your own order.
-            </p>
-          )}
-        </div>
+        {/* Spec 8.5 wants this said out loud. It sits here, next to the machine it
+            is about, rather than beside the live badge where it read as a denial of
+            the whole page. It describes one step: reading a free-text order mail. */}
+        {extractorMode === 'recorded' && (
+          <p className="extractor-note" data-testid="extractor-mode">
+            One step is not live: reading a free-text order mail. No model key is
+            configured, so that step replays answers captured earlier. Everything
+            else above is running now.
+          </p>
+        )}
+
+        {/* No longer locked behind finishing a walkthrough there no longer is. */}
+        <OwnOrder onPlaced={setPlaced} />
 
         {placed && (
           <>

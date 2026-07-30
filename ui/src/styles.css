@@ -149,11 +149,11 @@ body {
   gap: clamp(40px, 5vw, 72px);
 }
 
-/* Hero ---------------------------------------------------------------------- */
+/* The stage: claim, proof that it is live, one thing to press ---------------- */
 
-.claim { display: grid; gap: 20px; }
+.stage { display: grid; gap: 20px; }
 
-.claim h1 {
+.stage h1 {
   margin: 0;
   max-width: 20ch;
   font-size: var(--fs-display);
@@ -163,9 +163,9 @@ body {
   text-wrap: balance;
 }
 
-.claim .sub {
+.stage .sub {
   margin: 0;
-  max-width: 58ch;
+  max-width: 66ch;
   font-size: var(--fs-lede);
   color: var(--muted);
 }
@@ -191,6 +191,35 @@ body {
   content: ""; width: 7px; height: 7px; border-radius: 50%;
   background: currentColor;
 }
+.status .status-note { color: var(--muted); }
+
+.stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+}
+
+.stage-cta {
+  padding: 15px 28px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--mono);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 0 24px var(--glow);
+  transition: box-shadow 0.25s ease, transform 0.12s ease;
+}
+.stage-cta:hover { box-shadow: 0 0 34px var(--glow); }
+.stage-cta:active { transform: translateY(1px); }
+.stage-cta:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.stage-cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.stage-hint { color: var(--muted); font-size: 14.5px; max-width: 44ch; }
 
 /* Counters ------------------------------------------------------------------ */
 
@@ -231,19 +260,24 @@ body {
 .counter.emphasis .value { color: var(--accent); }
 .counter.emphasis .label { color: var(--accent); }
 
-/* Board: diagram plus control panel ----------------------------------------- */
+/* The diagram: the machine, and the interface to it -------------------------- */
 
+/* Diagram and log side by side: the machine and what it just did, both on the
+   first screen without either being stretched across the whole page. */
 .board {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
   gap: clamp(16px, 2vw, 24px);
   align-items: start;
 }
 
 .diagram {
+  --wire-gap: 7px;
+  --branch: clamp(30px, 4vw, 54px);
   display: grid;
-  gap: 14px;
-  align-content: start;
+  grid-template-columns: minmax(132px, 176px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(18px, 2.5vw, 34px);
   padding: clamp(18px, 2.4vw, 28px);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -252,49 +286,197 @@ body {
 
 .mediator {
   display: grid;
-  gap: 4px;
-  padding: 18px 20px;
+  gap: 5px;
+  padding: 16px 14px;
   border: 1px solid var(--accent);
   border-radius: var(--r-card);
   background: var(--accent-soft);
   font-weight: 600;
+  text-align: center;
 }
 .mediator span {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 400;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent);
 }
 
-.targets {
+/* A trunk out of the mediator into a bus, and a branch off the bus to each
+   system. Drawn rather than implied: five stubs floating beside a box read as
+   five disconnected things, which is the opposite of the point. */
+.wires {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
-  gap: 10px;
+  gap: var(--wire-gap);
 }
 
+/* The bus, from the centre of the first row to the centre of the last. */
+.wires::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 27px;
+  bottom: 27px;
+  width: 2px;
+  background: oklch(from var(--accent) l c h / 0.45);
+}
+
+/* The trunk, crossing the gap from the mediator to the bus. */
+.wires::after {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: clamp(18px, 2.5vw, 34px);
+  height: 2px;
+  background: oklch(from var(--accent) l c h / 0.45);
+}
+
+.wire {
+  display: grid;
+  grid-template-columns: var(--branch) minmax(0, 1fr);
+  align-items: center;
+}
+
+/* The line carries the state too, so a cut reads as a broken connection and not
+   only as a differently coloured box. */
+.line {
+  position: relative;
+  height: 2px;
+  background: var(--line-strong);
+  transition: background 0.25s ease;
+}
+.line[data-state='up'] { background: oklch(from var(--good) l c h / 0.55); }
+.line[data-state='slow'] { background: oklch(from var(--warn) l c h / 0.6); }
+.line[data-state='error'] { background: oklch(from var(--bad) l c h / 0.6); }
+.line[data-state='cut'] {
+  background: repeating-linear-gradient(
+    90deg, var(--bad) 0 5px, transparent 5px 11px
+  );
+}
+
+/* Dots exist because a delivery changed state, never because a timer came round
+   (see pulses.ts). One dot, one real event. */
+.dot {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  animation-duration: 900ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+}
+.dot-delivered {
+  background: var(--good);
+  box-shadow: 0 0 10px oklch(from var(--good) l c h / 0.8);
+  animation-name: dot-through;
+}
+.dot-held {
+  background: var(--warn);
+  box-shadow: 0 0 10px oklch(from var(--warn) l c h / 0.8);
+  animation-name: dot-back;
+}
+.dot-parked {
+  background: var(--bad);
+  box-shadow: 0 0 10px oklch(from var(--bad) l c h / 0.8);
+  animation-name: dot-short;
+}
+
+@keyframes dot-through {
+  from { left: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  to   { left: calc(100% - 8px); opacity: 1; }
+}
+@keyframes dot-back {
+  from { left: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { left: calc(100% - 8px); opacity: 1; }
+  to   { left: 0; opacity: 0.15; }
+}
+@keyframes dot-short {
+  from { left: 0; opacity: 0; }
+  15%  { opacity: 1; }
+  to   { left: 55%; opacity: 1; }
+}
+
+/* Every system is the switch that breaks it. */
 .target {
   display: grid;
-  gap: 4px;
-  padding: 14px 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  padding: 11px 15px;
   border: 1px solid var(--line-strong);
   border-left: 3px solid var(--good);
   border-radius: var(--r-control);
   background: var(--surface-sunken);
-  transition: border-color 0.25s ease, opacity 0.25s ease;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.25s ease, opacity 0.25s ease, transform 0.12s ease;
 }
-.target .name { font-weight: 600; font-size: 15px; }
+.target:hover { transform: translateX(2px); border-color: var(--line-input); }
+.target:active { transform: translateX(0); }
+.target:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.target .name { grid-column: 1; font-weight: 600; font-size: 15px; }
+.target .note {
+  grid-column: 1;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
 .target .waiting {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--warn);
 }
-.target.state-slow { border-left-color: var(--warn); }
-.target.state-error { border-left-color: var(--bad); }
-.target.state-cut { border-left-color: var(--bad); opacity: 0.62; }
+
+/* The invitation. Present but quiet until the pointer or the keyboard arrives,
+   so five boxes do not shout five instructions at a visitor reading the claim. */
+.target .verb {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.target:hover .verb, .target:focus-visible .verb { opacity: 1; }
+
+.target[data-state='slow'] { border-left-color: var(--warn); }
+.target[data-state='error'] { border-left-color: var(--bad); }
+.target[data-state='cut'] { border-left-color: var(--bad); opacity: 0.6; }
+.target[data-state='cut'] .verb, .target[data-state='error'] .verb,
+.target[data-state='slow'] .verb { opacity: 1; color: var(--bad); }
+
+.extractor-note {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-control);
+  color: var(--muted);
+  font-size: 14px;
+}
 
 /* Control panel ------------------------------------------------------------- */
 
@@ -667,12 +849,41 @@ body {
 /* Mobile -------------------------------------------------------------------- */
 
 @media (max-width: 62rem) {
+  /* The log's 300px floor plus the diagram no longer fit side by side. Left as
+     two columns they overflow the container and draw on top of each other. */
   .board { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 40rem) {
   .counters { grid-template-columns: repeat(2, 1fr); }
   .timeline li { grid-template-columns: 1fr; gap: 2px; }
+
+  /* A node-and-edge picture is the hardest thing to keep legible on a phone, and
+     the spec says the visitor may well arrive on one. The mediator moves on top
+     and the bus becomes a rail down the left, with a short branch into each box.
+
+     What it must not become is a stack of stubs between the boxes: that reads as
+     Stripe then HubSpot then Invoices, a chain, when these are five deliveries
+     going out in parallel. Same drawing as the desktop, turned a quarter. */
+  .diagram { grid-template-columns: 1fr; gap: 0; }
+  .wires { --branch: 22px; gap: 6px; padding-top: 14px; }
+  .wire { grid-template-columns: var(--branch) minmax(0, 1fr); }
+
+  /* The rail starts under the mediator and ends at the last branch, so it needs
+     no separate trunk here. */
+  .wires::before { top: 0; bottom: 27px; }
+  .wires::after { display: none; }
+
+  /* One column inside the box: at this width the name and the verb were fighting
+     over the same row and drawing through each other. */
+  .target { grid-template-columns: 1fr; row-gap: 2px; }
+  .target .waiting, .target .verb {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+  /* Touch has no hover, so the invitation has to be permanent there. */
+  .target .verb { opacity: 1; }
   .catalog li { grid-template-columns: 1fr 72px; }
   .catalog .price { grid-column: 1; font-size: 12px; }
   .connection, .connection.webhook { grid-template-columns: 1fr; }
@@ -681,112 +892,9 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
-}
-
-/* Walkthrough ----------------------------------------------------------------
-   The one thing on the page that tells a first-time visitor what to do. It is
-   deliberately the loudest element after the headline. */
-
-.guide {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: clamp(18px, 3vw, 32px);
-  padding: clamp(20px, 3vw, 32px);
-  background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: var(--r-shell);
-}
-
-.guide-track {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-.guide-track li {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 12.5px;
-}
-.guide-track li.now {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-.guide-track li.past { border-color: var(--good); color: var(--good); }
-
-.guide-body { display: grid; gap: 12px; align-content: start; }
-
-.guide-count {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.guide-body h2 {
-  margin: 0;
-  font-size: var(--fs-section);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.guide-body > p { margin: 0; max-width: 62ch; color: var(--muted); }
-
-.guide-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 18px;
-  margin-top: 4px;
-}
-
-.guide-cta {
-  min-height: 52px;
-  padding: 0 30px;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--mono);
-  font-size: 14.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.1s ease;
-}
-.guide-cta:hover { box-shadow: 0 0 32px var(--glow); }
-.guide-cta:active { transform: translateY(1px); }
-.guide-cta:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.guide-cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-.guide-watch { color: var(--muted); font-size: 14.5px; }
-
-.guide-note {
-  margin: 0;
-  padding: 10px 14px;
-  border-left: 3px solid var(--warn);
-  background: var(--surface-sunken);
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.own-order-locked {
-  margin: 0;
-  padding: 22px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--r-card);
-  color: var(--faint);
-  text-align: center;
+  /* The dots carry information, so they stay: parked at the far end instead of
+     travelling to it. Removing them would remove the evidence, not the motion. */
+  .dot { left: calc(100% - 8px); opacity: 1; }
 }
 
 /* Further tools --------------------------------------------------------------
@@ -831,6 +939,4 @@ body {
 .deeper-hint { color: var(--faint); font-size: 13px; }
 
 @media (max-width: 52rem) {
-  .guide { grid-template-columns: 1fr; }
-  .guide-track { grid-auto-flow: column; justify-content: start; }
 }
