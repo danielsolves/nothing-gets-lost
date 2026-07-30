@@ -11,6 +11,7 @@ import { AutoResetService } from './autoreset.service';
 import { CatalogController } from './catalog.controller';
 import { ChaosController } from './chaos.controller';
 import { ChaosService } from './chaos.service';
+import { CleanupService } from './cleanup.service';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
 import { MediatorIntake } from './mediator.intake';
@@ -44,6 +45,10 @@ import { EVENT_INTAKE, POOL, READONLY_POOL, STRIPE_VERIFIER } from './tokens';
 
 const PORT = 3001;
 const AUTO_RESET_INTERVAL_MS = 30_000;
+// Hourly rather than at a fixed hour of the night: the container may be started
+// at any time and may not live a whole day, and a sweep that never runs keeps
+// addresses no one promised to keep (spec 14).
+const CLEANUP_INTERVAL_MS = 60 * 60_000;
 const READONLY_POOL_MAX = 4;
 
 // The one place in this service that builds a second pool. It is deliberate: the
@@ -136,8 +141,21 @@ async function bootstrap(): Promise<void> {
     void autoReset.tick(new Date());
     void tokens.purgeExpired();
   }, AUTO_RESET_INTERVAL_MS);
+  // The day-old addresses go too, not only the tokens. Swept once at boot so a
+  // container that is restarted daily still sweeps. A failed sweep is reported
+  // and retried an hour later — it must never take the public service down.
+  const cleanup = new CleanupService(getPool());
+  const sweep = (): void => {
+    cleanup.run().catch((error: unknown) => console.error('cleanup failed', error));
+  };
+  sweep();
+  const cleanupTimer = setInterval(sweep, CLEANUP_INTERVAL_MS);
+
   app.enableShutdownHooks();
-  process.on('beforeExit', () => clearInterval(timer));
+  process.on('beforeExit', () => {
+    clearInterval(timer);
+    clearInterval(cleanupTimer);
+  });
 
   await app.listen(PORT, '0.0.0.0');
 }
