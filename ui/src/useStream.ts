@@ -7,6 +7,7 @@ import type {
   Counters, DeliveryView, StateResponse, StreamEvent, SwitchState,
   SwitchableTarget, TimelineEntry,
 } from '@ngl/contracts';
+import { mergeTimeline, TIMELINE_KEPT } from './timeline-merge';
 
 const EMPTY_COUNTERS: Counters = {
   received: 0, delivered: 0, waiting: 0,
@@ -44,7 +45,7 @@ export function useStream(): Stream {
         setCounters(state.counters);
         setSwitches(state.switches);
         setDeliveries(state.deliveries);
-        setTimeline(state.timeline);
+        setTimeline(state.timeline.slice(0, TIMELINE_KEPT));
         setViewers(state.viewers);
         setExtractorMode(state.extractorMode);
       })
@@ -67,7 +68,9 @@ export function useStream(): Stream {
           });
           break;
         case 'timeline':
-          setTimeline((current) => [event.payload, ...current].slice(0, 40));
+          // The board arrives whole every second, so the same line keeps coming
+          // back. mergeTimeline is what recognises it (see timeline-merge.ts).
+          setTimeline((current) => mergeTimeline(current, event.payload));
           break;
         case 'reset':
           setDeliveries([]); setTimeline([]); setCounters(EMPTY_COUNTERS);

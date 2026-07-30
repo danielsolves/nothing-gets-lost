@@ -1,6 +1,10 @@
 // ui/src/Timeline.tsx
 // The running log. Failures are shown with their next retry time, so waiting reads
 // as "held" rather than "broken" — that difference is the whole point.
+//
+// It scrolls inside a fixed height rather than growing. In normal flow it pushed
+// the counters, the diagram and the walkthrough off the first screen within a
+// minute, which turned the strongest evidence into the reason nobody sees it.
 import type { TimelineEntry } from '@ngl/contracts';
 
 export function Timeline({ entries }: { entries: TimelineEntry[] }) {
@@ -16,13 +20,21 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
   }
 
   return (
-    <ol className="timeline" data-testid="timeline">
-      {entries.map((entry, index) => (
-        <li key={`${entry.at}-${index}`} className={`level-${entry.level}`}>
-          <time>{new Date(entry.at).toLocaleTimeString()}</time>
-          <span>{entry.text}</span>
-        </li>
-      ))}
-    </ol>
+    <div
+      className="timeline-scroll"
+      data-testid="timeline-scroll"
+      role="log"
+      aria-label="Delivery log, newest first"
+      tabIndex={0}
+    >
+      <ol className="timeline" data-testid="timeline">
+        {entries.map((entry) => (
+          <li key={`${entry.at}-${entry.eventId}-${entry.text}`} className={`level-${entry.level}`}>
+            <time>{new Date(entry.at).toLocaleTimeString()}</time>
+            <span>{entry.text}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

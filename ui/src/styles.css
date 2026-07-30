@@ -408,6 +408,21 @@ body {
 
 /* Timeline ------------------------------------------------------------------ */
 
+/* Fixed height with its own scrollbar. Left in normal flow the log pushed the
+   counters, the diagram and the walkthrough off the first screen inside a minute,
+   which turned the strongest evidence into the reason nobody sees it. */
+.timeline-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r-card);
+}
+
+.timeline-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
 
 .timeline li {

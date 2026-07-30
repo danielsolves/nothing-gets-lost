@@ -10,7 +10,7 @@ Nobody notices until somebody asks three weeks later.
 
 **This is a live lab for that problem. Break it on purpose and watch nothing get lost.**
 
-→ **[Try it](https://DEMO-URL)** · switch a system off, place an order, switch it back on.
+→ **[Try it](https://ngl.danielsolves.ai)** · switch a system off, place an order, switch it back on.
 
 ## What you can check yourself
 
