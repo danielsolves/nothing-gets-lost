@@ -3,6 +3,7 @@
 // it, the diagram, then the log — a phone shows them in exactly that sequence, and
 // a visitor who reads only the first screen has still seen the point.
 import { useState } from 'react';
+import { Connections } from './Connections';
 import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Diagram } from './Diagram';
@@ -53,6 +54,8 @@ export function App() {
           inbox.
         </p>
       )}
+
+      <Connections />
     </main>
   );
 }
