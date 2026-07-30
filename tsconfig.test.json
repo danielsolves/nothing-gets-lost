@@ -6,5 +6,9 @@
     // real bug rather than a failing assertion one line later.
     "noUncheckedIndexedAccess": false
   },
-  "include": ["packages/*/test/**/*.ts", "services/*/test/**/*.ts"]
+  "include": [
+    "packages/*/test/**/*.ts",
+    "services/*/test/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
