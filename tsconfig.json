@@ -1,4 +1,11 @@
 {
   "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // NestJS is built on legacy decorators — parameter decorators such as @Param
+    // and @Body have no equivalent in the TS 5 standard proposal, so every Nest
+    // service in this repo needs the legacy pair switched on.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
   "include": ["packages/*/src/**/*.ts", "services/*/src/**/*.ts"]
 }
