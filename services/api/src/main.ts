@@ -20,7 +20,7 @@ import { ResetController } from './reset.controller';
 import { StateController } from './state.controller';
 import { StreamController } from './stream.controller';
 import { StripeWebhookController } from './stripe-webhook.controller';
-import { UnwiredStripeVerifier } from './stripe-verifier';
+import { StripeVerifier } from './stripe-verifier';
 import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
 import { EVENT_INTAKE, POOL, STRIPE_VERIFIER } from './tokens';
@@ -37,7 +37,10 @@ const AUTO_RESET_INTERVAL_MS = 30_000;
     PresenceService,
     { provide: POOL, useFactory: getPool },
     { provide: EVENT_INTAKE, useFactory: () => new MediatorIntake() },
-    { provide: STRIPE_VERIFIER, useFactory: () => new UnwiredStripeVerifier() },
+    {
+      provide: STRIPE_VERIFIER,
+      useFactory: () => new StripeVerifier(process.env.STRIPE_WEBHOOK_SECRET),
+    },
     {
       provide: OrdersService,
       useFactory: (intake: MediatorIntake) => new OrdersService(getPool(), intake),
