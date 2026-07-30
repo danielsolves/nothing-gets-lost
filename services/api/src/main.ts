@@ -6,6 +6,7 @@ import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { getPool } from '@ngl/db';
+import { Pool } from 'pg';
 import { AutoResetService } from './autoreset.service';
 import { CatalogController } from './catalog.controller';
 import { ChaosController } from './chaos.controller';
@@ -21,17 +22,29 @@ import { StateController } from './state.controller';
 import { StreamController } from './stream.controller';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeVerifier } from './stripe-verifier';
+import { SqlController } from './sql.controller';
+import { SqlService } from './sql.service';
 import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
-import { EVENT_INTAKE, POOL, STRIPE_VERIFIER } from './tokens';
+import { EVENT_INTAKE, POOL, READONLY_POOL, STRIPE_VERIFIER } from './tokens';
 
 const PORT = 3001;
 const AUTO_RESET_INTERVAL_MS = 30_000;
+const READONLY_POOL_MAX = 4;
+
+// The one place in this service that builds a second pool. It is deliberate: the
+// console must reach Postgres as ngl_ro, never as the role the rest of the app uses.
+function getReadonlyPool(): Pool {
+  const connectionString = process.env.DATABASE_URL_READONLY;
+  if (!connectionString) throw new Error('DATABASE_URL_READONLY is not set');
+  return new Pool({ connectionString, max: READONLY_POOL_MAX });
+}
 
 @Module({
   controllers: [
     CatalogController, ChaosController, OrdersController, ResetController,
-    StateController, StreamController, StripeWebhookController, SwitchesController,
+    SqlController, StateController, StreamController, StripeWebhookController,
+    SwitchesController,
   ],
   providers: [
     PresenceService,
@@ -49,6 +62,12 @@ const AUTO_RESET_INTERVAL_MS = 30_000;
     { provide: CountersService, useFactory: () => new CountersService(getPool()) },
     { provide: DeliveriesService, useFactory: () => new DeliveriesService(getPool()) },
     { provide: SwitchStore, useFactory: () => new SwitchStore(getPool()) },
+    { provide: READONLY_POOL, useFactory: getReadonlyPool },
+    {
+      provide: SqlService,
+      useFactory: (readonlyPool: Pool) => new SqlService(readonlyPool),
+      inject: [READONLY_POOL],
+    },
     {
       provide: ChaosService,
       useFactory: (intake: MediatorIntake) => new ChaosService(getPool(), intake),

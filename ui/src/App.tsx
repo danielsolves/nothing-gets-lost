@@ -7,6 +7,7 @@ import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Diagram } from './Diagram';
 import { OwnOrder } from './OwnOrder';
+import { SqlConsole } from './SqlConsole';
 import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
@@ -53,6 +54,8 @@ export function App() {
           inbox.
         </p>
       )}
+
+      <SqlConsole />
     </main>
   );
 }
