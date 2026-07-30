@@ -32,8 +32,17 @@ export async function createMediatorApp(intake: IntakeService): Promise<INestApp
 async function bootstrap(): Promise<void> {
   const pool = getPool();
   const queue = new QueueRepository(pool);
+  // The visitor's url is read fresh on every delivery, so unsetting it in the
+  // api takes effect on the next attempt without restarting this process.
+  const webhookUrl = async (): Promise<string | null> => {
+    const { rows } = await pool.query<{ url: string }>(
+      'SELECT url FROM custom_webhook WHERE id',
+    );
+    return rows[0]?.url ?? null;
+  };
+
   const worker = new WorkerService(
-    queue, buildTargets(), pool, new CompletionService(pool),
+    queue, buildTargets(process.env, webhookUrl), pool, new CompletionService(pool),
   );
 
   const app = await createMediatorApp(new IntakeService(pool, queue));

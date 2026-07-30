@@ -59,7 +59,8 @@ export function Connections() {
         <small>A test portal is fine. You do not need your production system.</small>
       </div>
 
-      <div className="connection">
+      {/* Three children, not two: this row needs its own grid track for the input. */}
+      <div className="connection webhook">
         <span>Your own endpoint</span>
         <input placeholder="https://your-server.example/hook" value={webhookUrl}
                data-testid="webhook-url"

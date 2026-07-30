@@ -64,7 +64,7 @@ export class DeliveriesService {
     return {
       at: row.updated_at.toISOString(),
       eventId: row.event_id,
-      text: `${LABELS[row.target]} — ${this.describe(row)}`,
+      text: `${LABELS[row.target]}: ${this.describe(row)}`,
       level: this.level(row),
     };
   }
@@ -76,9 +76,18 @@ export class DeliveriesService {
         `${row.last_error ? `: ${row.last_error}` : ''}`;
     }
     if (row.attempts === 0) return 'queued';
-    const next = row.next_at === null ? 'shortly' : row.next_at.toISOString();
-    return `attempt ${row.attempts} failed, next try at ${next}` +
+    // A wall-clock timestamp answers the wrong question. The visitor wants to know
+    // that the item is scheduled, not parked, so the wait is phrased as a countdown.
+    return `attempt ${row.attempts} failed, next try ${this.countdown(row.next_at)}` +
       `${row.last_error ? ` (${row.last_error})` : ''}`;
+  }
+
+  private countdown(nextAt: Date | null): string {
+    if (nextAt === null) return 'shortly';
+    const seconds = Math.round((nextAt.getTime() - Date.now()) / 1000);
+    if (seconds <= 0) return 'now';
+    if (seconds < 60) return `in ${seconds} s`;
+    return `in ${Math.round(seconds / 60)} min`;
   }
 
   private level(row: DeliveryRow): TimelineEntry['level'] {

@@ -35,6 +35,8 @@ import { SqlController } from './sql.controller';
 import { SqlService } from './sql.service';
 import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
+import { WebhookTargetController, WEBHOOK_TARGET_STORE } from './webhook-target.controller';
+import { WebhookTargetStore } from './webhook-target.store';
 import { VerifyController } from './verify.controller';
 import { DeliveryRecords, VerifyService } from './verify.service';
 import { HubSpotClient, SlackClient } from '@ngl/mediator';
@@ -62,7 +64,7 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
     CatalogController, ChaosController, ConnectionsController, HubSpotOAuthController,
     OrdersController, ProofController, ResetController, SlackOAuthController,
     SqlController, StateController, StreamController, StripeWebhookController,
-    SwitchesController, VerifyController,
+    SwitchesController, VerifyController, WebhookTargetController,
   ],
   providers: [
     PresenceService,
@@ -116,6 +118,7 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
         new OAuthService(oauthConfigFromEnv(), PUBLIC_BASE_URL, tokens),
       inject: [TokenStore],
     },
+    { provide: WEBHOOK_TARGET_STORE, useFactory: () => new WebhookTargetStore(getPool()) },
   ],
 })
 export class ApiModule {}

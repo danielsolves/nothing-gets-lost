@@ -4,6 +4,17 @@
 import type { TimelineEntry } from '@ngl/contracts';
 
 export function Timeline({ entries }: { entries: TimelineEntry[] }) {
+  // A visitor landing on a quiet page must still be told what this box is for,
+  // otherwise the first screen shows a heading with nothing underneath it.
+  if (entries.length === 0) {
+    return (
+      <p className="timeline-empty" data-testid="timeline-empty">
+        Nothing has happened yet. Place an order below, or cut a connection first
+        and then place one.
+      </p>
+    );
+  }
+
   return (
     <ol className="timeline" data-testid="timeline">
       {entries.map((entry, index) => (

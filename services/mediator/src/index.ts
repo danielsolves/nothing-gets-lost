@@ -8,3 +8,6 @@ export * from './stripe.webhook';
 // reuses these clients rather than writing a second copy of the same calls.
 export { HubSpotClient } from './targets/hubspot.target';
 export { SlackClient } from './targets/slack.target';
+// The api validates a visitor-supplied url on the way in; the delivery target
+// re-checks it before every call. Same guard, so the two cannot drift apart.
+export { assertSafeUrl, isBlockedAddress } from './ssrf.guard';

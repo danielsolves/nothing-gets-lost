@@ -25,7 +25,7 @@ const HOW_TO_VERIFY: Record<string, string> = {
     + 'provider wrote that timestamp, not us. Indisputable.',
   hubspot:
     'The read-back shows api.hubapi.com and HubSpot own hs_createdate, but we render '
-    + 'it — treat it as an indication. Connect your own HubSpot portal for proof.',
+    + 'it, so treat it as an indication. Connect your own HubSpot portal for proof.',
   slack:
     'Join the open demo channel and find the message, or connect your own workspace. '
     + 'Seen at the source it is proof; rendered here it is an indication.',

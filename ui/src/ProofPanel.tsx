@@ -53,7 +53,7 @@ export function ProofPanel({ eventId }: { eventId: string }) {
 
       {proof.hubspotCreatedAt && (
         <p className="third-witness">
-          Third witness — HubSpot stamped the contact at {format(proof.hubspotCreatedAt)},
+          Third witness: HubSpot stamped the contact at {format(proof.hubspotCreatedAt)},
           visible in your own portal.
         </p>
       )}
@@ -68,7 +68,7 @@ export function ProofPanel({ eventId }: { eventId: string }) {
         <a href={`/api/proof/${eventId}/download`} download data-testid="proof-download">
           Download the proof log
         </a>{' '}
-        — every call with its remote reference, and a line on each entry saying
+        with every call, its remote reference, and a line on each entry saying
         whether it is indisputable or only our own claim.
       </p>
     </section>
@@ -76,7 +76,7 @@ export function ProofPanel({ eventId }: { eventId: string }) {
 }
 
 function format(value: string | null): string {
-  return value ? new Date(value).toLocaleTimeString() : '—';
+  return value ? new Date(value).toLocaleTimeString() : 'not yet';
 }
 
 function formatGap(seconds: number): string {

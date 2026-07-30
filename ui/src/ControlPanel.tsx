@@ -79,7 +79,7 @@ export function ControlPanel({
 
       <p className="fine-print">
         Every action here is real. Stripe runs in test mode with real webhooks.
-        HubSpot is up — we simply stop being able to reach it, which is the most
+        HubSpot is up. We simply stop being able to reach it, which is the most
         common real-world outage.
       </p>
     </aside>

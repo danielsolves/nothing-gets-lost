@@ -18,52 +18,59 @@ export function App() {
   const [placed, setPlaced] = useState<string | null>(null);
 
   return (
-    <main className="page">
-      <header className="claim">
-        <h1>Nothing gets lost. Not even when you break it.</h1>
-        <p className="sub">
-          Every order below runs through real systems. Cut one off and watch what
-          happens to the ones already on their way.
-        </p>
-        <CountersBar counters={counters} />
-        <p className="status">
-          <span className={connected ? 'live' : 'offline'} data-testid="connection">
-            {connected ? 'live' : 'reconnecting'}
-          </span>
-          {viewers > 1 && (
-            <span data-testid="presence">
-              Somebody else is experimenting right now — you are watching their
-              events too.
-            </span>
-          )}
-        </p>
-      </header>
+    <>
+      {/* Two fixed decorative layers, both pointer-transparent. */}
+      <div className="aurora" aria-hidden="true" />
+      <div className="grain" aria-hidden="true" />
 
-      <section className="board">
-        <Diagram switches={switches} deliveries={deliveries} />
-        <ControlPanel switches={switches} />
-      </section>
-
-      <section className="log">
-        <h2>What just happened</h2>
-        <Timeline entries={timeline} />
-      </section>
-
-      <OwnOrder onPlaced={setPlaced} />
-      {placed && (
-        <>
-          <p className="placed" data-testid="placed">
-            Your order is event {placed}. Watch it in the log above — and in your
-            inbox.
+      <main className="page">
+        <header className="claim">
+          <h1>Nothing gets lost. Not even when you break it.</h1>
+          <p className="sub">
+            Every order below runs through real systems. Cut one off and watch what
+            happens to the ones already on their way.
           </p>
-          {/* The proof chain only means anything for an order the visitor placed
-              themselves: the second timestamp is stamped by their own mail server. */}
-          <ProofPanel eventId={placed} />
-        </>
-      )}
+          <p className="status">
+            <span className={connected ? 'live' : 'offline'} data-testid="connection">
+              {connected ? 'live' : 'reconnecting'}
+            </span>
+            {viewers > 1 && (
+              <span data-testid="presence">
+                Somebody else is experimenting right now. You are watching their
+                events too.
+              </span>
+            )}
+          </p>
+        </header>
 
-      <Connections />
-      <SqlConsole />
-    </main>
+        <CountersBar counters={counters} />
+
+        <section className="board">
+          <Diagram switches={switches} deliveries={deliveries} />
+          <ControlPanel switches={switches} />
+        </section>
+
+        <section className="log">
+          <h2>What just happened</h2>
+          <Timeline entries={timeline} />
+        </section>
+
+        <OwnOrder onPlaced={setPlaced} />
+        {placed && (
+          <>
+            <p className="placed" data-testid="placed">
+              Your order is event {placed}. Watch it in the log above, and in your
+              inbox.
+            </p>
+            {/* The proof chain only means anything for an order the visitor placed
+                themselves: the second timestamp is stamped by their own mail server. */}
+            <ProofPanel eventId={placed} />
+          </>
+        )}
+
+        <Connections />
+        <SqlConsole />
+      </main>
+    </>
   );
 }

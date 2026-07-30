@@ -47,7 +47,7 @@ export function SqlConsole() {
               {result.rows.map((row, index) => (
                 <tr key={index}>
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex}>{cell === null ? '—' : String(cell)}</td>
+                    <td key={cellIndex}>{cell === null ? 'null' : String(cell)}</td>
                   ))}
                 </tr>
               ))}

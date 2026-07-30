@@ -28,8 +28,9 @@ describe('migrations', () => {
     );
     const names = rows.map((r) => r.table_name).sort();
     expect(names).toEqual([
-      'deliveries', 'events', 'invoices', 'oauth_tokens', 'orders',
-      'products', 'rate_limits', 'schema_migrations', 'sent_mail', 'switches',
+      'custom_webhook', 'deliveries', 'events', 'invoices', 'oauth_tokens',
+      'orders', 'products', 'rate_limits', 'schema_migrations', 'sent_mail',
+      'switches',
     ]);
   });
 

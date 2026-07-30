@@ -10,6 +10,7 @@ import { StripeClient, StripeTarget } from './stripe.target';
 import { SlackClient, SlackTarget } from './slack.target';
 import { LedgerClient, LedgerTarget } from './ledger.target';
 import { MailerClient, MailerTarget } from './mailer.target';
+import { WebhookTarget } from './webhook.target';
 import type { DeliveryTarget } from '../target.interface';
 
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
@@ -18,7 +19,10 @@ function via(target: string): string {
   return `${EGRESS_URL}/proxy/${target}`;
 }
 
-export function buildTargets(env: NodeJS.ProcessEnv = process.env): DeliveryTarget[] {
+export function buildTargets(
+  env: NodeJS.ProcessEnv = process.env,
+  webhookUrl: () => Promise<string | null> = () => Promise.resolve(null),
+): DeliveryTarget[] {
   return [
     new HubSpotTarget(new HubSpotClient(via('hubspot'), env.HUBSPOT_TOKEN ?? '')),
     new StripeTarget(new StripeClient(via('stripe'), env.STRIPE_SECRET_KEY ?? '')),
@@ -27,5 +31,8 @@ export function buildTargets(env: NodeJS.ProcessEnv = process.env): DeliveryTarg
     )),
     new LedgerTarget(new LedgerClient(via('ledger'))),
     new MailerTarget(new MailerClient(via('mailer'))),
+    // The visitor's own endpoint is reached directly, not through the gate: the
+    // switches are ours to flip, and theirs is not one of them.
+    new WebhookTarget(webhookUrl, env.WEBHOOK_SIGNING_SECRET ?? 'demo-signing-secret'),
   ];
 }
