@@ -4,3 +4,4 @@
 // no controller has to import the wiring it is injected with.
 export const POOL = Symbol('POOL');
 export const EVENT_INTAKE = Symbol('EVENT_INTAKE');
+export const STRIPE_VERIFIER = Symbol('STRIPE_VERIFIER');

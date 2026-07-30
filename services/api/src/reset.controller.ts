@@ -11,7 +11,7 @@ import { POOL } from './tokens';
 export class ResetController {
   constructor(
     @Inject(POOL) private readonly pool: Pool,
-    private readonly switches: SwitchStore,
+    @Inject(SwitchStore) private readonly switches: SwitchStore,
   ) {}
 
   @Post('reset')

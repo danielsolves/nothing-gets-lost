@@ -7,30 +7,42 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { getPool } from '@ngl/db';
 import { AutoResetService } from './autoreset.service';
+import { CatalogController } from './catalog.controller';
 import { ChaosController } from './chaos.controller';
 import { ChaosService } from './chaos.service';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
 import { MediatorIntake } from './mediator.intake';
+import { OrdersController } from './orders.controller';
+import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
 import { ResetController } from './reset.controller';
 import { StateController } from './state.controller';
 import { StreamController } from './stream.controller';
+import { StripeWebhookController } from './stripe-webhook.controller';
+import { UnwiredStripeVerifier } from './stripe-verifier';
 import { SwitchesController } from './switches.controller';
 import { SwitchStore } from './switch.store';
-import { EVENT_INTAKE, POOL } from './tokens';
+import { EVENT_INTAKE, POOL, STRIPE_VERIFIER } from './tokens';
 
 const PORT = 3001;
 const AUTO_RESET_INTERVAL_MS = 30_000;
 
 @Module({
   controllers: [
-    ChaosController, ResetController, StateController, StreamController, SwitchesController,
+    CatalogController, ChaosController, OrdersController, ResetController,
+    StateController, StreamController, StripeWebhookController, SwitchesController,
   ],
   providers: [
     PresenceService,
     { provide: POOL, useFactory: getPool },
     { provide: EVENT_INTAKE, useFactory: () => new MediatorIntake() },
+    { provide: STRIPE_VERIFIER, useFactory: () => new UnwiredStripeVerifier() },
+    {
+      provide: OrdersService,
+      useFactory: (intake: MediatorIntake) => new OrdersService(getPool(), intake),
+      inject: [EVENT_INTAKE],
+    },
     { provide: CountersService, useFactory: () => new CountersService(getPool()) },
     { provide: DeliveriesService, useFactory: () => new DeliveriesService(getPool()) },
     { provide: SwitchStore, useFactory: () => new SwitchStore(getPool()) },
@@ -44,7 +56,8 @@ const AUTO_RESET_INTERVAL_MS = 30_000;
 export class ApiModule {}
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(ApiModule);
+  // The raw body is kept because the Stripe signature is computed over the bytes.
+  const app = await NestFactory.create(ApiModule, { rawBody: true });
 
   // Ten quiet minutes and the world repairs itself for the next visitor (spec 3).
   const autoReset = new AutoResetService(getPool());

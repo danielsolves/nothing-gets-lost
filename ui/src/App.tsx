@@ -2,14 +2,17 @@
 // The one page (spec 2). Order is the argument: the claim, the counters that back
 // it, the diagram, then the log — a phone shows them in exactly that sequence, and
 // a visitor who reads only the first screen has still seen the point.
+import { useState } from 'react';
 import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Diagram } from './Diagram';
+import { OwnOrder } from './OwnOrder';
 import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
 export function App() {
   const { counters, switches, deliveries, timeline, viewers, connected } = useStream();
+  const [placed, setPlaced] = useState<string | null>(null);
 
   return (
     <main className="page">
@@ -42,6 +45,14 @@ export function App() {
         <h2>What just happened</h2>
         <Timeline entries={timeline} />
       </section>
+
+      <OwnOrder onPlaced={setPlaced} />
+      {placed && (
+        <p className="placed" data-testid="placed">
+          Your order is event {placed}. Watch it in the log above — and in your
+          inbox.
+        </p>
+      )}
     </main>
   );
 }

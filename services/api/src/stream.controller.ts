@@ -1,7 +1,7 @@
 // services/api/src/stream.controller.ts
 // Server-sent events. Chosen over websockets on purpose: the traffic is one-way,
 // SSE reconnects by itself, and it survives proxies without extra configuration.
-import { Controller, Res, Sse } from '@nestjs/common';
+import { Controller, Inject, Res, Sse } from '@nestjs/common';
 import type { Response } from 'express';
 import { Observable, merge } from 'rxjs';
 import type { StreamEvent } from '@ngl/contracts';
@@ -12,9 +12,10 @@ const COUNTER_INTERVAL_MS = 1000;
 
 @Controller('api')
 export class StreamController {
+  // Tokens spelled out: esbuild emits no decorator metadata to infer them from.
   constructor(
-    private readonly counters: CountersService,
-    private readonly presence: PresenceService,
+    @Inject(CountersService) private readonly counters: CountersService,
+    @Inject(PresenceService) private readonly presence: PresenceService,
   ) {}
 
   @Sse('stream')

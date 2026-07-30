@@ -2,7 +2,7 @@
 // GET /api/state — the whole world in one response. A visitor who arrives in the
 // middle of somebody else's experiment gets the current picture before the SSE
 // stream takes over, so the page is never briefly empty (spec 3).
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
 import type { StateResponse } from '@ngl/contracts';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
@@ -14,11 +14,13 @@ const RECENT_TIMELINE = 40;
 
 @Controller('api')
 export class StateController {
+  // The tokens are spelled out because the services run under esbuild, which
+  // emits no decorator metadata for Nest to infer them from.
   constructor(
-    private readonly counters: CountersService,
-    private readonly deliveries: DeliveriesService,
-    private readonly presence: PresenceService,
-    private readonly switches: SwitchStore,
+    @Inject(CountersService) private readonly counters: CountersService,
+    @Inject(DeliveriesService) private readonly deliveries: DeliveriesService,
+    @Inject(PresenceService) private readonly presence: PresenceService,
+    @Inject(SwitchStore) private readonly switches: SwitchStore,
   ) {}
 
   @Get('state')
