@@ -144,10 +144,10 @@ services:
       # A second role for the public SQL console: read-only, four views, nothing
       # else. Created by migration 005, so it exists by the time this starts.
       DATABASE_URL_READONLY: postgres://ngl_ro:ngl_ro@db:5432/ngl
-      # What the page tells the visitor about the extraction. The extractor itself
-      # decides by the presence of ANTHROPIC_API_KEY; set this to `live` in .env
-      # when you add a key, or the page will keep claiming recorded answers.
-      EXTRACTOR_MODE: ${EXTRACTOR_MODE:-recorded}
+      # The model key is passed straight through. The page derives what it says
+      # about the extraction from whether this is set, so there is no second
+      # label to keep in sync and no way for the two to disagree.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Where the OAuth callbacks and the Stripe webhook come back to. Behind a
       # domain this is the public https url, not localhost.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
