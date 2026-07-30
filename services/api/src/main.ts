@@ -17,6 +17,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
 import { ProofController } from './proof.controller';
+import { ProofLogService } from './proof-log.service';
 import { ProofLookups, ProofService } from './proof.service';
 import { ResetController } from './reset.controller';
 import { StateController } from './state.controller';
@@ -66,6 +67,7 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
       inject: [EVENT_INTAKE],
     },
     { provide: ProofService, useFactory: () => new ProofService(new ProofLookups(getPool())) },
+    { provide: ProofLogService, useFactory: () => new ProofLogService(getPool()) },
     {
       provide: VerifyService,
       useFactory: () => new VerifyService(

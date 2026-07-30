@@ -61,6 +61,16 @@ export function ProofPanel({ eventId }: { eventId: string }) {
       <p className="fine-print">
         Neither timestamp is ours. We cannot set them, change them or fake them.
       </p>
+
+      {/* Spec 9.5: for the reader who does not click through this themselves but
+          hands the whole thing to a developer they trust. */}
+      <p className="take-away">
+        <a href={`/api/proof/${eventId}/download`} download data-testid="proof-download">
+          Download the proof log
+        </a>{' '}
+        — every call with its remote reference, and a line on each entry saying
+        whether it is indisputable or only our own claim.
+      </p>
     </section>
   );
 }
