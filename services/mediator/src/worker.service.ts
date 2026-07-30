@@ -6,6 +6,7 @@
 // independently and errors are turned into reschedules rather than thrown.
 import type { Pool } from 'pg';
 import type { QueueRepository } from './queue.repository';
+import type { CompletionService } from './completion.service';
 import { idempotencyKey, type DeliveryTarget } from './target.interface';
 
 const BATCH_SIZE = 10;
@@ -20,6 +21,7 @@ export class WorkerService {
     private readonly queue: QueueRepository,
     targets: DeliveryTarget[],
     private readonly pool?: Pool,
+    private readonly completion?: CompletionService,
   ) {
     for (const target of targets) this.byTarget.set(target.target, target);
   }
@@ -45,6 +47,9 @@ export class WorkerService {
           payload,
         });
         await this.queue.markDone(delivery.id, outcome.remoteRef, outcome.remoteAt);
+        if (delivery.target !== 'mailer') {
+          await this.completion?.enqueueMailIfComplete(delivery.eventId);
+        }
       } catch (error) {
         await this.queue.markFailed(delivery.id, (error as Error).message);
       }
