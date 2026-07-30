@@ -22,7 +22,6 @@ You do not have to take my word for any of it:
 | **Confirmation mail** | lands in your inbox; the `Received` header is stamped by your provider |
 | **The proof chain** | the gap between those two timestamps is the outage you caused |
 | **SQL console** | query the database yourself, read-only |
-| **Your own Slack / HubSpot** | connect them and watch the record land in a system you own |
 | **Your own endpoint** | give it a url and see the retries arrive on your server |
 
 The read-back against **my** HubSpot portal is an indication, not proof. I render that
@@ -84,6 +83,11 @@ zero through arbitrary chaos.
 - **There is one world, not one per visitor.** If somebody else is experimenting you
   will see their traffic, and the page says so. Per-visitor sandboxes would mean the
   switches were not really switching anything.
+- **Connecting your own Slack or HubSpot is not finished.** The OAuth flows work
+  and the token is stored encrypted with a 24 hour life, but no delivery reads it
+  yet: the record still goes to my workspace, not yours. Until that is wired the
+  page offers the connection and nothing lands on your side, so treat that button
+  as unfinished rather than as one of the proofs above.
 - **Slack deduplication is weaker than the rest.** It checks channel history before
   posting, which leaves a narrow race. For a notification that is the right trade; for
   the invoice it would not be, which is why that one uses a database constraint.
