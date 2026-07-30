@@ -1,6 +1,30 @@
 # docker-compose.yml
-# The one command: `docker compose up`. Only the database so far — the six
-# services and the UI join in task 32, once they exist.
+# The one command: `docker compose up`. Six services, the page, Postgres and a
+# one-shot migration that finishes before anything else starts. Nothing but Docker
+# has to be installed and no variable has to be filled in first — the integrations
+# that need a key degrade visibly instead of keeping the demo from starting.
+#
+# Ports on the host: 5173 the page, 3001 the api, 5432 Postgres. The six services
+# talk to each other by service name on the private network; those names are the
+# hostnames the code and the frozen egress contract already expect, so renaming a
+# service here breaks delivery.
+
+name: nothing-gets-lost
+
+# .env is read when it exists and skipped when it does not. Everything in it is
+# optional: no model key means recorded extractions, no Stripe key means unverified
+# webhooks, no SMTP account means a send that fails where you can watch it happen.
+x-env-file: &env-file
+  - path: .env
+    required: false
+
+# The database url from .env.example points at localhost, which is right for
+# `npm run dev` on the host and wrong inside a container. It is overridden here
+# rather than in .env so that both ways of running the demo keep working.
+x-db-env: &db-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://ngl:ngl@db:5432/ngl
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,8 +32,149 @@ services:
       POSTGRES_USER: ngl
       POSTGRES_PASSWORD: ngl
       POSTGRES_DB: ngl
+    # Published so the tests and `npm run dev` on the host reach the same database
+    # the containers use. Closing this is the first thing to do on a public host.
     ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ngl']
+      test: ['CMD-SHELL', 'pg_isready -U ngl -d ngl']
       interval: 3s
+      timeout: 5s
       retries: 20
+    restart: unless-stopped
+
+  # Runs once and exits. Every service below waits for that exit, so none of them
+  # can meet a half-built schema. Applied files are recorded, so a second `up` is
+  # a no-op rather than a conflict.
+  migrate:
+    build: { context: ., dockerfile: packages/db/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: on-failure
+
+  egress-gate:
+    build: { context: ., dockerfile: services/egress-gate/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3003/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # Reachable only through the gate, on the hostname the frozen contract names.
+  # It reports unhealthy while a visitor has the ledger switched off: that is the
+  # truth, and nothing restarts it — the process is alive, only its socket is shut.
+  ledger:
+    build: { context: ., dockerfile: services/ledger/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3004/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mailer:
+    build: { context: ., dockerfile: services/mailer/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+      # The service refuses to boot without these two. The defaults point nowhere
+      # on purpose: with no mail account the send fails and is recorded as failed,
+      # which is a better demo than a stack that will not start.
+      SMTP_URL: ${SMTP_URL:-smtp://demo:demo@127.0.0.1:587}
+      MAIL_FROM: ${MAIL_FROM:-demo@example.invalid}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3005/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  extractor:
+    build: { context: ., dockerfile: services/extractor/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3006/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mediator:
+    build: { context: ., dockerfile: services/mediator/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      egress-gate: { condition: service_healthy }
+      ledger: { condition: service_healthy }
+      mailer: { condition: service_healthy }
+      extractor: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3002/internal/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+      # A second role for the public SQL console: read-only, four views, nothing
+      # else. Created by migration 005, so it exists by the time this starts.
+      DATABASE_URL_READONLY: postgres://ngl_ro:ngl_ro@db:5432/ngl
+      # What the page tells the visitor about the extraction. The extractor itself
+      # decides by the presence of ANTHROPIC_API_KEY; set this to `live` in .env
+      # when you add a key, or the page will keep claiming recorded answers.
+      EXTRACTOR_MODE: ${EXTRACTOR_MODE:-recorded}
+      # Where the OAuth callbacks and the Stripe webhook come back to. Behind a
+      # domain this is the public https url, not localhost.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
+    # Published so a reverse proxy, or a curl, can reach the api without the page.
+    ports: ['3001:3001']
+    depends_on:
+      mediator: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/api/state').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  ui:
+    build: { context: ., dockerfile: ui/Dockerfile }
+    ports: ['5173:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
