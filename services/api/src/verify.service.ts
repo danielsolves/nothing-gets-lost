@@ -4,10 +4,18 @@
 // indisputable is deliberately false for our own portals. We render the answer, so
 // a sceptic is right that we could render anything. Saying that on the page costs
 // nothing and buys the credibility of everything we DO claim is unfalsifiable.
+//
+// Once the visitor connects their own workspace that reverses: the entry sits in a
+// system they control, so it becomes a proof (spec 9.2). For HubSpot we can still
+// read it back, with their token, because their portal granted contacts.read. For
+// Slack we cannot and should not: we asked for chat:write and incoming-webhook, and
+// nothing that reads a channel. Pointing them at their own Slack is the honest
+// answer, and it happens to be the stronger one.
 import type { Pool } from 'pg';
 import type { Target, VerifyResponse } from '@ngl/contracts';
 import type { HubSpotClient } from '../../mediator/src/targets/hubspot.target';
 import type { SlackClient } from '../../mediator/src/targets/slack.target';
+import type { CredentialResolver } from '../../mediator/src/credentials';
 
 export interface DeliveryRecord {
   remoteRef: string | null; remoteAt: Date | null; receiptUrl: string | null;
@@ -24,11 +32,12 @@ export class VerifyService {
   constructor(
     private readonly clients: { hubspot: HubSpotClient; slack: SlackClient },
     private readonly deliveries: DeliveryLookup,
+    private readonly credentials: CredentialResolver,
   ) {}
 
   async verify(target: Target, eventId: string): Promise<VerifyResponse> {
     const delivery = await this.deliveries.find(eventId, target);
-    const indisputable = INDISPUTABLE.has(target);
+    let indisputable = INDISPUTABLE.has(target);
 
     if (target === 'stripe') {
       return {
@@ -42,6 +51,9 @@ export class VerifyService {
     }
 
     if (target === 'hubspot') {
+      const creds = await this.credentials.hubspot();
+      // Their portal, their login, their record. That is a proof, not an indication.
+      indisputable = creds.visitor;
       const id = delivery?.remoteRef;
       if (!id) {
         return {
@@ -50,7 +62,7 @@ export class VerifyService {
           rawBody: { note: 'not delivered yet' },
         };
       }
-      const result = await this.clients.hubspot.getContact(id);
+      const result = await this.clients.hubspot.getContact(creds, id);
       const body = result.body as { properties?: { hs_createdate?: string } };
       return {
         target, indisputable,
@@ -63,7 +75,25 @@ export class VerifyService {
     }
 
     if (target === 'slack') {
-      const history = await this.clients.slack.history(`${eventId}:slack`);
+      const creds = await this.credentials.slack();
+      if (creds.visitor) {
+        // No read scope in their workspace, by choice. The message is already where
+        // they can see it, which is more than a rendered read-back would prove.
+        return {
+          target, indisputable: true,
+          requestUrl: '', httpStatus: delivery ? 200 : 404,
+          remoteRef: delivery?.remoteRef ?? null,
+          remoteAt: delivery?.remoteAt?.toISOString() ?? null,
+          rawBody: {
+            note: 'Delivered into your own Slack workspace. This demo asked for ' +
+              'permission to post and none to read, so it cannot show you the ' +
+              'message here. Open the channel you picked while connecting: the ' +
+              'message carries the delivery id below.',
+            deliveryId: `${eventId}:slack`,
+          },
+        };
+      }
+      const history = await this.clients.slack.history(creds, `${eventId}:slack`);
       return {
         target, indisputable,
         requestUrl: 'https://slack.com/api/conversations.history',

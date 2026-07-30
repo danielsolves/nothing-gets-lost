@@ -5,7 +5,7 @@
 import { Controller, Get, Inject, Param, Post } from '@nestjs/common';
 import type { ConnectionsResponse } from '@ngl/contracts';
 import type { Provider } from './oauth.service';
-import { TokenStore } from './token.store';
+import { TokenStore } from '@ngl/db';
 
 type Connection = ConnectionsResponse['slack'];
 

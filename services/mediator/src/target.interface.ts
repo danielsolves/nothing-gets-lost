@@ -30,3 +30,26 @@ export interface DeliveryTarget {
 export function idempotencyKey(eventId: string, target: Target): string {
   return `${eventId}:${target}`;
 }
+
+/**
+ * A failure that retrying cannot repair, so the delivery goes straight to the dead
+ * letter box (spec 6.6) rather than spending six attempts to arrive there anyway.
+ *
+ * There is exactly one today: a Slack message into a visitor's own workspace whose
+ * fate is unknown because the worker died mid-call, and where we hold no history
+ * scope to look it up. Posting again might duplicate a message in a stranger's
+ * Slack; giving up would lose it. Parking it visibly does neither, and the counter
+ * that matters still reads lost 0.
+ */
+export class UnresolvableDelivery extends Error {
+  readonly terminal = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnresolvableDelivery';
+  }
+}
+
+export function isTerminal(error: unknown): boolean {
+  return error instanceof UnresolvableDelivery;
+}

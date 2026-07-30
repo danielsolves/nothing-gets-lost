@@ -88,6 +88,19 @@ export class QueueRepository {
     return 'retrying';
   }
 
+  /**
+   * Parks a delivery that retrying cannot repair (spec 6.6). Same resting place as
+   * six exhausted attempts, reached without spending them.
+   */
+  async markDead(id: number, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE deliveries
+          SET state = 'dead', locked_at = NULL, last_error = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, error],
+    );
+  }
+
   /** A worker that dies between the call and markDone leaves a row inflight. */
   async releaseStuck(olderThanSeconds: number): Promise<number> {
     const { rowCount } = await this.pool.query(

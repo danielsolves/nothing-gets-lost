@@ -8,7 +8,9 @@ import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
 import { QueueRepository } from '../src/queue.repository';
 import { WorkerService } from '../src/worker.service';
-import { idempotencyKey, type DeliveryTarget } from '../src/target.interface';
+import {
+  idempotencyKey, UnresolvableDelivery, type DeliveryTarget,
+} from '../src/target.interface';
 
 let container: StartedPostgreSqlContainer;
 let pool: Pool;
@@ -129,6 +131,39 @@ describe('WorkerService', () => {
     const { rows } = await pool.query('SELECT state, last_error FROM deliveries');
     expect(rows[0].state).toBe('pending');
     expect(rows[0].last_error).toContain('no target registered');
+  });
+
+  it('parks an unresolvable delivery at once instead of retrying it blind', async () => {
+    // A Slack message into a visitor's workspace whose fate nobody can establish.
+    // Five more attempts would each hit the same wall, so the visitor would watch
+    // "next attempt in ..." for thirteen minutes on something that cannot recover.
+    await seed('evt_unresolvable');
+    const target: DeliveryTarget = {
+      target: 'hubspot',
+      async deliver() {
+        throw new UnresolvableDelivery('the outcome could not be confirmed');
+      },
+    };
+    const worker = new WorkerService(queue, [target]);
+
+    await worker.tick();
+    const { rows } = await pool.query('SELECT state, attempts, last_error FROM deliveries');
+    expect(rows[0].state).toBe('dead');
+    expect(rows[0].attempts).toBe(1);
+    expect(rows[0].last_error).toContain('could not be confirmed');
+  });
+
+  it('leaves an unresolvable delivery retryable by hand', async () => {
+    // Spec 6.6: a dead letter is not lost, it is parked with a button next to it.
+    await seed('evt_unresolvable_retry');
+    const worker = new WorkerService(queue, [{
+      target: 'hubspot',
+      async deliver() { throw new UnresolvableDelivery('unconfirmed'); },
+    }]);
+    await worker.tick();
+
+    const { rows } = await pool.query<{ id: string }>('SELECT id FROM deliveries');
+    expect(await queue.retryDead(Number(rows[0].id))).toBe(true);
   });
 
   it('sends a delivery to the dead letter box after six failures', async () => {

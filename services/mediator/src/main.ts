@@ -8,13 +8,15 @@ import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { getPool } from '@ngl/db';
+import { getPool, TokenStore, tokenKeyFromEnv } from '@ngl/db';
 import { EnqueueController, INTAKE_SERVICE } from './enqueue.controller';
 import { IntakeService } from './intake.service';
 import { QueueRepository } from './queue.repository';
 import { CompletionService } from './completion.service';
 import { WorkerService } from './worker.service';
 import { buildTargets } from './targets';
+import { CredentialResolver } from './credentials';
+import { PgSlackSendLog } from './slack-send.log';
 
 const PORT = 3002;
 
@@ -41,8 +43,23 @@ async function bootstrap(): Promise<void> {
     return rows[0]?.url ?? null;
   };
 
+  // Whose Slack and whose HubSpot an entry lands in is read from the database on
+  // every delivery, so connecting or disconnecting in the api takes effect on the
+  // next attempt without restarting this process.
+  const credentials = new CredentialResolver(
+    {
+      slackToken: process.env.SLACK_BOT_TOKEN ?? '',
+      slackChannel: process.env.SLACK_CHANNEL_ID ?? '',
+      hubspotToken: process.env.HUBSPOT_TOKEN ?? '',
+    },
+    new TokenStore(pool, tokenKeyFromEnv()),
+  );
+
   const worker = new WorkerService(
-    queue, buildTargets(process.env, webhookUrl), pool, new CompletionService(pool),
+    queue,
+    buildTargets(credentials, new PgSlackSendLog(pool), process.env, webhookUrl),
+    pool,
+    new CompletionService(pool),
   );
 
   const app = await createMediatorApp(new IntakeService(pool, queue));

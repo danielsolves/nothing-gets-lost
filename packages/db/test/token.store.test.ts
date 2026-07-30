@@ -1,4 +1,4 @@
-// services/api/test/oauth/token.store.test.ts
+// packages/db/test/token.store.test.ts
 // Pins the visitor token store against a real database: the token is never on disk in
 // clear text, an expired row counts as absent, and a wrong key fails loudly.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -6,7 +6,7 @@ import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers
 import { Pool } from 'pg';
 import { randomBytes } from 'node:crypto';
 import { runMigrations } from '@ngl/db';
-import { TokenStore } from '../../src/oauth/token.store';
+import { TokenStore } from '../src/token.store';
 
 let container: StartedPostgreSqlContainer;
 let pool: Pool;

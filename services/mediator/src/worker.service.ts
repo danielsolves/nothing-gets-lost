@@ -7,7 +7,7 @@
 import type { Pool } from 'pg';
 import type { QueueRepository } from './queue.repository';
 import type { CompletionService } from './completion.service';
-import { idempotencyKey, type DeliveryTarget } from './target.interface';
+import { idempotencyKey, isTerminal, type DeliveryTarget } from './target.interface';
 
 const BATCH_SIZE = 10;
 const TICK_MS = 500;
@@ -51,7 +51,14 @@ export class WorkerService {
           await this.completion?.enqueueMailIfComplete(delivery.eventId);
         }
       } catch (error) {
-        await this.queue.markFailed(delivery.id, (error as Error).message);
+        // Some failures heal on the next attempt and some never will. Spending six
+        // attempts to reach a conclusion we already have would only make the page
+        // promise a recovery that cannot come.
+        if (isTerminal(error)) {
+          await this.queue.markDead(delivery.id, (error as Error).message);
+        } else {
+          await this.queue.markFailed(delivery.id, (error as Error).message);
+        }
       }
     }
     return claimed.length;

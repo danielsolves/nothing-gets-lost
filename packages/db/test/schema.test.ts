@@ -72,6 +72,30 @@ describe('schema guarantees', () => {
     expect(Number(rows[0].count)).toBe(8);
   });
 
+  it('allows only one slack send marker per event', async () => {
+    const eventId = await newEvent('evt_one_marker');
+    await pool.query(
+      `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)`,
+      [eventId, `${eventId}:slack`],
+    );
+    await expect(
+      pool.query(
+        `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)`,
+        [eventId, `${eventId}:slack`],
+      ),
+    ).rejects.toThrow(/duplicate key/);
+  });
+
+  it('starts a slack send marker with no message timestamp', async () => {
+    const eventId = await newEvent('evt_marker_open');
+    const { rows } = await pool.query<{ message_ts: string | null }>(
+      `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)
+       RETURNING message_ts`,
+      [eventId, `${eventId}:slack`],
+    );
+    expect(rows[0].message_ts).toBeNull();
+  });
+
   it('exposes the four read-only views', async () => {
     const { rows } = await pool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.views WHERE table_schema = 'public'`,

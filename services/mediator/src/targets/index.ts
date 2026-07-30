@@ -5,12 +5,18 @@
 // That is what makes the control panel switches real: the mediator makes an
 // ordinary HTTP call and experiences an ordinary failure, and it never learns
 // that somebody flipped a switch (spec 7).
+//
+// Slack and HubSpot take a resolver rather than a token, because whose account an
+// entry lands in is decided per delivery and can change while items are queued
+// (spec 9.4, 10.1).
 import { HubSpotClient, HubSpotTarget } from './hubspot.target';
 import { StripeClient, StripeTarget } from './stripe.target';
 import { SlackClient, SlackTarget } from './slack.target';
 import { LedgerClient, LedgerTarget } from './ledger.target';
 import { MailerClient, MailerTarget } from './mailer.target';
 import { WebhookTarget } from './webhook.target';
+import type { CredentialResolver } from '../credentials';
+import type { SlackSendLog } from '../slack-send.log';
 import type { DeliveryTarget } from '../target.interface';
 
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
@@ -20,15 +26,19 @@ function via(target: string): string {
 }
 
 export function buildTargets(
+  credentials: CredentialResolver,
+  slackSendLog: SlackSendLog,
   env: NodeJS.ProcessEnv = process.env,
   webhookUrl: () => Promise<string | null> = () => Promise.resolve(null),
 ): DeliveryTarget[] {
   return [
-    new HubSpotTarget(new HubSpotClient(via('hubspot'), env.HUBSPOT_TOKEN ?? '')),
+    new HubSpotTarget(
+      new HubSpotClient(via('hubspot')), () => credentials.hubspot(),
+    ),
     new StripeTarget(new StripeClient(via('stripe'), env.STRIPE_SECRET_KEY ?? '')),
-    new SlackTarget(new SlackClient(
-      via('slack'), env.SLACK_BOT_TOKEN ?? '', env.SLACK_CHANNEL_ID ?? '',
-    )),
+    new SlackTarget(
+      new SlackClient(via('slack')), () => credentials.slack(), slackSendLog,
+    ),
     new LedgerTarget(new LedgerClient(via('ledger'))),
     new MailerTarget(new MailerClient(via('mailer'))),
     // The visitor's own endpoint is reached directly, not through the gate: the

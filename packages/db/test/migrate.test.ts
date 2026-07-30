@@ -30,7 +30,7 @@ describe('migrations', () => {
     expect(names).toEqual([
       'custom_webhook', 'deliveries', 'dropped_duplicates', 'events', 'invoices',
       'oauth_tokens', 'orders', 'products', 'rate_limits', 'schema_migrations',
-      'sent_mail', 'switches',
+      'sent_mail', 'slack_visitor_sends', 'switches',
     ]);
   });
 

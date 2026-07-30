@@ -5,7 +5,7 @@
 import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { getPool } from '@ngl/db';
+import { getPool, TokenStore, tokenKeyFromEnv } from '@ngl/db';
 import { Pool } from 'pg';
 import { AutoResetService } from './autoreset.service';
 import { CatalogController } from './catalog.controller';
@@ -17,10 +17,9 @@ import { DeliveriesService } from './deliveries.service';
 import { MediatorIntake } from './mediator.intake';
 import { ConnectionsController } from './oauth/connections.controller';
 import { HubSpotOAuthController } from './oauth/hubspot.controller';
-import { oauthConfigFromEnv, tokenKeyFromEnv } from './oauth/oauth.config';
+import { oauthConfigFromEnv } from './oauth/oauth.config';
 import { OAuthService } from './oauth/oauth.service';
 import { SlackOAuthController } from './oauth/slack.controller';
-import { TokenStore } from './oauth/token.store';
 import { DemoOrderController } from './demo-order.controller';
 import { OrdersController, RATE_LIMITER } from './orders.controller';
 import { OrdersService } from './orders.service';
@@ -43,7 +42,7 @@ import { RateLimiter } from './rate-limit.guard';
 import { DuplicatesStore } from './duplicates.store';
 import { VerifyController } from './verify.controller';
 import { DeliveryRecords, VerifyService } from './verify.service';
-import { HubSpotClient, SlackClient } from '@ngl/mediator';
+import { CredentialResolver, HubSpotClient, SlackClient } from '@ngl/mediator';
 import { EVENT_INTAKE, POOL, READONLY_POOL, STRIPE_VERIFIER } from './tokens';
 
 const PORT = 3001;
@@ -106,20 +105,25 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
     { provide: ProofService, useFactory: () => new ProofService(new ProofLookups(getPool())) },
     { provide: ProofLogService, useFactory: () => new ProofLogService(getPool()) },
     {
+      // The same resolver the mediator uses, so the verify button reads back from
+      // wherever the entry actually went rather than from wherever it used to go.
       provide: VerifyService,
-      useFactory: () => new VerifyService(
+      useFactory: (tokens: TokenStore) => new VerifyService(
         {
-          hubspot: new HubSpotClient(
-            `${EGRESS_URL}/proxy/hubspot`, process.env.HUBSPOT_TOKEN ?? '',
-          ),
-          slack: new SlackClient(
-            `${EGRESS_URL}/proxy/slack`,
-            process.env.SLACK_BOT_TOKEN ?? '',
-            process.env.SLACK_CHANNEL_ID ?? '',
-          ),
+          hubspot: new HubSpotClient(`${EGRESS_URL}/proxy/hubspot`),
+          slack: new SlackClient(`${EGRESS_URL}/proxy/slack`),
         },
         new DeliveryRecords(getPool()),
+        new CredentialResolver(
+          {
+            slackToken: process.env.SLACK_BOT_TOKEN ?? '',
+            slackChannel: process.env.SLACK_CHANNEL_ID ?? '',
+            hubspotToken: process.env.HUBSPOT_TOKEN ?? '',
+          },
+          tokens,
+        ),
       ),
+      inject: [TokenStore],
     },
     { provide: TokenStore, useFactory: () => new TokenStore(getPool(), tokenKeyFromEnv()) },
     {

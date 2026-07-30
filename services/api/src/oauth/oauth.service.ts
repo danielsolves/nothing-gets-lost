@@ -6,7 +6,7 @@
 // contacts. Asking for more would be the fastest way to lose the trust this whole
 // project is built to earn.
 import { randomBytes } from 'node:crypto';
-import type { TokenStore } from './token.store';
+import type { TokenStore } from '@ngl/db';
 
 export type Provider = 'slack' | 'hubspot';
 
