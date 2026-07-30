@@ -1,0 +1,26 @@
+[
+  {
+    "match": "blue mug",
+    "answer": {
+      "customer": { "name": "M. Berger", "email": "m@example.com" },
+      "items": [{ "sku": "MUG-BLUE", "qty": 3 }, { "sku": "COASTER-OAK", "qty": 2 }],
+      "notes": "invoice to head office as usual"
+    }
+  },
+  {
+    "match": "teapot",
+    "answer": {
+      "customer": { "name": "S. Weber", "email": "s.weber@example.com" },
+      "items": [{ "sku": "TEAPOT", "qty": 1 }],
+      "notes": null
+    }
+  },
+  {
+    "match": "plate",
+    "answer": {
+      "customer": { "name": "L. Fischer", "email": "l.fischer@example.com" },
+      "items": [{ "sku": "PLATE-LARGE", "qty": 4 }, { "sku": "PLATE-SMALL", "qty": 6 }],
+      "notes": "deliver before Friday"
+    }
+  }
+]
