@@ -5,6 +5,7 @@
 import type { Pool } from 'pg';
 import type { ChaosKind, EventKind, Target } from '@ngl/contracts';
 import type { EventIntake } from './intake.port';
+import type { DuplicatesStore } from './duplicates.store';
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL ?? 'http://extractor:3006';
 
@@ -19,6 +20,7 @@ export class ChaosService {
   constructor(
     private readonly pool: Pool,
     private readonly intake: EventIntake,
+    private readonly duplicates?: DuplicatesStore,
   ) {}
 
   async run(kind: ChaosKind): Promise<{ ok: boolean; detail: string }> {
@@ -46,6 +48,8 @@ export class ChaosService {
       payload: event.payload,
       targets: event.targets,
     });
+    // Intake leaves no trace of a drop, so the counter is told here.
+    if (!result.accepted) await this.duplicates?.record(event.external_id);
     return {
       ok: true,
       detail: result.accepted

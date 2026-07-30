@@ -21,7 +21,7 @@ export class CountersService {
          (SELECT count(*) FROM deliveries WHERE state = 'done') AS delivered,
          (SELECT count(*) FROM deliveries WHERE state IN ('pending','inflight')) AS waiting,
          (SELECT count(*) FROM deliveries WHERE state = 'dead') AS needs_human,
-         (SELECT coalesce(sum(count), 0) FROM rate_limits WHERE bucket = 'dupes') AS duplicates`,
+         (SELECT count(*) FROM dropped_duplicates) AS duplicates`,
     );
     const row = rows[0];
     if (!row) throw new Error('the counter query returned no row');

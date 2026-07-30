@@ -14,10 +14,14 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 /** The confirmation mail is missing on purpose: rule 6.7 queues it at the end. */
 const TARGETS = ['stripe', 'hubspot', 'ledger', 'slack'] as const;
 
+/** Reads the visitor's own endpoint, if they registered one (spec 10.2). */
+export interface WebhookUrlSource { get(): Promise<string | null> }
+
 export class OrdersService {
   constructor(
     private readonly pool: Pool,
     private readonly intake: EventIntake,
+    private readonly webhook?: WebhookUrlSource,
   ) {}
 
   async place(request: PlaceOrderRequest): Promise<PlaceOrderResponse> {
@@ -35,7 +39,10 @@ export class OrdersService {
         items: request.items,
         totalCents,
       },
-      targets: TARGETS,
+      // custom_webhook joins only when a url is configured. Queueing it
+      // unconditionally would hand every visitor a dead letter for a target
+      // they never asked for.
+      targets: (await this.webhook?.get()) ? [...TARGETS, 'custom_webhook'] : TARGETS,
     });
 
     const { rows } = await this.pool.query<{ id: string }>(

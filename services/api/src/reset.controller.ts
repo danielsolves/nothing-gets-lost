@@ -17,7 +17,7 @@ export class ResetController {
   @Post('reset')
   async reset(): Promise<{ ok: boolean }> {
     await this.switches.resetAll();
-    await this.pool.query('TRUNCATE events CASCADE');
+    await this.pool.query('TRUNCATE events, dropped_duplicates CASCADE');
     return { ok: true };
   }
 }

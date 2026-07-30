@@ -38,6 +38,7 @@ import { SwitchStore } from './switch.store';
 import { WebhookTargetController, WEBHOOK_TARGET_STORE } from './webhook-target.controller';
 import { WebhookTargetStore } from './webhook-target.store';
 import { RateLimiter } from './rate-limit.guard';
+import { DuplicatesStore } from './duplicates.store';
 import { VerifyController } from './verify.controller';
 import { DeliveryRecords, VerifyService } from './verify.service';
 import { HubSpotClient, SlackClient } from '@ngl/mediator';
@@ -77,7 +78,8 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
     },
     {
       provide: OrdersService,
-      useFactory: (intake: MediatorIntake) => new OrdersService(getPool(), intake),
+      useFactory: (intake: MediatorIntake) =>
+        new OrdersService(getPool(), intake, new WebhookTargetStore(getPool())),
       inject: [EVENT_INTAKE],
     },
     { provide: CountersService, useFactory: () => new CountersService(getPool()) },
@@ -91,7 +93,7 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
     },
     {
       provide: ChaosService,
-      useFactory: (intake: MediatorIntake) => new ChaosService(getPool(), intake),
+      useFactory: (intake: MediatorIntake) => new ChaosService(getPool(), intake, new DuplicatesStore(getPool())),
       inject: [EVENT_INTAKE],
     },
     { provide: ProofService, useFactory: () => new ProofService(new ProofLookups(getPool())) },
