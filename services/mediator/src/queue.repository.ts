@@ -99,4 +99,20 @@ export class QueueRepository {
     );
     return rowCount ?? 0;
   }
+
+  /**
+   * Puts a dead letter back in the queue. attempts is reset so the visitor gets the
+   * full retry schedule again — the point of the button is to show recovery, not to
+   * squeeze one more attempt out of an exhausted row.
+   */
+  async retryDead(id: number): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `UPDATE deliveries
+          SET state = 'pending', attempts = 0, last_error = NULL,
+              next_at = now(), locked_at = NULL, updated_at = now()
+        WHERE id = $1 AND state = 'dead'`,
+      [id],
+    );
+    return rowCount === 1;
+  }
 }

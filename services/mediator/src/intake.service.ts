@@ -39,14 +39,21 @@ export class IntakeService {
       [input.externalId, input.kind, JSON.stringify(input.payload)],
     );
 
-    if (inserted.rowCount === 0) {
+    const created = inserted.rows[0];
+    if (!created) {
       const existing = await this.pool.query<{ id: string }>(
         'SELECT id FROM events WHERE external_id = $1', [input.externalId],
       );
-      return { eventId: existing.rows[0].id, accepted: false, enqueued: [] };
+      const found = existing.rows[0];
+      // Only reachable if the event was deleted between the two statements —
+      // "reset everything" truncates events, so this window is real.
+      if (!found) {
+        throw new Error(`Event ${input.externalId} disappeared during intake`);
+      }
+      return { eventId: found.id, accepted: false, enqueued: [] };
     }
 
-    const eventId = inserted.rows[0].id;
+    const eventId = created.id;
     const enqueued: Target[] = [];
     for (const target of input.targets) {
       if (await this.queue.enqueue(eventId, target)) enqueued.push(target);

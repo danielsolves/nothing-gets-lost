@@ -134,3 +134,35 @@ describe('QueueRepository', () => {
     expect(rows[0].state).toBe('pending');
   });
 });
+
+describe('retrying from the dead letter box', () => {
+  it('puts a dead delivery back in the queue with a clean slate', async () => {
+    const eventId = await seedEvent('evt_revive');
+    await repo.enqueue(eventId, 'hubspot');
+    await pool.query(
+      `UPDATE deliveries SET state = 'dead', attempts = 6, last_error = 'gone'
+        WHERE event_id = $1`, [eventId],
+    );
+
+    const { rows: before } = await pool.query(
+      'SELECT id FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    expect(await repo.retryDead(Number(before[0].id))).toBe(true);
+
+    const { rows } = await pool.query(
+      'SELECT state, attempts, last_error FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    expect(rows[0].state).toBe('pending');
+    expect(rows[0].attempts).toBe(0);
+    expect(rows[0].last_error).toBeNull();
+  });
+
+  it('refuses to revive a delivery that is not dead', async () => {
+    const eventId = await seedEvent('evt_alive');
+    await repo.enqueue(eventId, 'hubspot');
+    const { rows } = await pool.query(
+      'SELECT id FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    expect(await repo.retryDead(Number(rows[0].id))).toBe(false);
+  });
+});
