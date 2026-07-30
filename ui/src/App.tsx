@@ -14,7 +14,9 @@ import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
 export function App() {
-  const { counters, switches, deliveries, timeline, viewers, connected } = useStream();
+  const {
+    counters, switches, deliveries, timeline, viewers, connected, extractorMode,
+  } = useStream();
   const [placed, setPlaced] = useState<string | null>(null);
 
   return (
@@ -34,6 +36,12 @@ export function App() {
             <span className={connected ? 'live' : 'offline'} data-testid="connection">
               {connected ? 'live' : 'reconnecting'}
             </span>
+            {extractorMode === 'recorded' && (
+              <span data-testid="extractor-mode">
+                Recorded operation. No model key is configured, so the reading step
+                replays answers captured earlier.
+              </span>
+            )}
             {viewers > 1 && (
               <span data-testid="presence">
                 Somebody else is experimenting right now. You are watching their

@@ -37,7 +37,10 @@ export class StateController {
       deliveries,
       timeline,
       viewers: Math.max(this.presence.count(), 1),
-      extractorMode: process.env.EXTRACTOR_MODE === 'recorded' ? 'recorded' : 'live',
+      // Derived from the key itself, not from a separate flag: the extractor
+      // falls back to recorded answers whenever the key is missing, and a page
+      // about honesty must not claim live model calls it is not making.
+      extractorMode: process.env.ANTHROPIC_API_KEY ? 'live' : 'recorded',
     };
   }
 }

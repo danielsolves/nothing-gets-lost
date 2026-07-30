@@ -7,7 +7,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/load/**/*.test.ts'],
-    testTimeout: 600_000,
-    hookTimeout: 180_000,
+    // A soak run is allowed to be slow: 10,000 events times four targets is
+    // 40,000 deliveries, each one a real round trip to a real Postgres. The
+    // measured duration is written into docs/load-test-result.txt.
+    testTimeout: 2_400_000,
+    hookTimeout: 300_000,
   },
 });

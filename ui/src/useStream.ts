@@ -33,6 +33,8 @@ export function useStream(): Stream {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [viewers, setViewers] = useState(1);
   const [connected, setConnected] = useState(false);
+  const [extractorMode, setExtractorMode] =
+    useState<StateResponse['extractorMode']>('recorded');
   const source = useRef<EventSource>();
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export function useStream(): Stream {
         setDeliveries(state.deliveries);
         setTimeline(state.timeline);
         setViewers(state.viewers);
+        setExtractorMode(state.extractorMode);
       })
       .catch(() => setConnected(false));
 
@@ -74,5 +77,5 @@ export function useStream(): Stream {
     return () => events.close();
   }, []);
 
-  return { counters, switches, deliveries, timeline, viewers, connected };
+  return { counters, switches, deliveries, timeline, viewers, connected, extractorMode };
 }
