@@ -1,0 +1,268 @@
+/* ui/src/styles.css
+   One stylesheet for one page. Mobile first and deliberately plain: the visitor
+   arrives on a phone with sixty seconds, so type is large, colour carries state,
+   and nothing scrolls sideways. */
+
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --line: #262b36;
+  --text: #e7e9ee;
+  --muted: #9aa3b2;
+  --good: #3ddc97;
+  --warn: #ffb454;
+  --bad: #ff6b6b;
+  --accent: #7aa2f7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 4rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5rem; }
+h2 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+h3 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
+
+.sub { color: var(--muted); margin: 0 0 1rem; }
+
+/* Counters ---------------------------------------------------------------- */
+
+.counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.counter {
+  flex: 1 1 5.5rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  display: grid;
+}
+
+.counter .value { font-size: 1.5rem; font-weight: 700; }
+.counter .label { color: var(--muted); font-size: 0.8rem; }
+.counter.warn { border-color: var(--warn); }
+.counter.warn .value { color: var(--warn); }
+
+.counter.emphasis {
+  border-color: var(--good);
+  background: linear-gradient(180deg, rgba(61, 220, 151, 0.12), transparent);
+}
+
+.counter.emphasis .value { color: var(--good); font-size: 2rem; }
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0;
+}
+
+.status .live { color: var(--good); }
+.status .offline { color: var(--warn); }
+
+/* Diagram ----------------------------------------------------------------- */
+
+.diagram { display: grid; gap: 0.75rem; }
+
+.mediator {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.mediator span { color: var(--muted); font-size: 0.85rem; }
+
+.targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+}
+
+.target {
+  background: var(--panel);
+  border: 1px solid var(--good);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.target .name { font-weight: 600; }
+.target .waiting { color: var(--warn); font-size: 0.8rem; }
+.target.state-slow { border-color: var(--warn); }
+.target.state-error { border-color: var(--bad); }
+
+.target.state-cut {
+  border-color: var(--line);
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+/* Control panel ----------------------------------------------------------- */
+
+.board {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 48rem) {
+  .board { grid-template-columns: 1.4fr 1fr; align-items: start; }
+}
+
+.control-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.switch-row { display: grid; gap: 0.3rem; }
+.switch-label { font-size: 0.85rem; color: var(--muted); }
+.switch-states { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.control-panel button {
+  flex: 1 1 auto;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #1e222b;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.control-panel button.active {
+  border-color: var(--accent);
+  background: rgba(122, 162, 247, 0.18);
+}
+
+.control-panel button[data-invite='true'] {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.control-panel button[data-invite='true'].active {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #10131a;
+}
+
+.control-panel button.chaos { text-align: left; }
+
+.control-panel button.reset {
+  margin-top: 0.75rem;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fine-print { color: var(--muted); font-size: 0.78rem; margin: 0.75rem 0 0; }
+
+/* Own order --------------------------------------------------------------- */
+
+.own-order {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.own-order > p { color: var(--muted); margin: 0; }
+
+.catalog { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.4rem; }
+
+.catalog li {
+  display: grid;
+  grid-template-columns: 1fr auto 4.5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.catalog .price { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.own-order input {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #12151c;
+  color: var(--text);
+  font: inherit;
+}
+
+.own-order button {
+  min-height: 3rem;
+  border: 1px solid var(--good);
+  border-radius: 0.4rem;
+  background: rgba(61, 220, 151, 0.15);
+  color: var(--good);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.own-order button:disabled { opacity: 0.45; cursor: not-allowed; }
+.own-order .error { color: var(--bad); margin: 0; }
+.placed { color: var(--good); margin: 0; }
+
+/* Timeline ---------------------------------------------------------------- */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--panel);
+  border-left: 3px solid var(--line);
+  border-radius: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.timeline time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.timeline .level-success { border-left-color: var(--good); }
+.timeline .level-warn { border-left-color: var(--warn); }
+.timeline .level-error { border-left-color: var(--bad); }
+
+@media (max-width: 30rem) {
+  .timeline li { grid-template-columns: 1fr; gap: 0.1rem; }
+}

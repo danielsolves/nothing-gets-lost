@@ -1,0 +1,12 @@
+{
+  // ui/tsconfig.json — the browser half of the repo. It is a separate project
+  // because it needs the DOM library and the react-jsx transform, neither of
+  // which belongs in the service configuration.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vite.config.ts"]
+}
