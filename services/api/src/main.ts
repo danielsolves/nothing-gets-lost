@@ -16,6 +16,8 @@ import { MediatorIntake } from './mediator.intake';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
+import { ProofController } from './proof.controller';
+import { ProofLookups, ProofService } from './proof.service';
 import { ResetController } from './reset.controller';
 import { StateController } from './state.controller';
 import { StreamController } from './stream.controller';
@@ -38,9 +40,9 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
 
 @Module({
   controllers: [
-    CatalogController, ChaosController, OrdersController, ResetController,
-    StateController, StreamController, StripeWebhookController, SwitchesController,
-    VerifyController,
+    CatalogController, ChaosController, OrdersController, ProofController,
+    ResetController, StateController, StreamController, StripeWebhookController,
+    SwitchesController, VerifyController,
   ],
   providers: [
     PresenceService,
@@ -63,6 +65,7 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
       useFactory: (intake: MediatorIntake) => new ChaosService(getPool(), intake),
       inject: [EVENT_INTAKE],
     },
+    { provide: ProofService, useFactory: () => new ProofService(new ProofLookups(getPool())) },
     {
       provide: VerifyService,
       useFactory: () => new VerifyService(

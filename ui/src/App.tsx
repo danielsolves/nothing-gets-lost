@@ -7,6 +7,7 @@ import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Diagram } from './Diagram';
 import { OwnOrder } from './OwnOrder';
+import { ProofPanel } from './ProofPanel';
 import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
@@ -48,10 +49,15 @@ export function App() {
 
       <OwnOrder onPlaced={setPlaced} />
       {placed && (
-        <p className="placed" data-testid="placed">
-          Your order is event {placed}. Watch it in the log above — and in your
-          inbox.
-        </p>
+        <>
+          <p className="placed" data-testid="placed">
+            Your order is event {placed}. Watch it in the log above — and in your
+            inbox.
+          </p>
+          {/* The proof chain only means anything for an order the visitor placed
+              themselves: the second timestamp is stamped by their own mail server. */}
+          <ProofPanel eventId={placed} />
+        </>
       )}
     </main>
   );
