@@ -5,3 +5,5 @@
 export const POOL = Symbol('POOL');
 export const EVENT_INTAKE = Symbol('EVENT_INTAKE');
 export const STRIPE_VERIFIER = Symbol('STRIPE_VERIFIER');
+/** Second pool, second database role: the one the public SQL console runs on. */
+export const READONLY_POOL = Symbol('READONLY_POOL');
