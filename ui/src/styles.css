@@ -242,7 +242,6 @@ body {
 }
 
 .order-disclosure {
-  justify-self: start;
   padding: 0;
   border: 0;
   border-bottom: 1px solid var(--line-input);
@@ -251,7 +250,7 @@ body {
   font-family: var(--sans);
   font-size: 12px;
   line-height: 1.35;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease;
 }
@@ -259,6 +258,7 @@ body {
 .order-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .order-panel {
+  text-align: left;
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -811,8 +811,13 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
+  /* Mark and name at the top, centred, and everything the tile has to say lined up
+     under them. Left aligned and vertically centred, the mark sat in a different
+     place on every tile depending on how much that system currently had to report,
+     so a column of seven of them never settled. Anchored to the top they do. */
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 3px;
   width: clamp(9.5rem, 11.5vw, 12.5rem);
   height: 100%;
