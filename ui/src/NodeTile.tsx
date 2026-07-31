@@ -44,9 +44,17 @@ export function NodeTile(props: {
       data-state={state}
       data-tracked={props.tracked}
     >
-      <SystemMark target={node.id} />
-      <span className="name">{node.label}</span>
-      <span className="note">{node.note}</span>
+      {/* What the tile is, kept together and kept apart from what it is doing. The
+          mark used to sit above a centred name with the note under it, which made
+          the note the first of the report lines rather than a subtitle of the name.
+          Beside the mark, the two read as one heading. */}
+      <span className="target-head" data-testid={`head-${node.id}`}>
+        <SystemMark target={node.id} />
+        <span className="target-titles">
+          <span className="name">{node.label}</span>
+          <span className="note">{node.note}</span>
+        </span>
+      </span>
 
       {/* What this node is doing, always, not only when something is stuck at it.
           A tile that says nothing while the machine works looks like a tile of a

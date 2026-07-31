@@ -17,6 +17,15 @@ afterEach(cleanup);
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
+  // jsdom implements no layout, so it ships no ResizeObserver either. The hub uses
+  // one to keep the tab underline the width of the tab it is under. Nothing here
+  // measures pixels, so a stub that never fires is the honest stand-in: it lets the
+  // component mount and leaves the underline where its first measurement put it.
+  vi.stubGlobal('ResizeObserver', class {
+    observe() { /* no layout to observe */ }
+    unobserve() { /* no layout to observe */ }
+    disconnect() { /* nothing was observed */ }
+  });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -106,6 +115,22 @@ describe('Mediator', () => {
     render(<Mediator {...props} />);
     expect(screen.getByTestId('hub-tab-queue')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('hub-panel-queue')).toBeInTheDocument();
+  });
+
+  it('carries one underline that moves, rather than one per tab that lights up', () => {
+    // A border on the selected tab can only switch on and off. A single bar that
+    // is told where to go can travel, and travelling is what says the two tabs are
+    // two views of one panel rather than two separate things.
+    render(<Mediator {...props} />);
+    expect(screen.getAllByTestId('hub-tab-underline')).toHaveLength(1);
+  });
+
+  it('points the underline at whichever tab is selected', () => {
+    render(<Mediator {...props} />);
+    const underline = screen.getByTestId('hub-tab-underline');
+    expect(underline).toHaveAttribute('data-for', 'queue');
+    fireEvent.click(screen.getByTestId('hub-tab-log'));
+    expect(underline).toHaveAttribute('data-for', 'log');
   });
 
   it('switches to the log and back', () => {

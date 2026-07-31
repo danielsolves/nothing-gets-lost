@@ -437,6 +437,23 @@ body {
 
 .order-headline { font-size: 13.5px; color: var(--muted); }
 
+/* The fold. A grid whose single row goes from 0fr to 1fr is the one way to
+   animate to a height nobody has measured, and the detail is a different height on
+   every card. The child clips, or the content spills out while the row is short. */
+.order-fold {
+  display: grid;
+  /* minmax(0, ...) and not a bare 0fr. A bare fr track is minmax(auto, 0fr), and
+     that auto minimum is the item's own min-content, so the fold stayed 28px tall
+     while shut and every card wore a sliver of its own detail. */
+  grid-template-rows: minmax(0, 0fr);
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.order-fold[data-open='true'] { grid-template-rows: minmax(0, 1fr); }
+/* min-height: 0 as well as the clip. A row of 0fr takes none of the leftover
+   space, but its base size is still the item's content minimum, so without this the
+   fold sits 28px tall while shut and every card carries a sliver of its own detail. */
+.order-fold > * { overflow: hidden; min-height: 0; }
+
 .order-detail {
   margin: 4px 0 0;
   padding: 12px 15px;
@@ -498,9 +515,11 @@ body {
    appear out of the middle of it. */
 .hub {
   display: grid;
-  /* The left column is wider than the right on purpose: it holds the button that
-     starts the demo and the form behind it, where the right holds five labels. */
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 26rem) minmax(0, 1fr);
+  /* Both flanks the same, so the hub sits on the middle of the board. The left was
+     once wider, from when its tiles could grow to hold the button that starts the
+     demo. The tiles are a fixed square now, so the extra width never reached them:
+     it went into the connecting line and pushed the hub off centre. */
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 26rem) minmax(0, 1fr);
   /* What comes in on the left, what the order is written into on the right, and the
      money underneath. The payment has its own row because it is the one hop every
      order makes before any of the others is worth doing, and because there is more
@@ -749,20 +768,23 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Mark and name at the top, centred, and everything the tile has to say lined up
-     under them. Left aligned and vertically centred, the mark sat in a different
+  /* Heading at the top, everything the tile has to say lined up under it. Anchored
+     to the top rather than centred: vertically centred, the mark sat in a different
      place on every tile depending on how much that system currently had to report,
-     so a column of seven of them never settled. Anchored to the top they do. */
+     so a column of seven of them never settled. */
   justify-content: flex-start;
-  align-items: center;
-  text-align: center;
+  align-items: stretch;
   gap: 3px;
-  width: clamp(9.5rem, 11.5vw, 12.5rem);
-  height: 100%;
-  /* One height for every tile, chosen to hold the longest thing any of them has
-     to say without growing. Tiles of two heights in one column read as two kinds
-     of thing, and only the shop is allowed to be a different kind. */
-  min-height: clamp(11rem, 12.8vw, 13.5rem);
+  /* Square. The width is the old minimum height rather than the old width, so the
+     tiles grew sideways instead of losing the room the longest activity line needs.
+     A column of upright rectangles read as cards; squares read as the boxes of a
+     diagram, which is what they are.
+
+     The ratio is a preference, not a cage: this is a column flex container, so its
+     automatic minimum is its content and a tile with more in it than the rest still
+     grows. That is how the shop stays taller without a rule of its own. */
+  width: clamp(11rem, 12.8vw, 13.5rem);
+  aspect-ratio: 1 / 1;
   padding: clamp(14px, 1.4vw, 18px);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
@@ -785,19 +807,35 @@ body {
    of systems drawn at two different sizes reads as two different kinds of thing,
    and they are not. The shop is simply taller, because it has more in it. */
 
+/* The mark, then the name with its note beneath. A two-column head rather than
+   three stacked children: the note belongs to the name, and stacked they read as
+   the first line of the report underneath. minmax(0, 1fr) so a long name wraps
+   inside its column instead of pushing the mark out of the tile. */
+.target-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+/* Tighter than the tracking this note carries elsewhere. It has a column roughly
+   half the tile wide to live in now, and uppercase mono at full tracking broke
+   two-word notes over two lines on nearly every tile. */
+.target-head .note { letter-spacing: 0.04em; }
+.target-titles { display: grid; gap: 1px; min-width: 0; }
+
 .system-mark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  margin-bottom: 8px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   color: var(--mark-tint);
   background: color-mix(in oklch, var(--mark-tint) 16%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--mark-tint) 34%, transparent);
 }
 
-.target .name { font-weight: 600; font-size: 15px; }
+.target .name { font-weight: 600; font-size: 15px; line-height: 1.25; }
 .target .note {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -1110,9 +1148,24 @@ body {
 .mediator-doing[data-tone='bad'] { color: var(--bad); }
 
 .mediator-tabs {
+  position: relative;
   display: flex;
   gap: 2px;
   border-bottom: 1px solid var(--line-strong);
+}
+
+/* One bar for both tabs, told where to go from the selected tab's own measurements.
+   Each tab used to carry its own bottom border, which could only switch on and off:
+   the mark vanished on one side of the panel and reappeared on the other, and the
+   two tabs read as two places rather than two views of one. */
+.mediator-tab-underline {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .mediator-tabs button {
   padding: 9px 15px;
@@ -1129,10 +1182,7 @@ body {
   transition: color 0.18s ease, border-color 0.18s ease;
 }
 .mediator-tabs button:hover { color: var(--muted); }
-.mediator-tabs button[aria-selected='true'] {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
+.mediator-tabs button[aria-selected='true'] { color: var(--accent); }
 .mediator-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* A window onto a list, of a size that does not move. The queue is taken out of
@@ -1140,7 +1190,16 @@ body {
    stopped at a height of its own and left the rest of the panel empty, or it grew
    and the whole drawing changed shape every time an order arrived. Out of flow it
    fills the window and never sets its size. */
-.mediator-panel { position: relative; min-height: 17rem; }
+.mediator-panel {
+  position: relative;
+  min-height: 17rem;
+  /* The window grows while a card is open. Fixed, it was a fifth the height of an
+     opened card, so unfolding one put the detail into a scroll box too small to
+     read it in and the card looked as though it had opened somewhere else. The
+     flanking columns start at the top, so a taller hub moves none of them. */
+  transition: min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mediator-panel[data-open='true'] { min-height: 31rem; }
 .mediator-panel > * {
   position: absolute;
   inset: 0;

@@ -123,9 +123,23 @@ describe('Queue', () => {
     expect(within(card).queryByText(/order mail/i)).not.toBeInTheDocument();
   });
 
-  it('stays quiet until it is opened', () => {
+  it('stays quiet until it is opened, and out of a reader ear', () => {
+    // The detail is in the markup whether the card is open or not, because a block
+    // that appears from nothing cannot be animated from a height of nothing. Closed,
+    // it is clipped to no height and hidden from assistive tech, so a screen reader
+    // does not recite twelve baskets nobody asked for. Nothing inside it can take
+    // focus, so aria-hidden is the whole of what has to be said.
     render(<Queue {...props} />);
-    expect(screen.queryByTestId(`order-detail-${EVENT}`)).not.toBeInTheDocument();
+    const fold = screen.getByTestId(`order-fold-${EVENT}`);
+    expect(fold).toHaveAttribute('data-open', 'false');
+    expect(fold).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('unfolds and stops hiding itself once it is opened', () => {
+    render(<Queue {...props} openOrder={EVENT} />);
+    const fold = screen.getByTestId(`order-fold-${EVENT}`);
+    expect(fold).toHaveAttribute('data-open', 'true');
+    expect(fold).not.toHaveAttribute('aria-hidden');
   });
 
   it('shows every checkpoint in detail once it is opened', () => {

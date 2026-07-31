@@ -89,7 +89,17 @@ export function Queue(props: {
               </span>
             </button>
 
-            {open && (
+            {/* Always rendered, folded shut by a grid row of 0fr. A block that is
+                added to the page when the card opens has no height to grow from, so
+                it can only appear; one that is already there can unfold. The queue
+                holds a dozen cards at most, so the markup this costs is small next
+                to what it buys. */}
+            <div
+              className="order-fold"
+              data-testid={`order-fold-${order.eventId}`}
+              data-open={open ? 'true' : 'false'}
+              aria-hidden={open ? undefined : 'true'}
+            >
               <div className="order-detail" data-testid={`order-detail-${order.eventId}`}>
                 <OrderContents eventId={order.eventId} booking={order.booking} />
 
@@ -109,7 +119,7 @@ export function Queue(props: {
                   ))}
                 </dl>
               </div>
-            )}
+            </div>
           </li>
         );
       })}

@@ -15,7 +15,7 @@
 // What it is doing right now sits outside the tabs, because a visitor who never
 // opens the Log reads four numbers with no verb among them and cannot tell a busy
 // machine from a stopped one. Counters say how much; this says what.
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
 import { Queue } from './Queue';
@@ -34,6 +34,25 @@ export function Mediator(props: {
   const [tab, setTab] = useState<Tab>('queue');
   const [help, setHelp] = useState(false);
   const doing = currentWork(props.deliveries);
+  const tabs = useRef<HTMLDivElement>(null);
+  // Where the underline has to be. Measured rather than assumed: the two labels are
+  // different lengths, and a bar that travelled a guessed distance would arrive next
+  // to the tab instead of under it. Re-measured on resize because the labels are set
+  // in a monospace face at a fixed size but the panel around them is fluid.
+  const [bar, setBar] = useState({ left: 0, width: 0 });
+
+  useLayoutEffect(() => {
+    const list = tabs.current;
+    if (!list) return undefined;
+    const measure = () => {
+      const selected = list.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (selected) setBar({ left: selected.offsetLeft, width: selected.offsetWidth });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [tab]);
 
   return (
     <section className="mediator" data-testid="mediator">
@@ -125,7 +144,12 @@ export function Mediator(props: {
         {doing.text}
       </p>
 
-      <div className="mediator-tabs" role="tablist" aria-label="What the mediator holds">
+      <div
+        className="mediator-tabs"
+        role="tablist"
+        aria-label="What the mediator holds"
+        ref={tabs}
+      >
         <button
           type="button"
           role="tab"
@@ -148,6 +172,16 @@ export function Mediator(props: {
         >
           Log
         </button>
+
+        {/* Decorative: the tabs already say which is selected, to a screen reader
+            and to the eye. This only makes the change legible as one movement. */}
+        <span
+          className="mediator-tab-underline"
+          data-testid="hub-tab-underline"
+          data-for={tab}
+          aria-hidden="true"
+          style={{ transform: `translateX(${bar.left}px)`, width: `${bar.width}px` }}
+        />
       </div>
 
       {tab === 'queue' ? (
@@ -155,6 +189,7 @@ export function Mediator(props: {
           className="mediator-panel"
           id="hub-panel-queue"
           data-testid="hub-panel-queue"
+          data-open={props.openOrder ? 'true' : undefined}
           role="tabpanel"
           aria-labelledby="hub-tab-queue"
         >

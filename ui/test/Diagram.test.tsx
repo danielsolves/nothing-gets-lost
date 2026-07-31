@@ -13,7 +13,7 @@
 // carries a menu of all four faults, and the two ways in are drawn on the left.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
 import type { DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { Diagram } from '../src/Diagram';
 
@@ -223,6 +223,26 @@ describe('Diagram', () => {
   it('stays quiet about a system with nothing outstanding', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.queryByTestId('doing-hubspot')).not.toBeInTheDocument();
+  });
+
+  it('keeps the mark, the name and the note in one head, in that order', () => {
+    // The mark sits beside the name rather than above it, and the note reads as a
+    // subtitle of the name rather than as the first of the tile's report lines.
+    // Grouping them says which lines belong to the heading and which do not; laid
+    // out as four loose children, the note drifted between the two readings.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    const head = within(screen.getByTestId('box-hubspot')).getByTestId('head-hubspot');
+    expect(within(head).getByTestId('mark-hubspot')).toBeInTheDocument();
+    expect(within(head).getByText('HubSpot')).toBeInTheDocument();
+    expect(within(head).getByText('CRM')).toBeInTheDocument();
+  });
+
+  it('leaves what a system is doing outside that head', () => {
+    // The heading is what the tile is. The activity line is what it is doing, and
+    // it comes and goes, so it must not be able to push the name around.
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
+    const head = screen.getByTestId('head-hubspot');
+    expect(head).not.toContainElement(screen.getByTestId('doing-hubspot'));
   });
 
   it('marks nothing while no order is open in the queue', () => {
