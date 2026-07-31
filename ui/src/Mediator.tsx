@@ -36,6 +36,18 @@ export function Mediator(props: {
           <span className="mediator-sub">everything goes through here</span>
         </span>
 
+        {/* The reset came up from the drawer at the bottom of the page along with
+            everything else that used to live there. It belongs beside the counters
+            it puts back to zero. */}
+        <button
+          type="button"
+          className="mediator-reset"
+          data-testid="reset-all"
+          onClick={() => void fetch('/api/reset', { method: 'POST' })}
+        >
+          Reset
+        </button>
+
         <span className="mediator-help-anchor">
           <button
             type="button"

@@ -61,7 +61,7 @@ export function Stage(props: { connected: boolean; viewers: number }) {
           {busy ? 'Sending' : 'Send an order through'}
         </button>
         <span className="stage-hint" data-testid="stage-hint">
-          Then click any system below to cut its line. Nothing will be lost.
+          Then open the menu on any system below and break it. Nothing will be lost.
         </span>
       </div>
 

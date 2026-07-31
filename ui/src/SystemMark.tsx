@@ -10,9 +10,13 @@
 // ours to keep consistent. See brand-marks.ts for provenance and licences.
 //
 // Our own invoice service and mailer have no mark to be faithful to, so they take a
-// function glyph from Phosphor rather than something invented for them.
-import { EnvelopeSimple, Receipt, type Icon } from '@phosphor-icons/react';
+// function glyph from Phosphor rather than something invented for them. The two
+// sources on the left are ours in the same way.
+import {
+  EnvelopeOpen, EnvelopeSimple, Receipt, Storefront, type Icon,
+} from '@phosphor-icons/react';
 import type { SwitchableTarget } from '@ngl/contracts';
+import type { SourceNode } from './machine';
 import { BRAND_MARKS } from './brand-marks';
 
 interface Look {
@@ -22,15 +26,20 @@ interface Look {
   glyph?: Icon;
 }
 
-export const SYSTEM_LOOK: Record<SwitchableTarget, Look> = {
+/** Everything the drawing can put a mark on: the five targets and the two sources. */
+export type MarkId = SwitchableTarget | SourceNode['id'];
+
+export const SYSTEM_LOOK: Record<MarkId, Look> = {
   stripe: { tint: '#635BFF' },
   hubspot: { tint: '#FF7A59' },
   slack: { tint: '#611F69' },
   ledger: { tint: '#3FB984', glyph: Receipt },
   mailer: { tint: '#5B8DEF', glyph: EnvelopeSimple },
+  shop: { tint: '#A78BFA', glyph: Storefront },
+  mail: { tint: '#EFB366', glyph: EnvelopeOpen },
 };
 
-export function SystemMark({ target }: { target: SwitchableTarget }) {
+export function SystemMark({ target }: { target: MarkId }) {
   const look = SYSTEM_LOOK[target];
   const brand = BRAND_MARKS[target];
   const Glyph = look.glyph;

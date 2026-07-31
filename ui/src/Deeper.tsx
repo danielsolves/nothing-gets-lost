@@ -7,23 +7,24 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-export type DeeperTab = 'panel' | 'connect' | 'sql';
+export type DeeperTab = 'connect' | 'sql';
 
+// "Control panel" used to be the first of these, holding the four states per system
+// and the three one-off actions. Those are on the tiles now, where the thing they
+// break is drawn, so the drawer no longer has a copy of them to fall out of date.
 const TABS: Array<{ id: DeeperTab; label: string; hint: string }> = [
-  { id: 'panel', label: 'Control panel', hint: 'Break any of the five, four ways each' },
   { id: 'connect', label: 'Your own systems', hint: 'Send the record somewhere you own' },
   { id: 'sql', label: 'Query the database', hint: 'Read-only. Do not trust my screen' },
 ];
 
 interface DeeperProps {
-  panel: ReactNode;
   connect: ReactNode;
   sql: ReactNode;
 }
 
-export function Deeper({ panel, connect, sql }: DeeperProps) {
+export function Deeper({ connect, sql }: DeeperProps) {
   const [open, setOpen] = useState<DeeperTab | null>(null);
-  const content: Record<DeeperTab, ReactNode> = { panel, connect, sql };
+  const content: Record<DeeperTab, ReactNode> = { connect, sql };
 
   return (
     <section className="deeper" data-testid="deeper">

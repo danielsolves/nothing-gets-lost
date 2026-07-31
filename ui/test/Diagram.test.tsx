@@ -1,26 +1,24 @@
 // @vitest-environment jsdom
 // ui/test/Diagram.test.tsx
-// The diagram is now the interface, not a picture of one. Breaking something was a
-// scroll past the whole page and a click into a drawer called "Control panel"; the
-// success criterion in specification section 1 is that a stranger breaks something on
-// purpose within sixty seconds, and that distance was the thing in the way.
+// The diagram is the interface, not a picture of one. Breaking something used to be
+// a scroll past the whole page and a click into a drawer called "Control panel";
+// the success criterion in specification section 1 is that a stranger breaks
+// something on purpose within sixty seconds, and that distance was the thing in the
+// way.
 //
-// So the box you want to break is the button that breaks it, and the state lands back
-// on the same box. The four-state panel stays in the drawer for anyone who wants the
-// range: the diagram offers the one dramatic action.
+// Two things changed after the first attempt at that. The tile used to be a single
+// toggle, which flattened four distinct faults into on and off and taught the wrong
+// lesson: that an outage is one thing. And the drawing had outgoing lines only, so
+// orders appeared out of the middle of the picture. Both are fixed here: the tile
+// carries a menu of all four faults, and the two ways in are drawn on the left.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import type { Counters, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
+import type { DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { Diagram } from '../src/Diagram';
-
-const NO_COUNTERS: Counters = {
-  received: 0, delivered: 0, waiting: 0, duplicatesDropped: 0, needsHuman: 0, lost: 0,
-};
 
 /** The props every test shares. Individual tests override what they are about. */
 const base = {
-  counters: NO_COUNTERS,
   // The hub is passed in rather than built here: this file is about the layout and
   // the wiring, and Mediator.test.tsx is about the panel itself.
   hub: <div data-testid="mediator">hub</div>,
@@ -45,11 +43,20 @@ beforeEach(() => {
   sent = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     sent.push({ url, body: JSON.parse(String(init?.body ?? 'null')) });
-    return new Response('{}', { status: 200 });
+    return new Response(
+      JSON.stringify({ ok: true, detail: 'a malformed order was handed to the extractor' }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
   });
 });
 
 afterEach(() => { vi.unstubAllGlobals(); });
+
+/** Opens a tile's menu and picks one entry, the way a visitor does. */
+function choose(tile: string, item: string): void {
+  fireEvent.click(screen.getByTestId(`menu-${tile}`));
+  fireEvent.click(screen.getByTestId(`menu-${tile}-${item}`));
+}
 
 describe('Diagram', () => {
   it('draws the mediator and every system it delivers to', () => {
@@ -60,42 +67,106 @@ describe('Diagram', () => {
     }
   });
 
-  it('cuts the line when a reachable system is clicked', () => {
+  it('draws where an order comes from, so none of them appear from nowhere', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    fireEvent.click(screen.getByTestId('box-hubspot'));
+    expect(screen.getByTestId('box-shop')).toBeInTheDocument();
+    expect(screen.getByTestId('box-mail')).toBeInTheDocument();
+    expect(screen.getByTestId('line-shop')).toBeInTheDocument();
+  });
+
+  it('gives a source no state, because a source is not something we call', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    expect(screen.getByTestId('box-shop')).not.toHaveAttribute('data-state');
+  });
+
+  it('leaves the shop page alone, having nothing to offer that the page does not', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    expect(screen.queryByTestId('menu-shop')).not.toBeInTheDocument();
+  });
+
+  it('offers all four faults rather than one on and off', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    fireEvent.click(screen.getByTestId('menu-hubspot'));
+    for (const state of ['up', 'slow', 'error', 'cut']) {
+      expect(screen.getByTestId(`menu-hubspot-${state}`)).toBeInTheDocument();
+    }
+  });
+
+  it('takes a system down when the visitor says the system is down', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('hubspot', 'error');
+    expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'error' } }]);
+  });
+
+  it('cuts the line when the visitor says the line is dead', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('hubspot', 'cut');
     expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'cut' } }]);
   });
 
-  it('puts the line back when a cut system is clicked again', () => {
-    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
-    fireEvent.click(screen.getByTestId('box-hubspot'));
-    expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'up' } }]);
-  });
-
-  it('restores a system that is failing or slow rather than cutting it further', () => {
+  it('puts a broken system back', () => {
     render(<Diagram {...base} switches={{ ...ALL_UP, slack: 'error' }} deliveries={[]} />);
-    fireEvent.click(screen.getByTestId('box-slack'));
+    choose('slack', 'up');
     expect(sent).toEqual([{ url: '/api/switches/slack', body: { state: 'up' } }]);
   });
 
-  it('is reachable from a keyboard, because clicking is not the only way', () => {
+  it('marks the fault that is in force, so the menu is also the readout', () => {
+    render(<Diagram {...base} switches={{ ...ALL_UP, slack: 'slow' }} deliveries={[]} />);
+    fireEvent.click(screen.getByTestId('menu-slack'));
+    expect(screen.getByTestId('menu-slack-slow')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('lets Invoices say that off means off, because it alone really stops', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.getByTestId('box-hubspot').tagName).toBe('BUTTON');
+    fireEvent.click(screen.getByTestId('menu-ledger'));
+    expect(screen.getByTestId('menu-ledger-cut')).toHaveTextContent(/really stops listening/i);
   });
 
-  it('says what the click will do, not just the name of the system', () => {
+  it('offers the repeated payment on Stripe and nowhere else', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.getByTestId('box-hubspot')).toHaveAccessibleName(/cut the line to HubSpot/i);
+    fireEvent.click(screen.getByTestId('menu-stripe'));
+    expect(screen.getByTestId('menu-stripe-duplicate_webhook')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(screen.getByTestId('menu-slack'));
+    expect(screen.queryByTestId('menu-slack-duplicate_webhook')).not.toBeInTheDocument();
   });
 
-  it('says the click will reconnect once the line is cut', () => {
-    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
-    expect(screen.getByTestId('box-hubspot')).toHaveAccessibleName(/reconnect HubSpot/i);
+  it('fires the repeated payment at the real endpoint', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('stripe', 'duplicate_webhook');
+    expect(sent).toEqual([{ url: '/api/chaos/duplicate_webhook', body: null }]);
   });
 
-  it('carries the state on the box, so the click shows its own consequence', () => {
+  it('hands the malformed orders to the mail they arrive as', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('mail', 'garbage_payload');
+    expect(sent).toEqual([{ url: '/api/chaos/garbage_payload', body: null }]);
+  });
+
+  it('repeats what came back, so pressing it is visibly not a no-op', async () => {
+    // Neither malformed order creates an event, so nothing appears in the queue or
+    // the log. Without this line the two loudest buttons on the page did nothing a
+    // visitor could see.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('mail', 'hallucinate');
+    expect(await screen.findByTestId('said-mail'))
+      .toHaveTextContent(/handed to the extractor/i);
+  });
+
+  it('carries the state on the box, so the fault shows where it was caused', () => {
     render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).toHaveAttribute('data-state', 'cut');
+  });
+
+  it('says in words which fault a system is in', () => {
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'error' }} deliveries={[]} />);
+    expect(screen.getByTestId('state-hubspot')).toHaveTextContent(/failing/i);
+  });
+
+  it('stays quiet about a system that is simply working', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    expect(screen.queryByTestId('state-hubspot')).not.toBeInTheDocument();
   });
 
   it('carries the state on the line as well as the box', () => {

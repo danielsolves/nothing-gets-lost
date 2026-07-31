@@ -55,7 +55,7 @@ describe('Stage', () => {
     // With the walkthrough gone this line is the only thing that says a box can be
     // clicked. It carries the whole success criterion, so it is pinned.
     render(<Stage {...props} />);
-    expect(screen.getByTestId('stage-hint')).toHaveTextContent(/click any system/i);
+    expect(screen.getByTestId('stage-hint')).toHaveTextContent(/menu on any system/i);
   });
 
   it('never puts the recorded-operation note beside the live badge', () => {

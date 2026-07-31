@@ -7,13 +7,18 @@
 // the queue by hand with "take a ready-made one and the most interesting part
 // becomes invisible". A box saying "queue · retry · exactly once" made it invisible
 // anyway. Everything a visitor would otherwise have to take on faith lives here.
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
 import type { Counters, DeliveryView, TimelineEntry } from '@ngl/contracts';
 import { Mediator } from '../src/Mediator';
 
 afterEach(cleanup);
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
+});
+afterEach(() => { vi.unstubAllGlobals(); });
 
 const EVENT = '3f8a1c2d-0000-4000-8000-000000000000';
 
@@ -99,5 +104,15 @@ describe('Mediator', () => {
     fireEvent.click(screen.getByTestId('hub-tab-log'));
     expect(within(screen.getByTestId('hub-panel-log')).getByText(/Stripe: confirmed/))
       .toBeInTheDocument();
+  });
+
+  it('wipes the board on request', () => {
+    // The reset used to live at the bottom of the page in the control panel drawer,
+    // which has gone. It belongs next to the counters it zeroes.
+    render(<Mediator {...props} />);
+    fireEvent.click(screen.getByTestId('reset-all'));
+    expect(fetch).toHaveBeenCalledWith('/api/reset', expect.objectContaining({
+      method: 'POST',
+    }));
   });
 });

@@ -10,7 +10,6 @@
 // in the picture is the switch that breaks it.
 import { useState } from 'react';
 import { Connections } from './Connections';
-import { ControlPanel } from './ControlPanel';
 import { CountersBar } from './Counters';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
@@ -62,6 +61,15 @@ export function App() {
               />
             }
           />
+
+          {/* This used to be the fine print at the bottom of the control panel
+              drawer. The drawer has gone and the sentence has not: it is the one
+              that stops a visitor reading the whole thing as an animation. */}
+          <p className="board-note">
+            Every action here is real. Stripe runs in test mode with real webhooks.
+            HubSpot is up. We simply stop being able to reach it, which is the most
+            common real-world outage.
+          </p>
         </section>
 
         {/* Spec 8.5 wants this said out loud. It sits here, next to the machine it
@@ -90,11 +98,7 @@ export function App() {
           </>
         )}
 
-        <Deeper
-          panel={<ControlPanel switches={switches} />}
-          connect={<Connections />}
-          sql={<SqlConsole />}
-        />
+        <Deeper connect={<Connections />} sql={<SqlConsole />} />
       </main>
     </>
   );
