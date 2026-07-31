@@ -47,6 +47,9 @@ export class WorkerService {
           payload,
         });
         await this.queue.markDone(delivery.id, outcome.remoteRef, outcome.remoteAt);
+        if (outcome.receiptUrl) {
+          await this.keepReceipt(delivery.eventId, outcome.receiptUrl);
+        }
         if (delivery.target !== 'mailer') {
           await this.completion?.enqueueMailIfComplete(delivery.eventId);
         }
@@ -62,6 +65,20 @@ export class WorkerService {
       }
     }
     return claimed.length;
+  }
+
+  /**
+   * Merged into the event rather than replacing it, and read from the event by both
+   * the verify button and the proof chain. The deliveries table has no column for a
+   * third-party page, and adding one for a single target would be worse than this.
+   */
+  private async keepReceipt(eventId: string, receiptUrl: string): Promise<void> {
+    if (!this.pool) return;
+    await this.pool.query(
+      `UPDATE events SET payload = payload || jsonb_build_object('receipt_url', $2::text)
+        WHERE id = $1`,
+      [eventId, receiptUrl],
+    );
   }
 
   private async loadPayload(eventId: string): Promise<unknown> {

@@ -13,7 +13,17 @@ type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 interface ChargePayload { totalCents: number; customerEmail: string }
 
-interface StripeCharge { id: string; created: number; receipt_url: string }
+/**
+ * What /v1/payment_intents answers with. receipt_url does not live here: it lives
+ * on the charge, which comes back as a bare id unless the call asks for it to be
+ * expanded. Getting that wrong is silent — a null receipt, not an error — and the
+ * receipt is the one payment proof a visitor cannot accuse us of faking.
+ */
+interface StripeIntent {
+  id: string;
+  created: number;
+  latest_charge?: { id: string; receipt_url?: string } | string | null;
+}
 
 export class StripeClient {
   constructor(
@@ -22,7 +32,7 @@ export class StripeClient {
     private readonly doFetch: Fetch = fetch,
   ) {}
 
-  async charge(input: ChargePayload, idempotencyKey: string): Promise<StripeCharge> {
+  async charge(input: ChargePayload, idempotencyKey: string): Promise<StripeIntent> {
     const form = new URLSearchParams({
       amount: String(input.totalCents),
       currency: 'eur',
@@ -31,6 +41,7 @@ export class StripeClient {
       'automatic_payment_methods[enabled]': 'true',
       'automatic_payment_methods[allow_redirects]': 'never',
       receipt_email: input.customerEmail,
+      'expand[]': 'latest_charge',
     });
 
     const response = await this.doFetch(`${this.baseUrl}/v1/payment_intents`, {
@@ -45,7 +56,7 @@ export class StripeClient {
     });
 
     if (!response.ok) throw new Error(`Stripe responded ${response.status}`);
-    return (await response.json()) as StripeCharge;
+    return (await response.json()) as StripeIntent;
   }
 }
 
@@ -59,13 +70,17 @@ export class StripeTarget implements DeliveryTarget {
   constructor(private readonly client: StripeClient) {}
 
   async deliver(ctx: DeliveryContext): Promise<StripeOutcome> {
-    const charge = await this.client.charge(
+    const intent = await this.client.charge(
       ctx.payload as ChargePayload, ctx.idempotencyKey,
     );
+    // Expanded, latest_charge is the charge object; unexpanded it is a bare id and
+    // there is no receipt to carry. Narrowed rather than assumed, because guessing
+    // wrong here loses the proof silently instead of loudly.
+    const charge = typeof intent.latest_charge === 'object' ? intent.latest_charge : null;
     return {
-      remoteRef: charge.id,
-      remoteAt: new Date(charge.created * 1000),
-      receiptUrl: charge.receipt_url ?? null,
+      remoteRef: intent.id,
+      remoteAt: new Date(intent.created * 1000),
+      receiptUrl: charge?.receipt_url ?? null,
     };
   }
 }

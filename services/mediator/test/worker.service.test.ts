@@ -133,6 +133,48 @@ describe('WorkerService', () => {
     expect(rows[0].last_error).toContain('no target registered');
   });
 
+  it('keeps the receipt url, because the proof chain is built on it', async () => {
+    // The strongest payment proof in the demo is a page served by stripe.com. The
+    // target read it and the worker dropped it, so the verify button answered 404
+    // and the proof chain had no link. Nothing failed; it was simply absent.
+    const eventId = await seed('evt_receipt');
+    const worker = new WorkerService(queue, [{
+      target: 'hubspot',
+      async deliver() {
+        return {
+          remoteRef: 'pi_1',
+          remoteAt: new Date('2026-07-30T14:04:02Z'),
+          receiptUrl: 'https://pay.stripe.com/receipts/ch_1',
+        };
+      },
+    }], pool);
+
+    await worker.tick();
+
+    const { rows } = await pool.query<{ receipt_url: string | null }>(
+      `SELECT payload ->> 'receipt_url' AS receipt_url FROM events WHERE id = $1`,
+      [eventId],
+    );
+    expect(rows[0].receipt_url).toBe('https://pay.stripe.com/receipts/ch_1');
+  });
+
+  it('leaves the rest of the event payload alone when it stores the receipt', async () => {
+    const eventId = await seed('evt_receipt_merge');
+    const worker = new WorkerService(queue, [{
+      target: 'hubspot',
+      async deliver() {
+        return { remoteRef: 'pi_2', remoteAt: null, receiptUrl: 'https://pay.stripe.com/x' };
+      },
+    }], pool);
+
+    await worker.tick();
+
+    const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
+      'SELECT payload FROM events WHERE id = $1', [eventId],
+    );
+    expect(rows[0].payload).toMatchObject({ a: 1, receipt_url: 'https://pay.stripe.com/x' });
+  });
+
   it('parks an unresolvable delivery at once instead of retrying it blind', async () => {
     // A Slack message into a visitor's workspace whose fate nobody can establish.
     // Five more attempts would each hit the same wall, so the visitor would watch

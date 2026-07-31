@@ -14,10 +14,22 @@ let upstream: Server;
 let upstreamUrl: string;
 let gate: { url: string; setState: (s: string) => void; close: () => Promise<void> };
 
+/** What the upstream actually received, so the gate can be held to it. */
+let seen: { body: string; contentType: string | undefined; method: string };
+
 beforeAll(async () => {
-  upstream = createServer((_req, res) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
+  upstream = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
+    req.on('end', () => {
+      seen = {
+        body: Buffer.concat(chunks).toString('utf8'),
+        contentType: req.headers['content-type'],
+        method: req.method ?? '',
+      };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    });
   });
   await new Promise<void>((r) => upstream.listen(0, r));
   const port = (upstream.address() as { port: number }).port;
@@ -47,6 +59,51 @@ describe('egress gate', () => {
   it('destroys the socket when the switch is cut', async () => {
     gate.setState('cut');
     await expect(fetch(`${gate.url}/proxy/ledger/anything`)).rejects.toThrow();
+  });
+
+  it('passes a form-encoded body through untouched', async () => {
+    // Stripe is the only target that speaks x-www-form-urlencoded. The gate used to
+    // parse every body and re-serialise it as JSON while forwarding the original
+    // content-type, so Stripe received JSON labelled as a form and answered 400.
+    // Nothing caught it because without a key the call failed at 401 first.
+    gate.setState('up');
+    const form = 'amount=4900&currency=eur&automatic_payment_methods%5Benabled%5D=true';
+
+    await fetch(`${gate.url}/proxy/ledger/v1/payment_intents`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form,
+    });
+
+    expect(seen.body).toBe(form);
+    expect(seen.contentType).toBe('application/x-www-form-urlencoded');
+  });
+
+  it('passes a json body through untouched', async () => {
+    gate.setState('up');
+    const json = JSON.stringify({ channel: 'C1', text: 'hello `evt-1:slack`' });
+
+    await fetch(`${gate.url}/proxy/ledger/api/chat.postMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: json,
+    });
+
+    expect(seen.body).toBe(json);
+    expect(seen.contentType).toBe('application/json');
+  });
+
+  it('forwards the idempotency key, which is the whole exactly-once claim', async () => {
+    gate.setState('up');
+    await fetch(`${gate.url}/proxy/ledger/v1/payment_intents`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'idempotency-key': 'evt-1:stripe',
+      },
+      body: 'amount=1',
+    });
+    expect(seen.body).toBe('amount=1');
   });
 
   it('holds the request long enough to time the caller out when slow', async () => {

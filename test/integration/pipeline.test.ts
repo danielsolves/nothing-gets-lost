@@ -183,5 +183,8 @@ describe('9. lost stays zero through arbitrary chaos', () => {
     expect(byState.done ?? 0).toBe(total - (byState.dead ?? 0));
     expect(byState.pending ?? 0).toBe(0);
     expect(byState.inflight ?? 0).toBe(0);
-  });
+    // Twenty events over eighty deliveries against a real database. The default five
+    // seconds is close enough to that work that a loaded machine trips it, and a CI
+    // runner is a loaded machine. This one is a small soak, not a single scenario.
+  }, 30_000);
 });

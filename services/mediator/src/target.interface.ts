@@ -19,6 +19,12 @@ export interface DeliveryOutcome {
   remoteRef: string | null;
   /** Timestamp assigned by the remote system, never by us. */
   remoteAt: Date | null;
+  /**
+   * A page about this delivery that a third party serves, not us. Only Stripe has
+   * one today, and it is the strongest payment proof in the demo (spec 9.2), so it
+   * is kept on the event rather than thrown away with the rest of the response.
+   */
+  receiptUrl?: string | null;
 }
 
 export interface DeliveryTarget {

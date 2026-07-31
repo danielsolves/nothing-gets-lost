@@ -53,9 +53,17 @@ export class ProxyController {
     const upstream = await fetch(`${baseUrl}${suffix}`, {
       method: request.method,
       headers: this.forwardableHeaders(request),
+      // Byte for byte, never re-encoded. This used to hand on JSON.stringify of the
+      // parsed body while forwarding the caller's original content-type. Invisible
+      // for the targets that speak JSON, fatal for Stripe, which speaks
+      // x-www-form-urlencoded: it received JSON labelled as a form and said 400.
+      //
+      // The general rule matters more than the one bug. Spec 7 promises the mediator
+      // experiences a genuine call, and a proxy that rewrites what it carries is not
+      // carrying one.
       body: ['GET', 'HEAD'].includes(request.method)
         ? undefined
-        : JSON.stringify(request.body),
+        : (request.body as Buffer),
     });
 
     const text = await upstream.text();
