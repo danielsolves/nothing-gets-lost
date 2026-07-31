@@ -39,9 +39,14 @@ export function Stage(props: { connected: boolean; viewers: number }) {
         )}
       </p>
 
+      {/* No direction is named. The shop sits to the left of the machine on a wide
+          screen and on top of it on anything narrower than a laptop, so "on the
+          left" was an instruction that stopped being true on the devices the spec
+          says most visitors arrive on. First is true in both layouts, because the
+          tiles fill the drawing in the order the work travels. */}
       <p className="stage-hint" data-testid="stage-hint">
-        Start at the shop on the left of the machine below. Then open the menu on any
-        system and break it. Nothing will be lost.
+        Start at the shop, the first tile in the machine below. Then open the menu on
+        any system and break it. Nothing will be lost.
       </p>
     </header>
   );

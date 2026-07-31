@@ -833,6 +833,15 @@ body {
   align-items: center;
   gap: 9px;
   margin-bottom: 8px;
+  /* The menu button floats over this corner instead of sitting in the grid, so the
+     heading has to leave it the room. Every name here ran 20px under it, which went
+     unseen only because the names are short and the button is faint until you reach
+     for it.
+     22 and not more: the button is 30px wide and inset 8px from the tile edge, and
+     the tile already holds 18px of padding, so 22px is exactly what sticks out into
+     the heading. Anything wider is width taken from the names for nothing, and the
+     names on this tile have little enough of it. */
+  padding-right: 22px;
 }
 /* Tighter than the tracking this note carries elsewhere. It has a column roughly
    half the tile wide to live in now, and uppercase mono at full tracking broke
@@ -907,6 +916,7 @@ body {
 .tile-menu-toggle {
   display: grid;
   place-items: center;
+  position: relative;
   width: 30px;
   height: 30px;
   padding: 0;
@@ -920,7 +930,26 @@ body {
   opacity: 0.5;
   transition: opacity 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
+
+/* 30px is what the glyph needs and 44px is what a fingertip needs, which is the
+   floor both Apple and WCAG put on a touch target. The difference is taken from
+   the space around the button rather than from its box, so it looks unchanged and
+   is half again as easy to hit. This is the control that opens a system's menu,
+   and opening that menu is the thing the whole demo asks a visitor to do. */
+.tile-menu-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
 .target:hover .tile-menu-toggle { opacity: 1; }
+
+/* A touch screen never hovers, so on the devices the spec says most visitors
+   arrive on, the rule above never fires and the way into the menu stays at half
+   opacity in the faintest colour on the tile. */
+@media (hover: none) {
+  .tile-menu-toggle { opacity: 1; color: var(--muted); }
+}
 .tile-menu-toggle:hover, .tile-menu-toggle[aria-expanded='true'] {
   opacity: 1;
   color: var(--text);
@@ -1022,6 +1051,7 @@ body {
 /* Quiet on purpose. It is the one control here that throws work away, so it must
    be findable and must not be the thing a visitor reaches for first. */
 .mediator-reset {
+  position: relative;
   flex: none;
   padding: 5px 12px;
   border: 1px solid var(--line-strong);
@@ -1037,6 +1067,16 @@ body {
 }
 .mediator-reset:hover { color: var(--text); border-color: var(--line-input); }
 .mediator-reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Wide enough already, short enough to miss: the pill is 27px tall against a 44px
+   floor, so the target grows upward and downward only. Kept off the sides because
+   the help circle sits right next to it and two overlapping targets are worse than
+   one small one. */
+.mediator-reset::after {
+  content: '';
+  position: absolute;
+  inset-block: -9px;
+  inset-inline: 0;
+}
 
 .mediator-title {
   font-size: clamp(19px, 1.7vw, 23px);
@@ -1055,6 +1095,7 @@ body {
    change every second. It waits behind a question mark. */
 .mediator-help-anchor { position: relative; flex: none; }
 .mediator-help-toggle {
+  position: relative;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -1066,6 +1107,13 @@ body {
   line-height: 1;
   cursor: pointer;
   transition: color 0.18s ease, border-color 0.18s ease;
+}
+/* Same reasoning as the tile menu: the circle stays 26px because that is the size
+   a quiet question mark should be, and the finger gets 44. */
+.mediator-help-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 .mediator-help-toggle:hover, .mediator-help-toggle:focus-visible {
   color: var(--accent);
@@ -1561,27 +1609,34 @@ body {
 
   .mediator-panel { height: 17rem; }
   .mediator { grid-template-rows: none; }
-}
 
-@media (max-width: 40rem) {
-  .timeline li { grid-template-columns: 1fr; gap: 2px; }
+  /* The same width decides the drawing, and it has to: the three column grid needs
+     the middle at its 300px floor plus a tile and a wire on either side, which is
+     about 920px before the board's own padding. Below that the flanks are
+     minmax(0, 1fr) and give way to nothing while the tiles keep their width, so
+     the tiles ran over the hub instead of wrapping. At 744px that was 311px of
+     overlap and a page that scrolled sideways: the counts read "NG" and half of
+     the systems sat off the screen. Every tablet held upright lives in that band,
+     and so does every phone turned on its side.
 
-  /* Five counts share about 270px here, so the labels have to give a little rather
-     than be cut off mid-word by the panel's own overflow. Tightening the tracking
-     buys more room than the point size does, and costs less to read. */
-  .mediator-count { padding: 10px 4px; }
-  .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
-
-  /* A node-and-edge picture is the hardest thing to keep legible on a phone, and
-     the spec says the visitor may well arrive on one. Sources on top, then the
-     mediator, then the systems it delivers to, in the order the work travels. The
-     wire between each pair turns upright and becomes the join.
+     Sources on top, then the mediator, then the systems it delivers to, in the
+     order the work travels. The wire between each pair turns upright and becomes
+     the join.
 
      What it must not become is a chain: these five deliveries go out in parallel,
      and a layout that fits but says something false about the system is worse than
-     one that needs a scroll. The tiles stay full width and side by side in pairs,
-     so no one of them looks like the next one's cause. */
-  .hub { grid-template-columns: 1fr; grid-template-areas: "left" "hub" "right" "foot"; gap: 0; }
+     one that needs a scroll. The tiles stay side by side in pairs, so no one of
+     them looks like the next one's cause. */
+  .hub {
+    grid-template-columns: 1fr;
+    grid-template-areas: "left" "hub" "right" "foot";
+    gap: 0;
+    /* Held to a readable column rather than stretched across a tablet. Two tiles
+       across 900px would be 440px each holding one word, and the pairing that
+       carries the parallel reading would read as a table instead. */
+    max-width: 34rem;
+    margin-inline: auto;
+  }
   .spokes[data-side='foot'] { grid-auto-flow: row; }
   .spokes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
@@ -1609,20 +1664,71 @@ body {
   .target { width: 100%; aspect-ratio: auto; min-height: 8.5rem; }
 
   /* The menu hangs off the tile here rather than off the three dots. Anchored to
-     a 30px button on a 390px screen, a menu wide enough to read runs off one edge
+     a 44px button on a 390px screen, a menu wide enough to read runs off one edge
      or the other whatever you do; anchored to the tile it has a whole column to
      start from. Which edge it opens from depends on which of the two columns the
      tile is in, and the tiles fill the grid in order, so the position in the row
      is the position on the screen. */
   .tile-menu { position: static; }
-  .tile-menu-toggle { position: absolute; top: 8px; right: 8px; }
+  .tile-menu-toggle { position: absolute; top: 4px; right: 4px; }
   .tile-menu-list { top: calc(100% + 6px); width: min(20rem, 84vw); }
   .spoke:nth-child(odd) .tile-menu-list { left: 0; right: auto; }
   .spoke:nth-child(even) .tile-menu-list { right: 0; left: auto; }
+}
+
+/* Two tiles across a phone leave each of them about 146px, and a mark, a name and
+   a menu button do not fit on one line of that: the mark takes 38, the button
+   takes 30, and the name is left with 39 to say "notification" in. The mark moves
+   above the name here and the whole width goes to the words.
+
+   Beside the mark is the better arrangement wherever it fits, because it reads as
+   one heading rather than as the first line of the report below it. That is why
+   this is the narrow case only and not the rule. */
+@media (max-width: 25rem) {
+  .target-head { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-right: 0; }
+  /* The button sits in the corner the mark does not use, so the name below it
+     needs none of the width back. */
+  .system-mark { width: 32px; height: 32px; }
+}
+
+@media (max-width: 40rem) {
+  .timeline li { grid-template-columns: 1fr; gap: 2px; }
+
+  /* Five counts share about 270px here, so the labels have to give a little rather
+     than be cut off mid-word by the panel's own overflow. Tightening the tracking
+     buys more room than the point size does, and costs less to read. */
+  .mediator-count { padding: 10px 4px; }
+  .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
 
   .catalog li { grid-template-columns: 1fr 72px; }
   .catalog .price { grid-column: 1; font-size: 12px; }
   .connection, .connection.webhook { grid-template-columns: 1fr; }
+}
+
+/* The 44px floor for the two controls that carry the demo: the button that sends
+   an order and the tabs that switch between the queue and the log.
+   Unconditional rather than behind (hover: none), for two reasons. A 44px primary
+   button is the right size on a desktop too, so nothing is given up. And the
+   pointer media query is the one thing a headless browser will not tell the truth
+   about, so a rule that only fires on real hardware is a rule nothing checks. */
+/* The button on the shop tile is deliberately compact, because it lives inside a
+   tile rather than on the page, and that made it 38px tall. A minimum height
+   rather than more padding: the label is what sets the height otherwise, so
+   padding arithmetic would have to be redone the next time the wording changes.
+   This is the control the whole demo asks a visitor to press first. */
+.order-form .stage-cta { min-height: 44px; }
+.mediator-tabs button { padding-block: 13px; }
+
+/* A 17px line of text is a link, not a target. It reveals the form for ordering
+   something other than the default basket, which is the second thing the page
+   invites a visitor to do, so it grows the same way the icon buttons did: around
+   itself, leaving the underline where it was. */
+.order-disclosure { position: relative; }
+.order-disclosure::after {
+  content: '';
+  position: absolute;
+  inset-block: -14px;
+  inset-inline: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
