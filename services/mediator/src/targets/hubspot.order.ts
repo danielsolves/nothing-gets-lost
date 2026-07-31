@@ -44,6 +44,23 @@ function euros(cents: number): string {
 }
 
 /**
+ * The basket in words, for the deal's description.
+ *
+ * The line items are the real record and this is a copy of them, which is normally
+ * the wrong trade. It earns its place because HubSpot will not show the real one:
+ * the card that lists line items on a deal belongs to the paid products tooling, so
+ * on a free account the deal says 73.00 and never says what for. A visitor reading
+ * the CRM should not have to open an API client to find out what was ordered.
+ *
+ * Written once, when the deal is created. A retry finds the deal and leaves it
+ * alone, so this never overwrites anything a person edited by hand.
+ */
+export function basketText(lines: OrderLine[], totalCents: number): string {
+  const rows = lines.map((line) => `${line.qty} x ${line.name}  ${euros(line.cents)} EUR`);
+  return [...rows, `Total  ${euros(totalCents)} EUR`].join('\n');
+}
+
+/**
  * Readable in a HubSpot list and unique per order. The whole event id would be
  * unique too and would read as a machine's name for something; the first block is
  * what the demo already prints when it has to name an event out loud.
@@ -80,10 +97,20 @@ export class HubSpotOrders {
     const existing = await this.findDeal(creds, dealname);
     if (existing) return existing;
 
+    const lines = payload.lines ?? [];
     const created = await this.http.call(creds, '/crm/v3/objects/deals', {
       method: 'POST',
       body: JSON.stringify({
-        properties: { dealname, amount: euros(payload.totalCents) },
+        properties: {
+          dealname,
+          amount: euros(payload.totalCents),
+          // Absent rather than empty for an order that was never booked as a basket,
+          // a Stripe payment webhook being the one that does that. A description
+          // reading "Total 73.00" and nothing else says less than no description.
+          ...(lines.length > 0
+            ? { description: basketText(lines, payload.totalCents) }
+            : {}),
+        },
       }),
     });
     const id = (created.body as Created).id;

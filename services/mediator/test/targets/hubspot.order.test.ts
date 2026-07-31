@@ -140,6 +140,39 @@ describe('HubSpotOrders', () => {
     ]);
   });
 
+  it('writes the basket onto the deal in words a person can read', async () => {
+    // HubSpot holds the basket as line items, and on an account without the paid
+    // products tooling there is no card on the deal that shows them: the record says
+    // 193.00 and never what was bought. The same basket goes into the description,
+    // which every tier renders, so the order is legible without an API client.
+    const hubspot = portal();
+    await hubspot.orders.record(CREDS, {
+      eventId: EVENT, contactId: 'contact-1', payload: PAYLOAD,
+    });
+    const [created] = hubspot.calls.filter(
+      (call) => call.method === 'POST' && call.path === '/crm/v3/objects/deals',
+    );
+    const { description } = (created.body as { properties: { description: string } }).properties;
+    expect(description).toContain('1 x Teapot');
+    expect(description).toContain('49.00');
+    expect(description).toContain('2 x Blue mug');
+    expect(description).toContain('24.00');
+    expect(description).toContain('73.00');
+  });
+
+  it('leaves the description off an order that has no basket', async () => {
+    const hubspot = portal();
+    await hubspot.orders.record(CREDS, {
+      eventId: EVENT, contactId: 'contact-1',
+      payload: { customerName: 'M. Berger', customerEmail: 'm@example.com', totalCents: 7300 },
+    });
+    const [created] = hubspot.calls.filter(
+      (call) => call.method === 'POST' && call.path === '/crm/v3/objects/deals',
+    );
+    expect((created.body as { properties: Record<string, string> }).properties)
+      .not.toHaveProperty('description');
+  });
+
   it('carries the order total onto the deal', async () => {
     const hubspot = portal();
     await hubspot.orders.record(CREDS, {
