@@ -2,12 +2,18 @@
 // One subscription for the whole page. Falls back to the state endpoint on
 // connect so a visitor who arrives mid-experiment sees the current world rather
 // than an empty one.
+//
+// Every board that arrives is put in place of the one before it, never merged into
+// it. Merging could only ever add, so nothing the server had let go of could ever
+// leave the page: reset emptied the tables and the page kept drawing orders that no
+// longer existed. Believing the snapshot whole is also what repairs any other drift,
+// a row swept by the nightly cleanup included, and it is why there is no reset event
+// for the reset button to send.
 import { useEffect, useRef, useState } from 'react';
 import type {
-  Counters, DeliveryView, StateResponse, StreamEvent, SwitchState,
+  Counters, DeliveryView, OrderView, StateResponse, StreamEvent, SwitchState,
   SwitchableTarget, TimelineEntry,
 } from '@ngl/contracts';
-import { mergeTimeline, TIMELINE_KEPT } from './timeline-merge';
 
 const EMPTY_COUNTERS: Counters = {
   received: 0, delivered: 0, waiting: 0,
@@ -22,6 +28,7 @@ export interface Stream {
   counters: Counters;
   switches: Record<SwitchableTarget, SwitchState>;
   deliveries: DeliveryView[];
+  orders: OrderView[];
   timeline: TimelineEntry[];
   viewers: number;
   connected: boolean;
@@ -32,6 +39,7 @@ export function useStream(): Stream {
   const [counters, setCounters] = useState<Counters>(EMPTY_COUNTERS);
   const [switches, setSwitches] = useState<Record<SwitchableTarget, SwitchState>>(ALL_UP);
   const [deliveries, setDeliveries] = useState<DeliveryView[]>([]);
+  const [orders, setOrders] = useState<OrderView[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [viewers, setViewers] = useState(1);
   const [connected, setConnected] = useState(false);
@@ -46,7 +54,8 @@ export function useStream(): Stream {
         setCounters(state.counters);
         setSwitches(state.switches);
         setDeliveries(state.deliveries);
-        setTimeline(state.timeline.slice(0, TIMELINE_KEPT));
+        setOrders(state.orders);
+        setTimeline(state.timeline);
         setViewers(state.viewers);
         setExtractorMode(state.extractorMode);
       })
@@ -59,27 +68,20 @@ export function useStream(): Stream {
     events.onmessage = (message) => {
       const event = JSON.parse(message.data as string) as StreamEvent;
       switch (event.type) {
-        case 'counters': setCounters(event.payload); break;
-        case 'switches': setSwitches(event.payload); break;
+        case 'board':
+          setCounters(event.payload.counters);
+          setSwitches(event.payload.switches);
+          setDeliveries(event.payload.deliveries);
+          setOrders(event.payload.orders);
+          setTimeline(event.payload.timeline);
+          break;
         case 'presence': setViewers(event.payload.viewers); break;
-        case 'delivery':
-          setDeliveries((current) => {
-            const rest = current.filter((delivery) => delivery.id !== event.payload.id);
-            return [event.payload, ...rest].slice(0, 60);
-          });
-          break;
-        case 'timeline':
-          // The board arrives whole every second, so the same line keeps coming
-          // back. mergeTimeline is what recognises it (see timeline-merge.ts).
-          setTimeline((current) => mergeTimeline(current, event.payload));
-          break;
-        case 'reset':
-          setDeliveries([]); setTimeline([]); setCounters(EMPTY_COUNTERS);
-          break;
       }
     };
     return () => events.close();
   }, []);
 
-  return { counters, switches, deliveries, timeline, viewers, connected, extractorMode };
+  return {
+    counters, switches, deliveries, orders, timeline, viewers, connected, extractorMode,
+  };
 }

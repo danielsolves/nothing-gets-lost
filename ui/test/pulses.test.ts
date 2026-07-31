@@ -202,3 +202,58 @@ describe('pulsesFrom, when an order arrives', () => {
     expect(pulses).toEqual([]);
   });
 });
+
+// The board is now told to the page whole and put in place of what the page held, so
+// reset genuinely empties the list. That turned the rule above into a hole at the
+// worst moment: after a reset the visitor presses send and watches, and their order
+// was compared against an empty list and travelled silently.
+//
+// An empty previous list is two different things. Before the first board arrives it
+// means "we have not looked", and every order on the board would read as new. Once
+// the page has watched the board go from full to empty it means the board is empty,
+// which is a fact and not an absence of one. Only the caller can tell them apart, so
+// the caller says which it is holding.
+describe('pulsesFrom, on a board the page watched empty', () => {
+  const order = (
+    eventId: string, firstId: number, targets: DeliveryView['target'][],
+  ): DeliveryView[] => targets.map((target, index) => ({
+    ...delivery(firstId + index, target, 'pending', 0), eventId,
+  }));
+
+  it('announces the first order after the reset', () => {
+    const pulses = pulsesFrom([], order('evt-new', 10, ['hubspot', 'stripe']), {
+      boardWasEmptied: true,
+    });
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('announces each of two orders, once each', () => {
+    const pulses = pulsesFrom([], [
+      ...order('evt-a', 10, ['hubspot', 'stripe']),
+      ...order('evt-b', 20, ['slack']),
+    ], { boardWasEmptied: true });
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 20, target: 'shop', kind: 'arrival' },
+    ]);
+  });
+
+  it('still says nothing about a row it never watched move', () => {
+    // A delivery that is already confirmed the first time it is seen was not watched
+    // travelling. The order arriving is the thing that happened, and that is the dot.
+    const pulses = pulsesFrom([], [delivery(1, 'hubspot', 'done')], {
+      boardWasEmptied: true,
+    });
+    expect(pulses).toEqual([{ id: 1, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('has nothing to say about an empty board that stays empty', () => {
+    expect(pulsesFrom([], [], { boardWasEmptied: true })).toEqual([]);
+  });
+
+  it('stays quiet when the caller does not claim to have watched it', () => {
+    // The default is the careful one: a caller that says nothing is a caller that
+    // cannot tell an empty board from a board it has not seen.
+    expect(pulsesFrom([], order('evt-new', 10, ['hubspot']))).toEqual([]);
+  });
+});

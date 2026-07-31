@@ -19,11 +19,21 @@ export interface LivePulse extends Pulse {
 
 export function useDeliveryPulses(deliveries: DeliveryView[]): LivePulse[] {
   const previous = useRef<DeliveryView[] | undefined>(undefined);
+  // Whether an empty list is a board this page watched empty. It starts false because
+  // the list is empty before the first board arrives too, and those two empties mean
+  // opposite things: see pulses.ts. Once the page has watched a board of orders become
+  // no orders, an empty list is something it has seen, so the order the visitor sends
+  // straight after pressing reset is announced instead of arriving in silence.
+  const watchedEmpty = useRef(false);
   const counter = useRef(0);
   const [live, setLive] = useState<LivePulse[]>([]);
 
   useEffect(() => {
-    const fresh = pulsesFrom(previous.current, deliveries);
+    const before = previous.current;
+    const fresh = pulsesFrom(before, deliveries, { boardWasEmptied: watchedEmpty.current });
+    if (before !== undefined && before.length > 0 && deliveries.length === 0) {
+      watchedEmpty.current = true;
+    }
     previous.current = deliveries;
     if (fresh.length === 0) return;
 

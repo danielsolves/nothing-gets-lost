@@ -10,7 +10,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
-import type { Counters, DeliveryView, TimelineEntry } from '@ngl/contracts';
+import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { Mediator } from '../src/Mediator';
 
 afterEach(cleanup);
@@ -41,8 +41,20 @@ const timeline: TimelineEntry[] = [
   { at: '2026-07-31T12:00:00.000Z', eventId: EVENT, text: 'Stripe: confirmed', level: 'success' },
 ];
 
+/** One entry per order, which is what the queue heads its cards from. */
+const orders: OrderView[] = [
+  {
+    eventId: EVENT, number: 1042, receivedAt: '2026-07-31T12:00:00.000Z',
+    booking: {
+      source: 'form',
+      lines: [{ sku: 'TEAPOT', name: 'Teapot', qty: 1, cents: 4900 }],
+      totalCents: 4900,
+    },
+  },
+];
+
 const props = {
-  counters, deliveries, timeline,
+  counters, deliveries, orders, timeline,
   openOrder: null,
   onToggleOrder: () => {},
 };

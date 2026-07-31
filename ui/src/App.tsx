@@ -22,7 +22,7 @@ import { useStream } from './useStream';
 
 export function App() {
   const {
-    counters, switches, deliveries, timeline, viewers, connected, extractorMode,
+    counters, switches, deliveries, orders, timeline, viewers, connected, extractorMode,
   } = useStream();
   // The order the visitor just sent, and whether a confirmation mail is coming for
   // it. Without an address there is no second witness, and the proof panel has to
@@ -74,6 +74,7 @@ export function App() {
               <Mediator
                 counters={counters}
                 deliveries={deliveries}
+                orders={orders}
                 timeline={timeline}
                 openOrder={openOrder}
                 onToggleOrder={(eventId) =>

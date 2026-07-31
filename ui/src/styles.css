@@ -397,6 +397,15 @@ body {
   font-size: 13px;
   font-weight: 600;
 }
+/* Tabular figures so a column of arrival times lines up on the colon and the eye
+   can run down it. Quieter than the number: the number says which order, the time
+   only says when, and only one of those is what a visitor is scanning for. */
+.order-at {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
 .order-progress {
   font-family: var(--mono);
   font-size: 11.5px;
@@ -404,23 +413,61 @@ body {
   text-transform: uppercase;
   color: var(--faint);
 }
-
-/* Five checkpoints, and the state of each one is the whole point. */
-.order-dots { display: flex; gap: 6px; }
-.order-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--line-strong);
-  transition: background 0.25s ease;
+.order-marks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.order-dot[data-state='done'] { background: var(--good); }
-.order-dot[data-state='inflight'] {
-  background: var(--accent);
+
+/* Five checkpoints, and the state of each one is the whole point.
+   They were coloured dots. A dot has to be learnt; a box that is ticked, crossed or
+   still empty says the same thing to somebody who has never seen this page. */
+.order-checks { display: flex; gap: 5px; }
+.order-check {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line-input);
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--faint);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+/* Filled and marked, never filled alone. Delivered and gave-up are the two states a
+   red-green reader cannot separate, and the two it matters most to separate, so the
+   tick and the cross carry the difference and the colour only reinforces it. */
+.order-check[data-state='done'] {
+  background: var(--good);
+  border-color: var(--good);
+  color: var(--on-accent);
+}
+.order-check[data-state='dead'] {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--on-accent);
+}
+.order-check[data-state='inflight'] {
+  border-color: var(--accent);
+  color: var(--accent);
   box-shadow: 0 0 8px var(--glow);
 }
-.order-dot[data-state='pending'] { background: var(--warn); }
-.order-dot[data-state='dead'] { background: var(--bad); }
+/* Queued: an empty box with a solid edge. Nothing has happened to it yet, and a
+   filled box would claim otherwise. */
+.order-check[data-state='pending'] {
+  border-color: var(--warn);
+  background: oklch(from var(--warn) l c h / 0.14);
+}
+/* The queue has not made the row at all (spec 6.7). A dashed edge is the one thing
+   that reads as "not yet" rather than as "not done". */
+.order-check[data-state='waiting'] {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: none;
+}
 
 .order-headline { font-size: 13.5px; color: var(--muted); }
 
@@ -428,22 +475,47 @@ body {
   margin: 4px 0 0;
   padding: 12px 15px;
   display: grid;
-  gap: 7px;
+  gap: 12px;
   border-left: 2px solid var(--accent);
   background: var(--surface-sunken);
   border-radius: 0 var(--r-control) var(--r-control) 0;
   font-size: 13px;
 }
-.order-detail > div {
+
+/* What was in the order sits above how it is being delivered, because a visitor
+   asks what it is before asking how it is going. */
+.order-contents { display: grid; gap: 5px; }
+.order-origin { margin: 0; color: var(--faint); }
+.order-basket { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.order-basket li, .order-total {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+/* The figure on the Stripe receipt, so it is the one thing here that is not muted. */
+.order-total {
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 600;
+}
+.order-line { color: var(--muted); }
+.order-total .order-line { color: var(--text); }
+.order-money { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.order-steps { margin: 0; display: grid; gap: 7px; }
+.order-steps > div {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 150px minmax(0, 1fr);
   gap: 10px;
 }
-.order-detail dt { font-weight: 600; }
-.order-detail dd { margin: 0; color: var(--muted); }
-.order-detail > div[data-state='done'] dd { color: var(--good); }
-.order-detail > div[data-state='dead'] dd { color: var(--bad); }
-.order-detail > div[data-state='pending'] dd { color: var(--warn); }
+.order-steps dt { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.order-steps dd { margin: 0; color: var(--muted); }
+.order-steps > div[data-state='done'] dd { color: var(--good); }
+.order-steps > div[data-state='dead'] dd { color: var(--bad); }
+.order-steps > div[data-state='pending'] dd { color: var(--warn); }
 
 /* The machine: hub in the middle, systems around it ------------------------- */
 

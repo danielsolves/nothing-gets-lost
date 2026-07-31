@@ -63,15 +63,19 @@ function signature(delivery: DeliveryView): string {
  * to how a confirmed delivery looks restyled the arrival as a side effect.
  *
  * A delivery carries no origin, so an order read out of the mail draws on the shop
- * wire too. Correcting that means a field on a frozen contract, and every order
- * appearing out of the middle of the picture was the worse of the two.
+ * wire too. Correcting that means a new field on the delivery contract and a mediator
+ * that fills it in everywhere, and every order appearing out of the middle of the
+ * picture was the worse of the two.
  */
-function arrivals(previous: DeliveryView[], current: DeliveryView[]): Pulse[] {
+function arrivals(
+  previous: DeliveryView[], current: DeliveryView[], boardWasEmptied: boolean,
+): Pulse[] {
   // An empty previous list is the shape the list has before the first one lands, so
   // treating it as a baseline would fire an arrival for every order on the board on
-  // every page load. The price is the first order after a reset, which goes
-  // unannounced because there is nothing it can be compared against.
-  if (previous.length === 0) return [];
+  // every page load. Unless the caller watched the board empty, in which case the
+  // empty list is a fact about the board rather than the absence of one, and the
+  // first order after a reset is announced like any other.
+  if (previous.length === 0 && !boardWasEmptied) return [];
 
   const known = new Set(previous.map((delivery) => delivery.eventId));
   const standsFor = new Map<string, number>();
@@ -93,9 +97,13 @@ function arrivals(previous: DeliveryView[], current: DeliveryView[]): Pulse[] {
  * @param previous the delivery list as it was last render, or undefined on the first
  *   one. Undefined means no dots: a visitor arriving mid-experiment must not be shown
  *   a burst for every delivery already on the board.
+ * @param options.boardWasEmptied that an empty `previous` is a board the page watched
+ *   empty rather than one it has not seen yet. Only the caller can know which, and
+ *   the default is the careful one: a caller that says nothing gets no arrivals.
  */
 export function pulsesFrom(
   previous: DeliveryView[] | undefined, current: DeliveryView[],
+  { boardWasEmptied = false }: { boardWasEmptied?: boolean } = {},
 ): Pulse[] {
   if (previous === undefined) return [];
 
@@ -103,7 +111,7 @@ export function pulsesFrom(
 
   // Arrivals first, because an order reaches the hub before anything it queues can
   // move, and a snapshot that holds both should read in that order.
-  const pulses: Pulse[] = arrivals(previous, current);
+  const pulses: Pulse[] = arrivals(previous, current, boardWasEmptied);
 
   for (const delivery of current) {
     if (!drawn(delivery)) continue;

@@ -5,7 +5,13 @@
 import { useState } from 'react';
 import type { SqlResponse } from '@ngl/contracts';
 
-const EXAMPLE = "SELECT target, state, attempts\n  FROM v_deliveries\n ORDER BY id DESC;";
+// It starts from the number the queue prints on every card, because that is the
+// question a visitor arrives with: the card says #1042, and this is how you find out
+// for yourself whether that is true.
+const EXAMPLE = 'SELECT e.number, d.target, d.state, d.attempts\n'
+  + '  FROM v_deliveries d\n'
+  + '  JOIN v_events e ON e.id = d.event_id\n'
+  + ' ORDER BY d.id DESC;';
 
 export function SqlConsole() {
   const [query, setQuery] = useState(EXAMPLE);

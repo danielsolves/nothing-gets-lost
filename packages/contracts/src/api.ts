@@ -1,7 +1,7 @@
 // packages/contracts/src/api.ts
 // Request and response types for the 24 endpoints listed in spec 16.2.
-import type { Counters, DeliveryView, TimelineEntry } from './stream';
-import type { Target, SwitchableTarget, SwitchState } from './targets';
+import type { BoardSnapshot } from './stream';
+import type { Target, SwitchState } from './targets';
 
 export interface CatalogItem { sku: string; name: string; cents: number }
 
@@ -32,11 +32,13 @@ export const DEFAULT_BASKET: ReadonlyArray<{ sku: string; qty: number }> = [
   { sku: 'MUG-BLUE', qty: 2 },
 ];
 
-export interface StateResponse {
-  counters: Counters;
-  switches: Record<SwitchableTarget, SwitchState>;
-  deliveries: DeliveryView[];
-  timeline: TimelineEntry[];
+/**
+ * The board plus the two things that are true of the visit rather than of the
+ * pipeline. It extends the snapshot rather than restating its four fields, so the
+ * picture the page is handed on arrival cannot drift from the ones the stream sends
+ * afterwards.
+ */
+export interface StateResponse extends BoardSnapshot {
   viewers: number;
   extractorMode: 'live' | 'recorded';
 }

@@ -16,7 +16,7 @@
 // opens the Log reads four numbers with no verb among them and cannot tell a busy
 // machine from a stopped one. Counters say how much; this says what.
 import { useState } from 'react';
-import type { Counters, DeliveryView, TimelineEntry } from '@ngl/contracts';
+import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
 import { Queue } from './Queue';
 import { Timeline } from './Timeline';
@@ -26,6 +26,7 @@ type Tab = 'queue' | 'log';
 export function Mediator(props: {
   counters: Counters;
   deliveries: DeliveryView[];
+  orders: OrderView[];
   timeline: TimelineEntry[];
   openOrder: string | null;
   onToggleOrder: (eventId: string) => void;
@@ -143,6 +144,7 @@ export function Mediator(props: {
         >
           <Queue
             deliveries={props.deliveries}
+            orders={props.orders}
             openOrder={props.openOrder}
             onToggle={props.onToggleOrder}
           />

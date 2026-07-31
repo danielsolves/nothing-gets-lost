@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
+import { OrderViewsService } from '../src/order-views.service';
 import { OrdersService } from '../src/orders.service';
 import type { EventIntake, IntakeInput, IntakeResult } from '../src/intake.port';
 
@@ -63,6 +64,21 @@ describe('OrdersService', () => {
     const result = await orders.place(request);
     const { rows } = await pool.query('SELECT total_cents FROM orders WHERE id = $1', [result.orderId]);
     expect(rows[0].total_cents).toBe(3 * 1200 + 4900);
+  });
+
+  it('shows the queue the same total the payment is asked for', async () => {
+    // The card in the queue exists to be held up against the Stripe receipt, so the
+    // two figures may never be arrived at separately. The stripe target charges
+    // payload.totalCents, and this is the one place both ends can be seen at once.
+    const placed = await orders.place(request);
+    const [view] = await new OrderViewsService(pool).forEvents([placed.eventId]);
+    const { rows } = await pool.query<{ payload: { totalCents: number } }>(
+      'SELECT payload FROM events WHERE id = $1', [placed.eventId],
+    );
+
+    expect(view.booking?.totalCents).toBe(rows[0].payload.totalCents);
+    const summed = (view.booking?.lines ?? []).reduce((sum, line) => sum + line.cents, 0);
+    expect(summed).toBe(view.booking?.totalCents);
   });
 
   it('queues four deliveries and lets rule 6.7 add the mail later', async () => {

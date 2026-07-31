@@ -7,7 +7,13 @@
 // becomes invisible". It was invisible anyway: the page drew a box labelled
 // "queue · retry · exactly once" and asked the visitor to believe it. This is the
 // rule that makes it visible, kept pure so it can be checked without a browser.
-import type { DeliveryState, DeliveryView, Target } from '@ngl/contracts';
+//
+// It takes two lists. The deliveries say how the order is getting on; the order entry
+// says which order it is, when it came in and what was in it, none of which a
+// delivery row knows and none of which is worth repeating on all five of them.
+import type {
+  DeliveryState, DeliveryView, OrderBooking, OrderView, Target,
+} from '@ngl/contracts';
 
 /** Always drawn, always in this order, so a card reads the same every time. */
 export const CHECKPOINTS = ['stripe', 'hubspot', 'ledger', 'slack', 'mailer'] as const;
@@ -34,8 +40,11 @@ export interface OrderStep {
 
 export interface OrderCard {
   eventId: string;
-  /** The first block of the uuid: short enough to read, enough to paste into SQL. */
-  shortId: string;
+  /** From a sequence on events: readable out loud, and `v_events` answers to it. */
+  number: number;
+  receivedAt: string;
+  /** Null for an order that was never booked as a basket, a payment webhook being one. */
+  booking: OrderBooking | null;
   steps: OrderStep[];
   doneCount: number;
   total: number;
@@ -81,7 +90,9 @@ function headlineFor(steps: OrderStep[], doneCount: number, total: number): stri
   return 'Queued';
 }
 
-export function groupIntoOrders(deliveries: DeliveryView[]): OrderCard[] {
+export function groupIntoOrders(
+  deliveries: DeliveryView[], orders: OrderView[],
+): OrderCard[] {
   const byEvent = new Map<string, DeliveryView[]>();
   for (const delivery of deliveries) {
     const existing = byEvent.get(delivery.eventId);
@@ -89,15 +100,12 @@ export function groupIntoOrders(deliveries: DeliveryView[]): OrderCard[] {
     else byEvent.set(delivery.eventId, [delivery]);
   }
 
-  /**
-   * Delivery ids are a sequence, so the lowest one in a group is when the order
-   * arrived. Sorting on that keeps the newest card on top and stops cards from
-   * jumping around as their individual deliveries succeed and fail.
-   */
-  const arrivedAt = new Map<string, number>();
   const cards: OrderCard[] = [];
 
-  for (const [eventId, rows] of byEvent) {
+  for (const view of orders) {
+    const rows = byEvent.get(view.eventId);
+    if (!rows) continue;
+
     const found = new Map<Target, DeliveryView>();
     for (const row of rows) found.set(row.target, row);
 
@@ -115,13 +123,11 @@ export function groupIntoOrders(deliveries: DeliveryView[]): OrderCard[] {
     const doneCount = steps.filter((s) => s.state === 'done').length;
     const total = steps.length;
 
-    arrivedAt.set(eventId, Math.min(...rows.map((r) => r.id)));
     cards.push({
-      eventId,
-      // A uuid always has a first block, but the compiler has no way to know
-      // that. The whole id is the right stand-in if one is ever missing: longer
-      // than we would like to read, still the thing that pastes into SQL.
-      shortId: eventId.split('-')[0] ?? eventId,
+      eventId: view.eventId,
+      number: view.number,
+      receivedAt: view.receivedAt,
+      booking: view.booking,
       steps,
       doneCount,
       total,
@@ -129,7 +135,14 @@ export function groupIntoOrders(deliveries: DeliveryView[]): OrderCard[] {
     });
   }
 
-  return cards.sort(
-    (a, b) => (arrivedAt.get(b.eventId) ?? 0) - (arrivedAt.get(a.eventId) ?? 0),
-  );
+  /**
+   * Driven by the order list rather than by the deliveries, which also decides what
+   * happens to a delivery whose order is missing: no card. The two lists are read a
+   * moment apart, so a reset landing between them is real, and a card that cannot
+   * say which order it is has nothing to offer for the one frame it would live.
+   *
+   * The number is a sequence, so sorting on it descending puts the newest card on
+   * top and holds it there while its individual deliveries succeed and fail.
+   */
+  return cards.sort((a, b) => b.number - a.number);
 }

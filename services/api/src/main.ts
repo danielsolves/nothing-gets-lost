@@ -8,6 +8,7 @@ import { NestFactory } from '@nestjs/core';
 import { getPool, TokenStore, tokenKeyFromEnv } from '@ngl/db';
 import { Pool } from 'pg';
 import { AutoResetService } from './autoreset.service';
+import { BoardService } from './board.service';
 import { CatalogController } from './catalog.controller';
 import { ChaosController } from './chaos.controller';
 import { ChaosService } from './chaos.service';
@@ -15,6 +16,7 @@ import { CleanupService } from './cleanup.service';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
 import { MediatorIntake } from './mediator.intake';
+import { OrderViewsService } from './order-views.service';
 import { ConnectionsController } from './oauth/connections.controller';
 import { HubSpotOAuthController } from './oauth/hubspot.controller';
 import { oauthConfigFromEnv } from './oauth/oauth.config';
@@ -90,7 +92,16 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173';
     },
     { provide: CountersService, useFactory: () => new CountersService(getPool()) },
     { provide: DeliveriesService, useFactory: () => new DeliveriesService(getPool()) },
+    { provide: OrderViewsService, useFactory: () => new OrderViewsService(getPool()) },
     { provide: SwitchStore, useFactory: () => new SwitchStore(getPool()) },
+    {
+      provide: BoardService,
+      useFactory: (
+        counters: CountersService, deliveries: DeliveriesService,
+        orders: OrderViewsService, switches: SwitchStore,
+      ) => new BoardService(counters, deliveries, orders, switches),
+      inject: [CountersService, DeliveriesService, OrderViewsService, SwitchStore],
+    },
     { provide: READONLY_POOL, useFactory: getReadonlyPool },
     {
       provide: SqlService,

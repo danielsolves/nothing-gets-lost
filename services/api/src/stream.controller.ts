@@ -2,30 +2,33 @@
 // Server-sent events. Chosen over websockets on purpose: the traffic is one-way,
 // SSE reconnects by itself, and it survives proxies without extra configuration.
 import { Controller, Inject, Res, Sse } from '@nestjs/common';
-import type { Response } from 'express';
 import { Observable, merge } from 'rxjs';
 import type { StreamEvent } from '@ngl/contracts';
-import { CountersService } from './counters.service';
+import { BoardService } from './board.service';
 import { PresenceService } from './presence.service';
-import { DeliveriesService } from './deliveries.service';
-import { SwitchStore } from './switch.store';
 
-const COUNTER_INTERVAL_MS = 1000;
-const TIMELINE_LIMIT = 25;
-const DELIVERY_LIMIT = 40;
+const BOARD_INTERVAL_MS = 1000;
+
+/**
+ * All this controller wants from the response: express fires `close` when the
+ * browser goes away, which is when a viewer stops being one. Named as the one
+ * method rather than typed as the whole express response, so the stream can be
+ * subscribed to in a test without standing up a socket.
+ */
+export interface StreamConnection {
+  on(event: 'close', listener: () => void): void;
+}
 
 @Controller('api')
 export class StreamController {
   // Tokens spelled out: esbuild emits no decorator metadata to infer them from.
   constructor(
-    @Inject(CountersService) private readonly counters: CountersService,
     @Inject(PresenceService) private readonly presence: PresenceService,
-    @Inject(DeliveriesService) private readonly deliveries: DeliveriesService,
-    @Inject(SwitchStore) private readonly switches: SwitchStore,
+    @Inject(BoardService) private readonly board: BoardService,
   ) {}
 
   @Sse('stream')
-  stream(@Res({ passthrough: true }) response: Response): Observable<{ data: StreamEvent }> {
+  stream(@Res({ passthrough: true }) response: StreamConnection): Observable<{ data: StreamEvent }> {
     const leave = this.presence.join();
     response.on('close', leave);
 
@@ -46,6 +49,13 @@ export class StreamController {
    * Polls once a second and pushes the whole board: counters, switch states,
    * deliveries and the log. Cheap, and it needs no change feed.
    *
+   * Whole, and as one value the page puts in place of what it was holding. Pushing
+   * the rows one at a time let the page merge them, and a merge can only ever add:
+   * reset truncated the tables and the page went on drawing orders that no longer
+   * existed. A snapshot says what is there and, by saying nothing about them, what
+   * is not. It repairs every other kind of drift too, the nightly cleanup included,
+   * and it is why there is no reset event for reset to send.
+   *
    * Switches have to be in here. Without them a target cut from the control panel
    * or the walkthrough stays green on every other screen, and the page would be
    * showing a state the system is not in.
@@ -53,22 +63,9 @@ export class StreamController {
   private board$(): Observable<{ data: StreamEvent }> {
     return new Observable<{ data: StreamEvent }>((subscriber) => {
       const tick = async (): Promise<void> => {
-        const [counters, switches, deliveries, timeline] = await Promise.all([
-          this.counters.read(),
-          this.switches.all(),
-          this.deliveries.recent(DELIVERY_LIMIT),
-          this.deliveries.timeline(TIMELINE_LIMIT),
-        ]);
-        subscriber.next({ data: { type: 'counters', payload: counters } });
-        subscriber.next({ data: { type: 'switches', payload: switches } });
-        for (const delivery of deliveries) {
-          subscriber.next({ data: { type: 'delivery', payload: delivery } });
-        }
-        for (const entry of timeline) {
-          subscriber.next({ data: { type: 'timeline', payload: entry } });
-        }
+        subscriber.next({ data: { type: 'board', payload: await this.board.read() } });
       };
-      const timer = setInterval(() => { void tick(); }, COUNTER_INTERVAL_MS);
+      const timer = setInterval(() => { void tick(); }, BOARD_INTERVAL_MS);
       void tick();
       return () => clearInterval(timer);
     });

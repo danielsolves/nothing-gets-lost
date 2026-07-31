@@ -8,15 +8,26 @@
 //
 // Opening a card is also what selects it. One interaction rather than two competing
 // ones, and it means the order being read is the one lit up in the diagram.
-import type { DeliveryView } from '@ngl/contracts';
+//
+// The head carries the order number and the moment the order arrived. It used to
+// carry the first block of the event uuid, which no visitor could say out loud, put
+// in a mail, or tell from the one above it.
+import type { DeliveryView, OrderView } from '@ngl/contracts';
 import { groupIntoOrders, type OrderStep } from './order-cards';
+import { OrderCheck } from './OrderCheck';
+import { OrderContents } from './OrderContents';
+import { formatArrival } from './order-time';
 
 export function Queue(props: {
   deliveries: DeliveryView[];
+  orders: OrderView[];
   openOrder: string | null;
   onToggle: (eventId: string) => void;
 }) {
-  const orders = groupIntoOrders(props.deliveries);
+  const orders = groupIntoOrders(props.deliveries, props.orders);
+  // Read once for the whole list. Two cards that arrived a second apart must not be
+  // measured against two different answers to "is that today".
+  const now = new Date();
 
   if (orders.length === 0) {
     return (
@@ -42,22 +53,35 @@ export function Queue(props: {
               onClick={() => props.onToggle(order.eventId)}
             >
               <span className="order-head">
-                <span className="order-id">#{order.shortId}</span>
-                <span className="order-progress" data-testid={`order-progress-${order.eventId}`}>
-                  {order.doneCount} of {order.total}
-                </span>
+                <span className="order-id">#{order.number}</span>
+                {/* The machine-readable instant stays in the markup whatever the
+                    card decided to print, so nothing is lost by shortening it. */}
+                <time
+                  className="order-at"
+                  dateTime={order.receivedAt}
+                  data-testid={`order-at-${order.eventId}`}
+                >
+                  {formatArrival(order.receivedAt, now)}
+                </time>
               </span>
 
-              <span className="order-dots">
-                {order.steps.map((step) => (
-                  <span
-                    key={step.target}
-                    className="order-dot"
-                    data-testid={`order-dot-${order.eventId}-${step.target}`}
-                    data-state={step.state}
-                    title={`${step.label}: ${step.state}`}
-                  />
-                ))}
+              <span className="order-marks">
+                <span className="order-checks">
+                  {order.steps.map((step) => (
+                    <OrderCheck
+                      key={step.target}
+                      label={step.label}
+                      state={step.state}
+                      testId={`order-check-${order.eventId}-${step.target}`}
+                    />
+                  ))}
+                </span>
+                <span
+                  className="order-progress"
+                  data-testid={`order-progress-${order.eventId}`}
+                >
+                  {order.doneCount} of {order.total}
+                </span>
               </span>
 
               <span className="order-headline" data-testid={`order-headline-${order.eventId}`}>
@@ -66,14 +90,25 @@ export function Queue(props: {
             </button>
 
             {open && (
-              <dl className="order-detail" data-testid={`order-detail-${order.eventId}`}>
-                {order.steps.map((step) => (
-                  <div key={step.target} data-state={step.state}>
-                    <dt>{step.label}</dt>
-                    <dd>{describe(step)}</dd>
-                  </div>
-                ))}
-              </dl>
+              <div className="order-detail" data-testid={`order-detail-${order.eventId}`}>
+                <OrderContents eventId={order.eventId} booking={order.booking} />
+
+                <dl className="order-steps">
+                  {order.steps.map((step) => (
+                    <div key={step.target} data-state={step.state}>
+                      <dt>
+                        <OrderCheck
+                          label={step.label}
+                          state={step.state}
+                          testId={`order-step-check-${order.eventId}-${step.target}`}
+                        />
+                        <span className="order-step-label">{step.label}</span>
+                      </dt>
+                      <dd>{describe(step)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
             )}
           </li>
         );
