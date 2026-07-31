@@ -12,6 +12,7 @@
 // page.
 import type { DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { useDeliveryPulses } from './useDeliveryPulses';
+import { SystemMark } from './SystemMark';
 
 const BOXES: Array<{ target: SwitchableTarget; label: string; note: string }> = [
   { target: 'stripe', label: 'Stripe', note: 'payment' },
@@ -62,7 +63,13 @@ export function Diagram(props: {
     <div className="diagram" data-testid="diagram">
       <div className="mediator" data-testid="mediator">
         <strong>The mediator</strong>
-        <span>queue · retry · exactly once</span>
+        <span className="mediator-sub">everything goes through here</span>
+        <ul className="mediator-jobs">
+          <li>holds the queue</li>
+          <li>retries with a growing gap</li>
+          <li>delivers exactly once</li>
+          <li>parks what needs a human</li>
+        </ul>
       </div>
 
       <ul className="wires">
@@ -99,6 +106,7 @@ export function Diagram(props: {
                 }
                 onClick={() => cut(box.target, state)}
               >
+                <SystemMark target={box.target} />
                 <span className="name">{box.label}</span>
                 <span className="note">{box.note}</span>
                 {held > 0 && <span className="waiting">{held} waiting</span>}

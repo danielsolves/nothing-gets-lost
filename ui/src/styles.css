@@ -384,19 +384,24 @@ body {
 /* The diagram: the machine, and the interface to it -------------------------- */
 
 /* Queue on the left, systems on the right. The same thing seen twice: a card is
-   an order, a wire is one of its checkpoints. */
+   an order, a wire is one of its checkpoints.
+   
+   Pulled wider than the text column on purpose. This is the middle of the page,
+   not a sidebar next to it, and at reading width it looked like a widget. */
 .board {
+  width: min(1500px, calc(100vw - 2 * clamp(16px, 4vw, 32px)));
+  margin-inline: calc(50% - min(1500px, calc(100vw - 2 * clamp(16px, 4vw, 32px))) / 2);
   display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
-  gap: clamp(16px, 2vw, 24px);
-  align-items: start;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(18px, 2vw, 28px);
+  align-items: stretch;
 }
 
 .diagram {
   --wire-gap: 7px;
   --branch: clamp(30px, 4vw, 54px);
   display: grid;
-  grid-template-columns: minmax(132px, 176px) minmax(0, 1fr);
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
   align-items: center;
   gap: clamp(18px, 2.5vw, 34px);
   padding: clamp(18px, 2.4vw, 28px);
@@ -406,22 +411,48 @@ body {
 }
 
 .mediator {
+  align-self: center;
   display: grid;
-  gap: 5px;
-  padding: 16px 14px;
+  gap: 10px;
+  padding: 20px 18px;
   border: 1px solid var(--accent);
   border-radius: var(--r-card);
-  background: var(--accent-soft);
-  font-weight: 600;
-  text-align: center;
+  background:
+    linear-gradient(180deg, oklch(from var(--accent) l c h / 0.14), transparent 70%),
+    var(--surface-sunken);
+  box-shadow: inset 0 1px 0 oklch(from var(--accent) l c h / 0.25);
 }
-.mediator span {
+.mediator strong { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.mediator .mediator-sub {
   font-family: var(--mono);
-  font-size: 11.5px;
-  font-weight: 400;
-  letter-spacing: 0.09em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
+}
+.mediator-jobs {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.mediator-jobs li {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  text-wrap: balance;
+}
+.mediator-jobs li::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  flex: none;
+  border-radius: 50%;
+  background: oklch(from var(--accent) l c h / 0.65);
+  transform: translateY(-2px);
 }
 
 /* A trunk out of the mediator into a bus, and a branch off the bus to each
@@ -530,10 +561,10 @@ body {
 /* Every system is the switch that breaks it. */
 .target {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 14px;
-  padding: 11px 15px;
+  padding: 13px 16px;
   border: 1px solid var(--line-strong);
   border-left: 3px solid var(--good);
   border-radius: var(--r-control);
@@ -548,9 +579,22 @@ body {
 .target:active { transform: translateX(0); }
 .target:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.target .name { grid-column: 1; font-weight: 600; font-size: 15px; }
-.target .note {
+.system-mark {
   grid-column: 1;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: var(--mark-tint);
+  background: color-mix(in oklch, var(--mark-tint) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--mark-tint) 34%, transparent);
+}
+
+.target .name { grid-column: 2; font-weight: 600; font-size: 15px; }
+.target .note {
+  grid-column: 2;
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
@@ -558,7 +602,7 @@ body {
   color: var(--faint);
 }
 .target .waiting {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   justify-self: end;
   font-family: var(--mono);
@@ -571,7 +615,7 @@ body {
 /* The invitation. Present but quiet until the pointer or the keyboard arrives,
    so five boxes do not shout five instructions at a visitor reading the claim. */
 .target .verb {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 2;
   justify-self: end;
   font-family: var(--mono);
@@ -1003,12 +1047,14 @@ body {
 
   /* One column inside the box: at this width the name and the verb were fighting
      over the same row and drawing through each other. */
-  .target { grid-template-columns: 1fr; row-gap: 2px; }
+  .target { grid-template-columns: auto minmax(0, 1fr); row-gap: 2px; }
+  .target .name, .target .note { grid-column: 2; }
   .target .waiting, .target .verb {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: auto;
     justify-self: start;
   }
+  .board { width: auto; margin-inline: 0; }
   /* Touch has no hover, so the invitation has to be permanent there. */
   .target .verb { opacity: 1; }
   .catalog li { grid-template-columns: 1fr 72px; }
