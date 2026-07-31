@@ -10,12 +10,6 @@ import type { SwitchableTarget } from './targets';
 export const EGRESS_BASE_URLS: Record<SwitchableTarget, string> = {
   hubspot: 'https://api.hubapi.com',
   stripe: 'https://api.stripe.com',
-  // The sandbox host, and no variable can move it. Stripe keeps real money out by
-  // the shape of its key, which the mediator refuses to start without (spec 11). A
-  // PayPal client id carries no test or live marker at all, so the same promise is
-  // kept here instead: live credentials pointed at this host simply fail to
-  // authenticate, and there is nothing to set that would put the demo on real money.
-  paypal: 'https://api-m.sandbox.paypal.com',
   slack: 'https://slack.com',
   ledger: 'http://ledger:3004',
   mailer: 'http://mailer:3005',

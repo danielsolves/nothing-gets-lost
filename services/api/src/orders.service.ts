@@ -11,9 +11,9 @@
 // promise of a mail and exists only when a real person asked for it.
 //
 // The payment route is settled here too, and only here. The mediator decides
-// nothing about it: this is where the target list is built, so exactly one of the
-// two payment targets is ever queued, and a mediator that restarts reads the
-// delivery rows back rather than choosing again.
+// nothing about it: this is where the target list is built, so exactly one payment
+// target is ever queued, and a mediator that restarts reads the delivery rows back
+// rather than choosing again.
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
@@ -105,8 +105,9 @@ export class OrdersService {
   /**
    * The body is whatever the network sent, whatever the type says about it, and a
    * route we cannot charge has to be refused rather than quietly turned into the
-   * default. Somebody who asked for PayPal and was billed by Stripe was not served,
-   * they were overruled.
+   * default. Somebody who names a provider and is billed by another was not served,
+   * they were overruled. There is one route today, so the only thing this can refuse
+   * is a name that was never real, and it still has to refuse it.
    */
   private routeFor(request: PlaceOrderRequest): PaymentRoute {
     const asked = request.paymentRoute;
@@ -117,7 +118,7 @@ export class OrdersService {
     return asked;
   }
 
-  /** Exactly one payment target, never both and never neither. */
+  /** Exactly one payment target, never two and never none. */
   private async targetsFor(paymentRoute: PaymentRoute): Promise<readonly Target[]> {
     const targets: Target[] = [paymentRoute, ...TARGETS];
     return (await this.webhook?.get()) ? [...targets, 'custom_webhook'] : targets;

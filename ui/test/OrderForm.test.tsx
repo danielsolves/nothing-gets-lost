@@ -98,7 +98,6 @@ describe('OrderForm', () => {
         customerName: 'M. Berger',
         customerEmail: 'm@example.com',
         items: [{ sku: 'TEAPOT', qty: 3 }, { sku: 'MUG-BLUE', qty: 2 }],
-        paymentRoute: 'stripe',
       },
     }]);
   });
@@ -113,43 +112,36 @@ describe('OrderForm', () => {
       url: '/api/orders',
       body: {
         customerName: '', customerEmail: '',
-        items: [{ sku: 'TEAPOT', qty: 1 }], paymentRoute: 'stripe',
+        items: [{ sku: 'TEAPOT', qty: 1 }],
       },
     }]);
   });
 
-  it('takes the usual route when nobody chose one', async () => {
+  it('names no route, and lets the server settle it', async () => {
+    // There is one provider, so a field naming it would be the browser asserting
+    // something the server already knows. The route is decided in one place.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
     fireEvent.click(screen.getByTestId('send-order'));
-    expect((sent[0].body as { paymentRoute: string }).paymentRoute).toBe('stripe');
+    expect(sent[0].body).not.toHaveProperty('paymentRoute');
   });
 
-  it('sends the other route when it is picked', async () => {
+  it('asks nothing about how to pay, because there is nothing to ask', async () => {
+    // A radio group with one option is a control that puts a question to the
+    // visitor and accepts one answer. It went with the second provider.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.click(screen.getByTestId('route-paypal'));
-    fireEvent.click(screen.getByTestId('send-order'));
-    expect((sent[0].body as { paymentRoute: string }).paymentRoute).toBe('paypal');
+    expect(screen.queryByTestId('route-stripe')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 
-  it('offers exactly one route at a time, because an order is paid once', async () => {
-    // Two payment providers charged for one basket is not a thing that happens in a
-    // shop, and this page has nothing to sell but its own truthfulness.
-    render(<OrderForm onPlaced={() => {}} />);
-    await openPanel();
-    expect(screen.getByTestId('route-stripe')).toBeChecked();
-    expect(screen.getByTestId('route-paypal')).not.toBeChecked();
-    fireEvent.click(screen.getByTestId('route-paypal'));
-    expect(screen.getByTestId('route-stripe')).not.toBeChecked();
-  });
-
-  it('says what the visitor gives up by leaving the usual route', async () => {
-    // Only one of the two ends in a page a stranger can open, and the proof chain is
-    // the whole product.
+  it('still says where the payment proof comes from', async () => {
+    // The receipt page is the strongest evidence on the page, and the sentence that
+    // sets it up has to survive the control it used to sit under.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
     expect(screen.getByTestId('route-note')).toHaveTextContent(/receipt/i);
+    expect(screen.getByTestId('route-note')).toHaveTextContent(/stripe\.com/i);
   });
 
   it('will not send an empty basket, and says what is missing', async () => {

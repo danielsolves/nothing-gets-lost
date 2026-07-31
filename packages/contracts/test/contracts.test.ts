@@ -10,9 +10,9 @@ import {
 } from '../src/index';
 
 describe('frozen contracts', () => {
-  it('names the seven targets exactly as the spec does', () => {
+  it('names the six targets exactly as the spec does', () => {
     expect([...TARGETS]).toEqual(
-      ['hubspot', 'stripe', 'paypal', 'slack', 'ledger', 'mailer', 'custom_webhook'],
+      ['hubspot', 'stripe', 'slack', 'ledger', 'mailer', 'custom_webhook'],
     );
   });
 
@@ -38,20 +38,24 @@ describe('frozen contracts', () => {
     }
   });
 
-  it('sends paypal to the sandbox host and nowhere else', () => {
-    // Spec 11 rules out real money by construction. Stripe does it with a key
-    // prefix; PayPal client ids carry no such marker, so the host is pinned here
-    // instead and a live credential simply fails to authenticate against it.
-    expect(EGRESS_BASE_URLS.paypal).toBe('https://api-m.sandbox.paypal.com');
-  });
-
   it('recognises valid and invalid targets', () => {
     expect(isTarget('hubspot')).toBe(true);
     expect(isTarget('facebook')).toBe(false);
   });
 
-  it('offers two payment routes and both of them are targets', () => {
-    expect([...PAYMENT_ROUTES]).toEqual(['stripe', 'paypal']);
+  it('no longer knows paypal at all', () => {
+    // It was the second payment route and it is gone: PayPal will not capture a
+    // server-made order until a payer approves it in a browser, and there is no
+    // shared test payer the way Stripe has pm_card_visa. Pinned here because the
+    // name also has to be absent from the CHECK constraints migration 011 narrows,
+    // and a value that came back in code while the database refused it would fail
+    // at an insert rather than in a test.
+    expect(isTarget('paypal')).toBe(false);
+    expect(isPaymentRoute('paypal')).toBe(false);
+  });
+
+  it('offers the one payment route, and it is a target', () => {
+    expect([...PAYMENT_ROUTES]).toEqual(['stripe']);
     for (const route of PAYMENT_ROUTES) expect(isTarget(route)).toBe(true);
   });
 

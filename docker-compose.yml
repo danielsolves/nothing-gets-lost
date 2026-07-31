@@ -124,13 +124,6 @@ services:
     env_file: *env-file
     environment:
       <<: *db-env
-      # The PayPal sandbox app, named here as well as read from .env so that a host
-      # that keeps its secrets in the shell rather than in a file works too. Empty is
-      # a supported state: the mediator starts, an order that chose Stripe is
-      # untouched, and an order that chose PayPal fails with the two missing names in
-      # its error where a visitor can read them.
-      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
-      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
     depends_on:
       egress-gate: { condition: service_healthy }
       ledger: { condition: service_healthy }

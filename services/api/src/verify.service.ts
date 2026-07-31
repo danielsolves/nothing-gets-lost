@@ -28,10 +28,10 @@ export interface DeliveryLookup {
 /**
  * Only proofs served by a third party or landing with the visitor count as proof.
  *
- * PayPal is not in this set and Stripe is, which is the difference between the two
- * payment routes: a Stripe receipt is a page on stripe.com that anybody can open,
- * and a PayPal capture is an id only the account holder can look up. Labelling them
- * alike would borrow credibility one of them has not got (spec 9.0).
+ * Stripe is in this set because its receipt is a page on stripe.com that anybody can
+ * open. A payment id that only the account holder can look up would not be, however
+ * foreign the system that issued it: calling both proof would borrow credibility one
+ * of them has not got (spec 9.0).
  */
 const INDISPUTABLE: ReadonlySet<Target> = new Set<Target>(['stripe', 'mailer', 'custom_webhook']);
 
@@ -54,26 +54,6 @@ export class VerifyService {
         remoteRef: delivery?.remoteRef ?? null,
         remoteAt: delivery?.remoteAt?.toISOString() ?? null,
         rawBody: { receipt_url: delivery?.receiptUrl ?? null },
-      };
-    }
-
-    if (target === 'paypal') {
-      // No request url, because there is no request to show. Every PayPal endpoint
-      // that knows about this capture needs our bearer token, so a link here would
-      // be a page the visitor cannot open, and the approval link is a checkout page
-      // rather than evidence that anything was paid.
-      return {
-        target, indisputable,
-        requestUrl: '', httpStatus: delivery?.remoteRef ? 200 : 404,
-        remoteRef: delivery?.remoteRef ?? null,
-        remoteAt: delivery?.remoteAt?.toISOString() ?? null,
-        rawBody: {
-          note: 'PayPal took this payment and assigned the capture id below, but it ' +
-            'serves no receipt page anyone can open, so there is nothing to link to. ' +
-            'Stripe does, which is why the demo pays through Stripe unless you ask ' +
-            'for otherwise.',
-          captureId: delivery?.remoteRef ?? null,
-        },
       };
     }
 

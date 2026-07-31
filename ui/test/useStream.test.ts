@@ -35,7 +35,7 @@ const EMPTY_STATE: StateResponse = {
     received: 0, delivered: 0, waiting: 0, duplicatesDropped: 0, needsHuman: 0, lost: 0,
   },
   switches: {
-    hubspot: 'up', stripe: 'up', paypal: 'up', slack: 'up', ledger: 'up', mailer: 'up',
+    hubspot: 'up', stripe: 'up', slack: 'up', ledger: 'up', mailer: 'up',
   },
   deliveries: [], orders: [], timeline: [], viewers: 1, extractorMode: 'recorded',
 };

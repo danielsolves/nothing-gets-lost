@@ -21,7 +21,7 @@ const EMPTY_COUNTERS: Counters = {
 };
 
 const ALL_UP: Record<SwitchableTarget, SwitchState> = {
-  hubspot: 'up', stripe: 'up', paypal: 'up', slack: 'up', ledger: 'up', mailer: 'up',
+  hubspot: 'up', stripe: 'up', slack: 'up', ledger: 'up', mailer: 'up',
 };
 
 export interface Stream {

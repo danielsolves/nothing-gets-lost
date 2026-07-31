@@ -74,7 +74,7 @@ export interface ProofResponse {
    * leg at all, which a Stripe webhook does not: it arrives already paid.
    */
   paidAtSource: PaymentRoute | null;
-  /** Only Stripe serves one. PayPal has no page a visitor can open (spec 9.2). */
+  /** Stripe serves one on its own domain, and anybody can open it (spec 9.2). */
   receiptUrl: string | null;
   mailReceivedAt: string | null;
   mailReceivedAtSource: 'recipient mail server';

@@ -144,10 +144,6 @@ export const NODES: Node[] = [
     label: 'Stripe', note: 'payment',
     mischief: [{ kind: 'duplicate_webhook', label: 'Deliver the payment twice' }],
   },
-  {
-    kind: 'system', id: 'paypal', side: 'foot',
-    label: 'PayPal', note: 'payment', mischief: [],
-  },
 ];
 
 export const LEFT: Node[] = NODES.filter((node) => node.side === 'left');

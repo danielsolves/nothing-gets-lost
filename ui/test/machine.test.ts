@@ -96,8 +96,10 @@ describe('the three sides', () => {
     expect(RIGHT).toHaveLength(3);
   });
 
-  it('puts the money underneath, both ways to pay side by side', () => {
-    expect(FOOT.map((node) => node.id)).toEqual(['stripe', 'paypal']);
+  it('puts the money underneath, on its own row below the hub', () => {
+    // It sat beside the other systems once. The payment is the one step the visitor
+    // is asked about, so it gets the row under the hub to itself.
+    expect(FOOT.map((node) => node.id)).toEqual(['stripe']);
   });
 
   it('draws every node exactly once', () => {

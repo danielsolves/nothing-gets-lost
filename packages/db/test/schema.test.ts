@@ -72,20 +72,21 @@ describe('schema guarantees', () => {
     expect(Number(rows[0].count)).toBe(8);
   });
 
-  it('accepts paypal as a delivery target', async () => {
+  it('refuses paypal as a delivery target, since no worker can make one', async () => {
+    // Migration 010 accepted it and 011 narrowed it back. A queue that took a
+    // delivery nothing can attempt would sit at "waiting" forever, and the counter
+    // that says nothing is lost would be the thing lying about it.
     const eventId = await newEvent('evt_paypal_target');
     await expect(
       pool.query(`INSERT INTO deliveries (event_id, target) VALUES ($1, 'paypal')`, [eventId]),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow(/violates check constraint/);
   });
 
-  it('gives paypal a switch of its own, so the line to it can be cut', async () => {
-    // Without the row the gate reads no state for paypal and every call sails
-    // through, which would make "cut the line to PayPal" a button that does nothing.
-    const { rows } = await pool.query<{ state: string }>(
+  it('keeps no switch for paypal, because there is no line left to cut', async () => {
+    const { rowCount } = await pool.query(
       `SELECT state FROM switches WHERE target = 'paypal'`,
     );
-    expect(rows[0].state).toBe('up');
+    expect(rowCount).toBe(0);
   });
 
   it('records which payment route an order took', async () => {
@@ -93,11 +94,11 @@ describe('schema guarantees', () => {
     const { rows } = await pool.query<{ payment_route: string }>(
       `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
                            source, payment_route)
-       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'paypal')
+       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'stripe')
        RETURNING payment_route`,
       [eventId],
     );
-    expect(rows[0].payment_route).toBe('paypal');
+    expect(rows[0].payment_route).toBe('stripe');
   });
 
   it('refuses a payment route nothing can charge', async () => {
@@ -130,13 +131,13 @@ describe('schema guarantees', () => {
     await pool.query(
       `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
                            source, payment_route)
-       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'paypal')`,
+       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'stripe')`,
       [eventId],
     );
     const { rows } = await pool.query<{ payment_route: string }>(
       'SELECT payment_route FROM v_orders WHERE event_id = $1', [eventId],
     );
-    expect(rows[0].payment_route).toBe('paypal');
+    expect(rows[0].payment_route).toBe('stripe');
   });
 
   it('allows only one slack send marker per event', async () => {

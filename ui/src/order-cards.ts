@@ -29,7 +29,7 @@ const AFTER_PAYMENT = ['hubspot', 'ledger', 'slack', 'mailer'] as const;
 export const CHECKPOINTS = [DEFAULT_PAYMENT_ROUTE, ...AFTER_PAYMENT] as const;
 
 const LABELS: Record<Target, string> = {
-  stripe: 'Stripe', paypal: 'PayPal', hubspot: 'HubSpot', ledger: 'Invoice',
+  stripe: 'Stripe', hubspot: 'HubSpot', ledger: 'Invoice',
   slack: 'Slack', mailer: 'Confirmation mail', custom_webhook: 'Your endpoint',
 };
 

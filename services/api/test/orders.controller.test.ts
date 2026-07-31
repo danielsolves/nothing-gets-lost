@@ -9,7 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
-import type { PlaceOrderRequest } from '@ngl/contracts';
+import { isPaymentRoute, type PlaceOrderRequest } from '@ngl/contracts';
 import { OrderViewsService } from '../src/order-views.service';
 import { OrdersService } from '../src/orders.service';
 import type { EventIntake, IntakeInput, IntakeResult } from '../src/intake.port';
@@ -90,35 +90,38 @@ describe('OrdersService', () => {
     expect(rows.map((r) => r.target)).toEqual(['hubspot', 'ledger', 'slack', 'stripe']);
   });
 
-  // A visitor picks Stripe or PayPal when the order is placed and exactly one of
-  // them is charged. Both would be a shop that bills twice, neither a shop that
-  // ships for free, and the demo only shows things that are true.
+  // An order is charged through exactly one provider. Two would be a shop that
+  // bills twice, none a shop that ships for free, and the demo only shows things
+  // that are true. There is one provider today, so what these guard is that the
+  // route is still decided once, written down, and read back rather than assumed.
 
-  it('queues the route the visitor picked and not the other one', async () => {
-    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
-    const { rows } = await pool.query(
+  it('queues exactly one payment target, whatever else it queues', async () => {
+    const result = await orders.place({ ...request, paymentRoute: 'stripe' });
+    const { rows } = await pool.query<{ target: string }>(
       'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
     );
-    expect(rows.map((r) => r.target)).toEqual(['hubspot', 'ledger', 'paypal', 'slack']);
+    const paying = rows.filter((row) => isPaymentRoute(row.target));
+    expect(paying).toHaveLength(1);
+    expect(rows.map((r) => r.target)).toEqual(['hubspot', 'ledger', 'slack', 'stripe']);
   });
 
   it('books the route on the order, where the read-only console can reach it', async () => {
-    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
+    const result = await orders.place({ ...request, paymentRoute: 'stripe' });
     const { rows } = await pool.query<{ payment_route: string }>(
       'SELECT payment_route FROM orders WHERE id = $1', [result.orderId],
     );
-    expect(rows[0].payment_route).toBe('paypal');
+    expect(rows[0].payment_route).toBe('stripe');
   });
 
   it('carries the route in the payload, the only copy the mediator reads', async () => {
     // A mediator that restarts mid-order reads the payload back rather than
     // deciding anything again, and it never looks at the orders table.
-    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
+    const result = await orders.place({ ...request, paymentRoute: 'stripe' });
     const { rows } = await pool.query<{ route: string }>(
       `SELECT payload->>'paymentRoute' AS route FROM events WHERE id = $1`,
       [result.eventId],
     );
-    expect(rows[0].route).toBe('paypal');
+    expect(rows[0].route).toBe('stripe');
   });
 
   it('sends an order with no stated route to stripe, and says so on the row', async () => {
@@ -135,7 +138,6 @@ describe('OrdersService', () => {
       'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
     );
     expect(rows.map((r) => r.target)).toContain('stripe');
-    expect(rows.map((r) => r.target)).not.toContain('paypal');
   });
 
   it('refuses a payment route nothing can charge', async () => {

@@ -19,7 +19,7 @@ interface DeliveryRow {
 }
 
 const LABELS: Record<Target, string> = {
-  hubspot: 'HubSpot', stripe: 'Stripe', paypal: 'PayPal', slack: 'Slack',
+  hubspot: 'HubSpot', stripe: 'Stripe', slack: 'Slack',
   ledger: 'Invoice', mailer: 'Confirmation mail', custom_webhook: 'Your webhook',
 };
 

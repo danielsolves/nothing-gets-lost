@@ -1,8 +1,8 @@
 // services/mediator/test/targets/index.test.ts
 // What the mediator is holding when it starts. Two claims, and the second one is the
 // reason this file exists: a target whose credentials are missing must still be
-// built, because a mediator that refuses to start over an unset PayPal key would
-// take the whole demo down for the orders that never asked for PayPal.
+// built. This demo runs with unset keys most of the time, and a mediator that
+// refused to start over one would take down every delivery that never needed it.
 import { describe, it, expect } from 'vitest';
 import { TARGETS } from '@ngl/contracts';
 import { buildTargets } from '../../src/targets/index';
@@ -27,11 +27,10 @@ describe('buildTargets', () => {
     expect(built.map((target) => target.target).sort()).toEqual([...TARGETS].sort());
   });
 
-  it('builds paypal with no credentials, and fails on the delivery instead', async () => {
-    const [paypal] = buildTargets(credentials, sendLog, {})
-      .filter((target) => target.target === 'paypal');
-    await expect(
-      paypal.deliver({ eventId: 'evt-1', idempotencyKey: 'evt-1:paypal', payload: {} }),
-    ).rejects.toThrow(/PAYPAL_CLIENT_ID/);
+  it('builds them all from an empty environment, rather than refusing to start', () => {
+    // Not the same claim as the one above, which counts names. This one is about
+    // credentials: an unset key has to fail the delivery that needs it, where a
+    // visitor can read the reason, and not the process that carries the other five.
+    expect(() => buildTargets(credentials, sendLog, {})).not.toThrow();
   });
 });

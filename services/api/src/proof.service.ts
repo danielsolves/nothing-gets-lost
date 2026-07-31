@@ -65,10 +65,14 @@ export class ProofLookups implements Lookups {
   constructor(private readonly pool: Pool) {}
 
   /**
-   * One row at most: intake queues exactly one of the two payment targets, so the
-   * delivery is the record of which route the order really took. The state is read
-   * rather than filtered on, because a route that has not been charged yet is still
-   * the route, and "PayPal, not yet" beats a blank that reads as nothing attempted.
+   * One row at most: intake queues exactly one payment target, so the delivery is
+   * the record of which route the order really took. The state is read rather than
+   * filtered on, because a route that has not been charged yet is still the route,
+   * and "Stripe, not yet" beats a blank that reads as nothing attempted.
+   *
+   * The target is still matched by name rather than taken as given. It is what makes
+   * this a lookup of the payment leg instead of whichever delivery sorted first, and
+   * a second provider would be one name added here.
    */
   async payment(eventId: string): Promise<Payment> {
     const { rows } = await this.pool.query<{
@@ -77,7 +81,7 @@ export class ProofLookups implements Lookups {
     }>(
       `SELECT d.target, d.state, d.remote_at, e.payload ->> 'receipt_url' AS receipt_url
          FROM deliveries d JOIN events e ON e.id = d.event_id
-        WHERE d.event_id = $1::uuid AND d.target IN ('stripe', 'paypal')`,
+        WHERE d.event_id = $1::uuid AND d.target = 'stripe'`,
       [eventId],
     );
     const row = rows[0];
@@ -85,9 +89,7 @@ export class ProofLookups implements Lookups {
     return {
       route: row.target,
       paidAt: row.state === 'done' ? row.remote_at : null,
-      // Only the Stripe target ever writes one. Handing stripe.com's proof to a
-      // payment Stripe never saw would be the demo forging its own evidence.
-      receiptUrl: row.target === 'stripe' ? row.receipt_url : null,
+      receiptUrl: row.receipt_url,
     };
   }
 

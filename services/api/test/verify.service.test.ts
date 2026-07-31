@@ -42,11 +42,6 @@ const deliveries = {
         receiptUrl: 'https://pay.stripe.com/receipts/ch_1',
       };
     }
-    if (target === 'paypal') {
-      return {
-        remoteRef: '3C41', remoteAt: new Date('2026-07-30T14:04:02Z'), receiptUrl: null,
-      };
-    }
     return { remoteRef: 'contact-1', remoteAt: null, receiptUrl: null };
   },
 };
@@ -62,16 +57,6 @@ describe('VerifyService', () => {
     expect(result.requestUrl).toContain('pay.stripe.com');
   });
 
-  it('carries the paypal capture id and refuses to call it indisputable', async () => {
-    // The capture is real and PayPal assigned it, but there is no page anybody can
-    // open to see it. Labelling it the way the Stripe receipt is labelled would
-    // borrow credibility the payment does not have.
-    const result = await service.verify('paypal', 'evt-1');
-    expect(result.remoteRef).toBe('3C41');
-    expect(result.indisputable).toBe(false);
-    expect(result.requestUrl).toBe('');
-    expect(JSON.stringify(result.rawBody)).toMatch(/no receipt page/i);
-  });
 
   it('labels a read-back on our own hubspot portal as an indication only', async () => {
     // We render the answer, so a sceptic is right to say we could render anything.

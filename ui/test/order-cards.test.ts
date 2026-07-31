@@ -47,26 +47,25 @@ function group(deliveries: DeliveryView[], orders?: OrderView[]): OrderCard[] {
 }
 
 describe('the payment checkpoint', () => {
-  // An order takes one of two payment routes and exactly one is ever charged, so a
-  // card that drew a box for both would show a checkpoint that can never be reached
+  // Exactly one payment is ever charged per order, so a card that drew a box for a
+  // provider the order never used would show a checkpoint that can never be reached
   // and would say "4 of 6" about an order that is finished.
 
-  it('draws the route the order actually took', () => {
-    const [card] = group([d('evt-1', 'paypal', 'done'), d('evt-1', 'slack', 'done')]);
+  it('draws the route the order actually took, in front of the rest', () => {
+    const [card] = group([d('evt-1', 'stripe', 'done'), d('evt-1', 'slack', 'done')]);
     expect(card.steps.map((step) => step.target)).toEqual(
-      ['paypal', 'hubspot', 'ledger', 'slack', 'mailer'],
+      ['stripe', 'hubspot', 'ledger', 'slack', 'mailer'],
     );
   });
 
-  it('never draws the route it did not take', () => {
-    const [card] = group([d('evt-1', 'paypal', 'done')]);
-    expect(card.steps.map((step) => step.target)).not.toContain('stripe');
+  it('draws five checkpoints and not one more', () => {
+    const [card] = group([d('evt-1', 'stripe', 'done')]);
     expect(card.total).toBe(5);
   });
 
   it('names it, so the card and the tile under the hub agree', () => {
-    const [card] = group([d('evt-1', 'paypal', 'done')]);
-    expect(card.steps[0].label).toBe('PayPal');
+    const [card] = group([d('evt-1', 'stripe', 'done')]);
+    expect(card.steps[0].label).toBe('Stripe');
   });
 
   it('falls back to the usual route before any payment row exists', () => {

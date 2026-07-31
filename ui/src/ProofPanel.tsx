@@ -8,10 +8,9 @@
 // which is the exact opposite of the claim. It says plainly what is missing and how
 // to get it instead.
 //
-// The same goes for the payment. There are two routes and only one of them ends in a
-// page a stranger can open: Stripe serves a receipt, PayPal does not. Rendering the
-// receipt link for both would hand half the visitors a dead link, and quietly
-// omitting it would leave them wondering what they had missed. It says which it is.
+// The same goes for the payment. Stripe serves a receipt page a stranger can open,
+// but only once the charge has actually gone through, so the link is rendered off
+// the url the payment came back with rather than assumed from the route.
 import { useEffect, useState } from 'react';
 import type { PaymentRoute, ProofResponse } from '@ngl/contracts';
 
@@ -19,7 +18,7 @@ import type { PaymentRoute, ProofResponse } from '@ngl/contracts';
  * Named rather than printed raw, because the label is a claim about who stamped
  * the time and the wire carries an identifier, not a sentence.
  */
-const PAYER: Record<PaymentRoute, string> = { stripe: 'Stripe', paypal: 'PayPal' };
+const PAYER: Record<PaymentRoute, string> = { stripe: 'Stripe' };
 
 export function ProofPanel({
   eventId, expectMail,
@@ -54,11 +53,10 @@ export function ProofPanel({
             <a href={proof.receiptUrl} target="_blank" rel="noreferrer">
               Open the receipt on stripe.com
             </a>
-          ) : proof.paidAtSource === 'paypal' && (
+          ) : proof.paidAtSource && (
             <small data-testid="proof-no-receipt">
-              PayPal serves no receipt page anybody can open, so this half of the
-              chain rests on the timestamp alone. Pay with the other route and you
-              get a page stripe.com serves itself.
+              The receipt page appears once Stripe has taken the payment. Until then
+              this half of the chain rests on the timestamp alone.
             </small>
           )}
         </div>

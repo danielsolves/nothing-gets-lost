@@ -2,8 +2,9 @@
 // Pins the proof chain of spec 9.1: two timestamps that are not ours, the measured
 // gap between them, and an honest null while the chain is still running.
 //
-// The payment end of it names its own route. An order paid through PayPal but
-// reported as paid by Stripe would be the demo claiming a receipt it does not have,
+// The payment end of it names its own route, read off the delivery that took the
+// money rather than off what the order asked for. Reporting a payment as made by a
+// provider that never saw it would be the demo claiming a receipt it does not have,
 // which is the one kind of wrong this project cannot afford.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -58,19 +59,12 @@ describe('ProofService', () => {
     expect(proof.receiptUrl).toContain('pay.stripe.com');
   });
 
-  it('names paypal for an order that went that way', async () => {
-    const proof = await new ProofService(
-      lookups({ route: 'paypal', receiptUrl: null }),
-    ).build('evt-1');
-    expect(proof.paidAtSource).toBe('paypal');
-    expect(proof.paidAt).toBe('2026-07-30T14:04:02.000Z');
-  });
-
-  it('offers no receipt for a paypal order, because there is no such page', async () => {
-    const proof = await new ProofService(
-      lookups({ route: 'paypal', receiptUrl: null }),
-    ).build('evt-1');
+  it('offers no receipt when the payment carries none', async () => {
+    // A route is not a promise of a page. The field has to stay null rather than
+    // fall back to a link from somewhere else, which is what would make it a lie.
+    const proof = await new ProofService(lookups({ receiptUrl: null })).build('evt-1');
     expect(proof.receiptUrl).toBeNull();
+    expect(proof.paidAtSource).toBe('stripe');
   });
 
   it('names no payment source for an event that has no payment leg', async () => {
@@ -124,37 +118,31 @@ describe('ProofLookups', () => {
   }
 
   it('reads the route off the delivery that actually took the money', async () => {
-    const eventId = await paidEvent('evt_paid_paypal', 'paypal');
+    // The event carries four deliveries and only one of them is the payment. This
+    // has to find that one by name, not take whichever row the database hands back
+    // first, which is what would quietly break the day a second provider arrives.
+    const eventId = await paidEvent('evt_paid_stripe', 'stripe');
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target) VALUES ($1, 'slack'), ($1, 'ledger')`,
+      [eventId],
+    );
     const payment = await new ProofLookups(pool).payment(eventId);
-    expect(payment.route).toBe('paypal');
+    expect(payment.route).toBe('stripe');
     expect(payment.paidAt?.toISOString()).toBe('2026-07-30T14:04:02.000Z');
   });
 
-  it('offers no receipt for paypal even if one were somehow on the event', async () => {
-    // receipt_url is only ever written by the Stripe target. Reading it for a PayPal
-    // order would attach stripe.com's proof to a payment Stripe never saw.
-    const eventId = await paidEvent('evt_paypal_receipt', 'paypal');
-    await pool.query(
-      `UPDATE events
-          SET payload = payload || '{"receipt_url":"https://example.invalid"}'::jsonb
-        WHERE id = $1`, [eventId],
-    );
-    const payment = await new ProofLookups(pool).payment(eventId);
-    expect(payment.receiptUrl).toBeNull();
-  });
-
   it('names the route before the money has moved', async () => {
-    // The panel opens while the payment is still queued. "PayPal, not yet" is a
+    // The panel opens while the payment is still queued. "Stripe, not yet" is a
     // better answer than a blank that reads as if nothing was ever attempted.
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO events (external_id, kind, payload)
        VALUES ('evt_pending_route', 'order.placed', '{}'::jsonb) RETURNING id`,
     );
     await pool.query(
-      `INSERT INTO deliveries (event_id, target) VALUES ($1, 'paypal')`, [rows[0].id],
+      `INSERT INTO deliveries (event_id, target) VALUES ($1, 'stripe')`, [rows[0].id],
     );
     const payment = await new ProofLookups(pool).payment(rows[0].id);
-    expect(payment.route).toBe('paypal');
+    expect(payment.route).toBe('stripe');
     expect(payment.paidAt).toBeNull();
   });
 

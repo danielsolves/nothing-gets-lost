@@ -60,12 +60,13 @@ describe('DeliveriesService timeline', () => {
     expect(second[0].text).toBe(first[0].text);
   });
 
-  it('calls the paypal line PayPal rather than leaving it unnamed', async () => {
-    // The label map covers every target by type. A missing entry does not fail to
-    // compile in the browser, it reads as "undefined: confirmed" on the page.
-    await seed({ state: 'done', attempts: 1, remoteRef: '3C41', target: 'paypal' });
+  it('calls the ledger line Invoice rather than leaving it unnamed', async () => {
+    // The label map covers every target by type, and the name it prints is not the
+    // name the database holds. A missing entry does not fail to compile in the
+    // browser, it reads as "undefined: confirmed" on the page.
+    await seed({ state: 'done', attempts: 1, remoteRef: '3C41', target: 'ledger' });
     const [entry] = await service.timeline(10);
-    expect(entry.text).toBe('PayPal: confirmed as 3C41');
+    expect(entry.text).toBe('Invoice: confirmed as 3C41');
   });
 
   it('phrases the delay as the schedule it was given', async () => {
