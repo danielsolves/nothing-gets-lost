@@ -25,6 +25,7 @@ export interface Stream {
   timeline: TimelineEntry[];
   viewers: number;
   connected: boolean;
+  extractorMode: StateResponse['extractorMode'];
 }
 
 export function useStream(): Stream {

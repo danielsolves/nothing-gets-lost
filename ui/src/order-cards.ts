@@ -118,7 +118,10 @@ export function groupIntoOrders(deliveries: DeliveryView[]): OrderCard[] {
     arrivedAt.set(eventId, Math.min(...rows.map((r) => r.id)));
     cards.push({
       eventId,
-      shortId: eventId.split('-')[0],
+      // A uuid always has a first block, but the compiler has no way to know
+      // that. The whole id is the right stand-in if one is ever missing: longer
+      // than we would like to read, still the thing that pastes into SQL.
+      shortId: eventId.split('-')[0] ?? eventId,
       steps,
       doneCount,
       total,

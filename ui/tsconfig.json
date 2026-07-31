@@ -2,11 +2,15 @@
   // ui/tsconfig.json — the browser half of the repo. It is a separate project
   // because it needs the DOM library and the react-jsx transform, neither of
   // which belongs in the service configuration.
+  //
+  // The tests live in ui/tsconfig.test.json, the same way the root splits its
+  // two projects: the flags a test file needs are not the flags shipped code
+  // should be held to.
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
 }
