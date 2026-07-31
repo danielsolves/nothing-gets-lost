@@ -10,7 +10,7 @@ Nobody notices until somebody asks three weeks later.
 
 **This is a live lab for that problem. Break it on purpose and watch nothing get lost.**
 
-→ **[Try it](https://ngl.danielsolves.ai)** · click a system to cut its line, send an order, click it back on.
+→ **[Try it](https://ngl.danielsolves.ai)** · send an order, open the menu on any system and break it, watch it come back.
 
 ## What you can check yourself
 
@@ -51,21 +51,28 @@ watch. Fill in `.env` when you want the real ones.
 
 ## How the failures work
 
-Every system in the diagram is the switch that breaks it: one click cuts its line, one
-click puts it back. The panel behind **Control panel** has the full range, four states
-per system, and it really does break things:
+Every system in the diagram carries the control that breaks it: three dots in the
+corner of its tile, and under them the four states it can be put into. It really does
+break things:
 
-| Switch | What actually happens |
+| Menu entry | What actually happens |
 |---|---|
-| reachable | the call goes through |
-| slow | the gate holds the request for 8s; the caller times out at 5s |
-| error | a real 503 |
-| cut | the socket is destroyed, so the caller sees a real `ECONNRESET` |
+| Reachable | the call goes through |
+| Slow | the gate holds the request for 8s; the caller times out at 5s |
+| Failing | a real 503 |
+| Unreachable | the socket is destroyed, so the caller sees a real `ECONNRESET` |
 
-HubSpot, Stripe and Slack keep running. **We simply stop being able to reach them**,
-which is the most common real outage, far more common than a provider going down. The
-invoice service is the exception: it closes its listening socket, so there "off" is
-literal.
+The last two look alike and mean opposite things, which is why the menu spells both
+out. **Failing** is a system that is down. **Unreachable** is a system that is running
+perfectly well behind a line that is not: HubSpot, Stripe and Slack keep going, **we
+simply stop being able to reach them**, and that is the most common real outage, far
+more common than a provider going down. The invoice service is the exception: it
+closes its listening socket, so there "off" is literal, and its menu says so in its
+own words.
+
+The same menus carry the one-off mischief: the repeated payment sits on Stripe, where
+a duplicate webhook would come from, and the two malformed orders sit on the order
+mail they would arrive as.
 
 The mediator does not know any of this happened. It sees a failed HTTP call and does
 what it would do in production.
@@ -89,6 +96,14 @@ zero through arbitrary chaos.
 - **The retry schedule is compressed.** 2s, 8s, 30s, 2min, 10min. In production I would
   start at 30s and stretch over hours. The first delays have to be visible inside a
   visitor's attention span.
+- **Your email address is optional, and the specification says it should not be.**
+  Section 9.7 makes it mandatory and calls it the strongest proof, which it is. It is
+  optional here anyway, because somebody should be able to watch a real order run all
+  the way through before handing anything over: the order the big button sends asks
+  you for nothing. What you give up by leaving the address out is the confirmation
+  mail, and with it the second witness of the proof chain, a timestamp stamped by your
+  own provider rather than by me. The chain then rests on one foreign witness, the
+  Stripe receipt, instead of two. Give an address and you get both.
 - **There is one world, not one per visitor.** If somebody else is experimenting you
   will see their traffic, and the page says so. Per-visitor sandboxes would mean the
   switches were not really switching anything.

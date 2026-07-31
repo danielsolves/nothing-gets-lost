@@ -41,9 +41,9 @@ The cost is real and it is accepted: the demo is open to the internet, so it is 
 
 ## No settings page
 
-Everything configurable is either a switch on the control panel or an environment variable in `.env.example`. There is no preferences screen, no theming, no persisted per visitor state.
+Everything configurable is either a state you can put a system into from the menu on its own tile in the diagram or an environment variable in `.env.example`. There is no preferences screen, no theming, no persisted per visitor state.
 
-A settings page on a demo is a place to hide decisions. If a knob matters it is on the control panel where a visitor will actually turn it, and if it does not matter it should not exist.
+A settings page on a demo is a place to hide decisions. If a knob matters it belongs on the thing it acts on, where a visitor will actually turn it, and if it does not matter it should not exist. The controls used to sit in a drawer at the foot of the page called "Control panel", which was a settings page by another name and is gone for this reason.
 
 ## No second scenario
 

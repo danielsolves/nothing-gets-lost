@@ -4,11 +4,11 @@ This page follows one order from the moment it arrives to the moment the confirm
 
 ## The path of one order
 
-1. `POST /api/orders` reaches `services/api/src/orders.service.ts`. The email address is validated and the total is computed from the `products` table, never from the request body. A visitor who posts a zero cent order would otherwise produce a Stripe receipt that proves nothing.
+1. An order reaches `services/api/src/orders.service.ts` through one of two doors. `POST /api/demo-order` carries nothing at all: it is the button in the opening, and it uses the `DEFAULT_BASKET` from `@ngl/contracts`. `POST /api/orders` carries the basket a visitor chose, and their name and email address if they typed them. Either way the total is computed from the `products` table, never from the request body: a visitor who posts a zero cent order would otherwise produce a Stripe receipt that proves nothing. An address that is there is validated, a blank one is not a mistake to be told about, and the payload keeps the two cases apart in two fields rather than one. `customerEmail` is the identity the order is booked under, always set, falling back to a house address, because Stripe wants one for the receipt and HubSpot uses it as the natural key below. `confirmTo` is the promise of a mail, and rule 6.7 is the only rule that reads it.
 2. The api does not write the queue. It hands the event to the mediator over `POST /internal/enqueue` (`services/api/src/mediator.intake.ts`), so the exactly once rules live in exactly one process. `EnqueueController` rejects anything that is not `{ externalId, kind, payload, targets[] }` with a known kind and known targets: a bad target would sit in the queue forever with no worker registered for it.
 3. `IntakeService` inserts the event and one delivery row per target. An order asks for four: `stripe`, `hubspot`, `ledger`, `slack`. The confirmation mail is missing on purpose (see rule 6.7 below).
 4. The worker loop claims due rows, calls the matching target through the egress gate, and records the outcome.
-5. After every successful non mailer delivery the worker asks whether the rest of the chain is finished. When it is, the `mailer` delivery is created, claimed on the next tick, and the mail goes out.
+5. After every successful non mailer delivery the worker asks whether the rest of the chain is finished. When it is, and when the event carries a `confirmTo`, the `mailer` delivery is created, claimed on the next tick, and the mail goes out.
 
 ## The two tables
 
@@ -118,12 +118,16 @@ The counter named `lost` is not computed. In `services/api/src/counters.service.
 
 ## Rule 6.7: the mail waits for the rest of the chain
 
-The `mailer` delivery is not created with the others. It is created only once every other delivery for that event is `done` (`services/mediator/src/completion.service.ts`):
+The `mailer` delivery is not created with the others. It is created only once every other delivery for that event is `done`, and only for an event somebody asked to be written to (`services/mediator/src/completion.service.ts`):
 
 ```sql
 INSERT INTO deliveries (event_id, target, state)
 SELECT $1, 'mailer', 'pending'
- WHERE NOT EXISTS (
+ WHERE EXISTS (
+       SELECT 1 FROM events
+        WHERE id = $1
+          AND coalesce(payload->>'confirmTo', '') <> '')
+   AND NOT EXISTS (
        SELECT 1 FROM deliveries
         WHERE event_id = $1
           AND target <> 'mailer'
@@ -133,7 +137,9 @@ ON CONFLICT (event_id, target) DO NOTHING
 
 The worker calls this after every successful delivery that is not the mailer, so the check runs once per completion and the last one to finish is the one that wins the insert. `ON CONFLICT DO NOTHING` makes concurrent winners harmless.
 
-This is not cosmetics. The arrival timestamp of that mail is the second witness of the proof chain: it is stamped by the visitor's own mail provider, in a mailbox we do not control, and it can be read out of the `Received:` header. If the mail went out alongside the other deliveries it would arrive while HubSpot is still cut, and the gap between the Stripe timestamp and the mail timestamp would measure nothing. Integration test 7 asserts both halves: no mailer row exists while a target is cut, and the mailer row reaches `done` after recovery.
+The first of those two conditions is the younger one, and leaving it out cost the demo its own headline number. The email address is optional, so an order without one is booked under a house address that nothing can deliver to. Rule 6.7 queued a confirmation mail to it anyway: every untouched demo order failed six times, parked a dead letter, and made the page's own **needs a human** counter climb while nothing at all was wrong. No addressee, no delivery. `customerEmail` is deliberately not the field asked about here, because that one is always set and would let the bug straight back in.
+
+The second condition is not cosmetics either. The arrival timestamp of that mail is the second witness of the proof chain for the visitor who asked for one: it is stamped by their own mail provider, in a mailbox we do not control, and it can be read out of the `Received:` header. If the mail went out alongside the other deliveries it would arrive while HubSpot is still cut, and the gap between the Stripe timestamp and the mail timestamp would measure nothing. Integration test 7 asserts both halves: no mailer row exists while a target is cut, and the mailer row reaches `done` after recovery.
 
 It is also just correct. You confirm to a customer once everything is booked.
 
@@ -167,7 +173,7 @@ The Slack technique is the weakest of the set and is labelled as such in its own
 
 What that costs is one case. If the worker dies in the window between calling Slack and recording the outcome, the send log holds a row with no `message_ts` and nobody alive can say whether the message landed. Posting again might duplicate a message in someone else's Slack; giving up would lose it. So that delivery is parked in **needs a human** with the reason in plain text and the retry button beside it, and `lost` stays at 0 because parked is not lost (spec 6.6). It is the only failure in the system that skips the retry schedule, since five more attempts would each hit the same wall.
 
-Everything the worker itself lives through, including a cut connection, clears the row and retries normally. That is what keeps the control panel demo healing for a visitor who connected their own Slack, and it is integration test 6 in `test/integration/own-connection.test.ts`.
+Everything the worker itself lives through, including a cut connection, clears the row and retries normally. That is what keeps the demo healing for a visitor who connected their own Slack, and it is integration test 6 in `test/integration/own-connection.test.ts`.
 
 ## The hard case: the call went out and then the worker died
 
@@ -203,6 +209,8 @@ if (state === 'slow') {
 ```
 
 `SLOW_DELAY_MS` is 8000 and `CALLER_TIMEOUT_MS` is 5000, so "slow" produces a genuine client timeout rather than a simulated one. "cut" destroys the socket instead of returning a tidy error body, because a tidy error body would be a stage prop.
+
+These four states are what the menu on each system in the diagram writes, through `POST /api/switches/<target>`. It names them for somebody who is not reading this file: Reachable, Slow, Failing, Unreachable. The last two are one row apart and mean opposite things, which is the reason the menu exists at all: `error` is a system that is down, `cut` is a system that is running perfectly well behind a line that is not. The `ledger` is the exception in both directions. It is our own service, so `SwitchesController` also tells it to close its listening socket (`services/ledger/src/main.ts`), and its menu says so in words the other four do not use.
 
 The mediator does not know a switch exists. It sees a failed HTTP call and does what it would do in production, which is why the queue behaviour on screen is worth trusting: it is not a rendering of what would happen, it is what happened.
 
