@@ -49,7 +49,19 @@ export function App() {
             The hub carries the queue and the log, so neither needs a panel of its
             own further down the page. */}
         <section className="board">
+          {/* Above the machine, not below it. This was the fine print at the foot
+              of the control panel drawer, and then the fine print under the
+              diagram, where nobody reads it. It is the sentence that stops a
+              visitor taking the whole thing for an animation, so it goes where it
+              is read. */}
+          <p className="board-note">
+            Every action here is real. Stripe runs in test mode with real webhooks.
+            HubSpot is up. We simply stop being able to reach it, which is the most
+            common real-world outage.
+          </p>
+
           <Diagram
+            extractorMode={extractorMode}
             switches={switches}
             deliveries={deliveries}
             openOrder={openOrder}
@@ -69,39 +81,18 @@ export function App() {
               />
             }
           />
-
-          {/* This used to be the fine print at the bottom of the control panel
-              drawer. The drawer has gone and the sentence has not: it is the one
-              that stops a visitor reading the whole thing as an animation. */}
-          <p className="board-note">
-            Every action here is real. Stripe runs in test mode with real webhooks.
-            HubSpot is up. We simply stop being able to reach it, which is the most
-            common real-world outage.
-          </p>
         </section>
 
-        {/* Spec 8.5 wants this said out loud. It sits here, next to the machine it
-            is about, rather than beside the live badge where it read as a denial of
-            the whole page. It describes one step: reading a free-text order mail. */}
-        {extractorMode === 'recorded' && (
-          <p className="extractor-note" data-testid="extractor-mode">
-            One step is not live: reading a free-text order mail. No model key is
-            configured, so that step replays answers captured earlier. Everything
-            else above is running now.
-          </p>
-        )}
+        {/* The proof chain is at its strongest for an order the visitor placed
+            themselves with their own address: the second timestamp is then stamped
+            by their own mail server.
 
+            There is no line here announcing the event id any more. It said "Your
+            order is event 366efd15-025e-4d46-b3ca-4951a3312e0a", which is not a
+            thing anybody reads, and the card in the queue now carries the order's
+            own number. */}
         {placed && (
-          <>
-            <p className="placed" data-testid="placed">
-              Your order is event {placed.eventId}. Watch it in the queue above
-              {placed.expectMail ? ', and in your inbox.' : '.'}
-            </p>
-            {/* The proof chain is at its strongest for an order the visitor placed
-                themselves with their own address: the second timestamp is then
-                stamped by their own mail server. */}
-            <ProofPanel eventId={placed.eventId} expectMail={placed.expectMail} />
-          </>
+          <ProofPanel eventId={placed.eventId} expectMail={placed.expectMail} />
         )}
 
         <Deeper connect={<Connections />} sql={<SqlConsole />} />

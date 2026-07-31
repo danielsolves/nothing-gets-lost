@@ -9,7 +9,7 @@
 // two ever read the same way again, the demo has lost its point.
 import { describe, it, expect } from 'vitest';
 import { SWITCH_STATES, SWITCHABLE_TARGETS } from '@ngl/contracts';
-import { SOURCES, TARGETS, faultsFor } from '../src/machine';
+import { LEFT, NODES, RIGHT, SOURCES, SYSTEMS, faultsFor } from '../src/machine';
 
 describe('faults', () => {
   it('offers every state the gate can actually be put into', () => {
@@ -49,13 +49,13 @@ describe('faults', () => {
 
 describe('mischief', () => {
   it('puts the repeated payment on Stripe, where the webhook comes from', () => {
-    const stripe = TARGETS.find((node) => node.target === 'stripe');
+    const stripe = SYSTEMS.find((node) => node.id === 'stripe');
     expect(stripe?.mischief.map((m) => m.kind)).toEqual(['duplicate_webhook']);
   });
 
   it('puts nothing one-off on a system that has no one-off to give', () => {
-    for (const node of TARGETS) {
-      if (node.target !== 'stripe') expect(node.mischief).toEqual([]);
+    for (const node of SYSTEMS) {
+      if (node.id !== 'stripe') expect(node.mischief).toEqual([]);
     }
   });
 
@@ -76,13 +76,39 @@ describe('sources', () => {
 
   it('gives a source no state, because a source is not something we call', () => {
     for (const node of SOURCES) {
-      expect(node).not.toHaveProperty('faults');
+      expect(node.kind).toBe('source');
       expect((SWITCHABLE_TARGETS as readonly string[])).not.toContain(node.id);
     }
   });
 
   it('draws every system the mediator delivers to', () => {
-    expect(TARGETS.map((node) => node.target).sort())
+    expect(SYSTEMS.map((node) => node.id).sort())
       .toEqual([...SWITCHABLE_TARGETS].sort());
+  });
+});
+
+describe('the two columns', () => {
+  it('balances four against three, so neither side towers over the hub', () => {
+    // Five on one side and two on the other left the hub shorter than the column
+    // beside it, and the outermost lines then began in mid-air next to the hub
+    // rather than at it.
+    expect(LEFT).toHaveLength(4);
+    expect(RIGHT).toHaveLength(3);
+  });
+
+  it('draws every node exactly once', () => {
+    expect([...LEFT, ...RIGHT]).toHaveLength(NODES.length);
+    expect(new Set(NODES.map((node) => node.id)).size).toBe(NODES.length);
+  });
+
+  it('keeps the two ways in together at the top of the left column', () => {
+    expect(LEFT.slice(0, 2).map((node) => node.id)).toEqual(['shop', 'mail']);
+  });
+
+  it('does not make the side a claim about what a node is', () => {
+    // A system can stand on either side. What it is lives in kind, not in the
+    // column it happens to be drawn in.
+    expect(LEFT.some((node) => node.kind === 'system')).toBe(true);
+    expect(RIGHT.every((node) => node.kind === 'system')).toBe(true);
   });
 });

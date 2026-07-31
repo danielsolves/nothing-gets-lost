@@ -21,7 +21,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DeliveryView, SwitchableTarget, Target } from '@ngl/contracts';
 import { activityFor, currentWork } from '../src/activity';
-import { TARGETS } from '../src/machine';
+import { SYSTEMS } from '../src/machine';
 
 const NOW = new Date('2026-07-30T22:29:37.000Z');
 const IN_4_SECONDS = '2026-07-30T22:29:41.000Z';
@@ -155,8 +155,8 @@ describe('activityFor', () => {
   it('never repeats the name of the tile it sits on', () => {
     // The tile prints the name and a one word note above this line. Repeating it
     // spends a third of a 150 pixel square on a word the reader is looking at.
-    for (const node of TARGETS) {
-      for (const text of everyLine(node.target)) {
+    for (const node of SYSTEMS) {
+      for (const text of everyLine(node.id)) {
         expect(text.toLowerCase()).not.toContain(node.label.toLowerCase());
       }
     }

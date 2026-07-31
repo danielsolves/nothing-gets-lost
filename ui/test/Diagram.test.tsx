@@ -86,6 +86,30 @@ describe('Diagram', () => {
     expect(screen.queryByTestId('menu-shop')).not.toBeInTheDocument();
   });
 
+  it('puts the replayed-step note on the tile it is about', () => {
+    // Spec 8.5 wants it said out loud. It was a banner under the whole machine,
+    // which is the part of a page nobody reads.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
+    expect(screen.getByTestId('box-mail'))
+      .toContainElement(screen.getByTestId('extractor-mode'));
+  });
+
+  it('says nothing about replaying when the model is really being called', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="live" />);
+    expect(screen.queryByTestId('extractor-mode')).not.toBeInTheDocument();
+  });
+
+  it('draws a source with the same tile as a system, so neither looks like a class of its own', () => {
+    // Two code paths drifted once already: the order mail ended up wider than
+    // Slack and read as a different kind of thing, which it is not.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    const mail = screen.getByTestId('box-mail');
+    const slack = screen.getByTestId('box-slack');
+    expect(mail.className.split(' ')).toContain('target');
+    expect(slack.className.split(' ')).toContain('target');
+    expect(mail.className.split(' ')).toContain('source');
+  });
+
   it('puts the order form on the shop, which is where an order comes from', () => {
     // Sent from the top of the page instead, an order appears in the middle of the
     // drawing, skipping the one hop the drawing exists to show.

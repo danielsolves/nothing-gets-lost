@@ -1,6 +1,6 @@
 // ui/src/Diagram.tsx
-// The machine: where an order comes from on the left, the mediator in the middle,
-// the systems it delivers to on the right, and a line along every hop.
+// The machine: two columns of nodes, the mediator between them, and a line from
+// every node to the bus that runs down the hub's edge.
 //
 // This is the interface, not a picture of one. Breaking something used to mean
 // scrolling past the whole page and opening a drawer called "Control panel", while
@@ -8,27 +8,27 @@
 // something on purpose within sixty seconds. So the tile you want to break carries
 // the menu that breaks it, and the consequence lands on that same tile.
 //
-// Two corrections to the first version of that idea:
+// Three corrections to earlier versions of that idea, all worth keeping written down:
 //
 // The tile was a toggle, which flattened the four faults of specification section 7
 // into on and off. The pair worth teaching is exactly the pair it lost: a system
 // that answers 503 is down, and a system behind a dead line is running perfectly
 // well. The menu names both.
 //
-// And the drawing had outgoing lines only, so every order appeared out of the middle
-// of the picture. Specification section 4 has two ways in, and they are drawn.
+// The drawing had outgoing lines only, so every order appeared out of the middle of
+// the picture. Specification section 4 has two ways in, and they are drawn.
 //
-// The hub is the biggest thing on the page on purpose. The specification calls the
-// mediator the heart of the repo and defends building the queue by hand with "take
-// a ready-made one and the most interesting part becomes invisible". Drawing it as
-// a small box with a four-word caption made it invisible anyway. It now carries its
-// own live state and opens into the full queue.
+// And the columns were sources on the left against every system on the right, two
+// against five. That left the hub shorter than the column beside it, so the top and
+// bottom lines began in mid-air next to the hub rather than at it. Four against
+// three balances, and a bus down each inner edge means every line ends somewhere
+// whatever the two heights turn out to be.
 import { useState } from 'react';
 import type { ChaosKind, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { activityFor } from './activity';
-import { SOURCES, TARGETS, faultsFor, type Mischief } from './machine';
-import { SystemMark, type MarkId } from './SystemMark';
-import { TileMenu, type MenuItem } from './TileMenu';
+import { LEFT, RIGHT, faultsFor, type Mischief, type Node, type NodeId } from './machine';
+import { NodeTile } from './NodeTile';
+import { type MenuItem, type MenuSection } from './TileMenu';
 import { useDeliveryPulses } from './useDeliveryPulses';
 
 interface ChaosReply { detail?: string }
@@ -47,13 +47,19 @@ export function Diagram(props: {
    * sent from.
    */
   orderForm?: React.ReactNode;
+  /**
+   * Specification 8.5 wants the one replayed step said out loud. It used to be a
+   * banner under the whole machine, which is the part of a page nobody reads. It
+   * belongs on the tile it is about.
+   */
+  extractorMode?: 'live' | 'recorded';
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
 
   // Neither malformed order creates an event, so nothing about them turns up in the
   // queue or the log. What the endpoint answers is the only evidence the press did
   // anything, and it belongs on the tile that fired it.
-  const [said, setSaid] = useState<Partial<Record<MarkId, string>>>({});
+  const [said, setSaid] = useState<Partial<Record<NodeId, string>>>({});
 
   // Opening a card in the queue lights up that order's path here, so the queue and
   // the systems read as one thing seen twice rather than as neighbours.
@@ -74,138 +80,127 @@ export function Diagram(props: {
     });
   };
 
-  const fire = (node: MarkId, kind: ChaosKind) => {
+  const fire = (node: NodeId, kind: ChaosKind) => {
     void fetch(`/api/chaos/${kind}`, { method: 'POST' })
       .then((response) => response.json() as Promise<ChaosReply>)
       .then((reply) => setSaid((current) => ({ ...current, [node]: reply.detail })))
       .catch(() => setSaid((current) => ({ ...current, [node]: 'that did not go through' })));
   };
 
-  const mischiefItems = (node: MarkId, mischief: Mischief[]): MenuItem[] =>
+  const mischiefItems = (node: NodeId, mischief: Mischief[]): MenuItem[] =>
     mischief.map((one) => ({
       id: one.kind,
       label: one.label,
       run: () => fire(node, one.kind),
     }));
 
-  const wire = (id: MarkId, state?: SwitchState, mark?: 'open' | 'done') => (
-    <span
-      className="line"
-      data-testid={`line-${id}`}
-      data-state={state}
-      data-tracked={mark}
-      aria-hidden="true"
-    >
-      {pulses
-        .filter((pulse) => pulse.target === id)
-        .map((pulse) => <span key={pulse.key} className={`dot dot-${pulse.kind}`} />)}
-    </span>
-  );
+  const menuFor = (node: Node): MenuSection[] => {
+    const mischief = node.mischief.length === 0
+      ? []
+      : [{ items: mischiefItems(node.id, node.mischief) }];
+    if (node.kind === 'source') return mischief;
 
-  const sources = (
-    <ul className="spokes" data-side="left">
-      {SOURCES.map((node) => (
+    const state = props.switches[node.id];
+    return [
+      {
+        heading: 'How it behaves',
+        items: faultsFor(node.id).map((fault) => ({
+          id: fault.state,
+          label: fault.label,
+          means: fault.means,
+          chosen: fault.state === state,
+          run: () => setFault(node.id, fault.state),
+        })),
+      },
+      ...mischief,
+    ];
+  };
+
+  const menuLabelFor = (node: Node) =>
+    node.kind === 'source'
+      ? `Send something odd from the ${node.label.toLowerCase()}`
+      : `Break ${node.label} on purpose`;
+
+  /**
+   * A source sends its dot towards the hub and a system receives one from it, so
+   * the direction belongs to the node rather than to the column: both kinds now
+   * share the left side.
+   */
+  const wire = (node: Node) => {
+    const system = node.kind === 'system';
+    return (
+      <span
+        className="line"
+        data-testid={`line-${node.id}`}
+        data-state={system ? props.switches[node.id] : undefined}
+        data-tracked={system ? tracked(node.id) : undefined}
+        data-flow={system ? 'out' : 'in'}
+        aria-hidden="true"
+      >
+        {pulses
+          .filter((pulse) => pulse.target === node.id)
+          .map((pulse) => <span key={pulse.key} className={`dot dot-${pulse.kind}`} />)}
+      </span>
+    );
+  };
+
+  /**
+   * The shop is the entry point and the only node that looks different, because it
+   * is the only one that asks the visitor for something. The recorded-model note
+   * rides on the mail for the same reason: specification 8.5 wants it said, and the
+   * tile it is about is where it will actually be read.
+   */
+  const extraFor = (node: Node) => {
+    if (node.id === 'shop') return props.orderForm;
+    if (node.id === 'mail' && props.extractorMode === 'recorded') {
+      return (
+        <span className="said" data-testid="extractor-mode">
+          Replayed. No model key here.
+        </span>
+      );
+    }
+    return undefined;
+  };
+
+  const tile = (node: Node) => {
+    const system = node.kind === 'system';
+    const state = system ? props.switches[node.id] : undefined;
+    return (
+      <NodeTile
+        node={node}
+        state={state}
+        inForce={system ? faultsFor(node.id).find((f) => f.state === state) : undefined}
+        doing={system ? activityFor(node.id, props.deliveries) : null}
+        tracked={system ? tracked(node.id) : undefined}
+        said={said[node.id]}
+        menu={menuFor(node)}
+        menuLabel={menuLabelFor(node)}
+        extra={extraFor(node)}
+      />
+    );
+  };
+
+  /** The wire always sits between the tile and the hub, so it swaps sides. */
+  const column = (nodes: Node[], side: 'left' | 'right') => (
+    <ul
+      className="spokes"
+      data-side={side}
+      data-testid={`spokes-${side}`}
+    >
+      {nodes.map((node) => (
         <li className="spoke" key={node.id}>
-          <div className="target source" data-testid={`box-${node.id}`}>
-            <SystemMark target={node.id} />
-            <span className="name">{node.label}</span>
-            <span className="note">{node.note}</span>
-            {said[node.id] && (
-              <span className="said" data-testid={`said-${node.id}`}>{said[node.id]}</span>
-            )}
-            {node.id === 'shop' && props.orderForm}
-            {node.mischief.length > 0 && (
-              <TileMenu
-                testId={node.id}
-                menuLabel={`Send something odd from the ${node.label.toLowerCase()}`}
-                sections={[{ items: mischiefItems(node.id, node.mischief) }]}
-              />
-            )}
-          </div>
-          {wire(node.id)}
+          {side === 'left' ? tile(node) : wire(node)}
+          {side === 'left' ? wire(node) : tile(node)}
         </li>
       ))}
     </ul>
   );
 
-  const targets = (
-    <ul className="spokes" data-side="right">
-      {TARGETS.map((node) => {
-        const state = props.switches[node.target];
-        const doing = activityFor(node.target, props.deliveries);
-        const mark = tracked(node.target);
-        const faults = faultsFor(node.target);
-        const inForce = faults.find((fault) => fault.state === state);
-
-        const sections = [
-          {
-            heading: 'How it behaves',
-            items: faults.map((fault) => ({
-              id: fault.state,
-              label: fault.label,
-              means: fault.means,
-              chosen: fault.state === state,
-              run: () => setFault(node.target, fault.state),
-            })),
-          },
-          ...(node.mischief.length === 0
-            ? []
-            : [{ items: mischiefItems(node.target, node.mischief) }]),
-        ];
-
-        return (
-          <li className="spoke" key={node.target}>
-            {wire(node.target, state, mark)}
-            <div
-              className="target"
-              data-testid={`box-${node.target}`}
-              data-state={state}
-              data-tracked={mark}
-            >
-              <SystemMark target={node.target} />
-              <span className="name">{node.label}</span>
-              <span className="note">{node.note}</span>
-              {/* What this system is doing, always, not only when something is
-                  stuck at it. A tile that says nothing while the machine works
-                  looks like a tile of a machine that is not working. */}
-              {doing && (
-                <span
-                  className="doing"
-                  data-testid={`doing-${node.target}`}
-                  data-tone={doing.tone}
-                >
-                  {doing.text}
-                </span>
-              )}
-              {/* Silent while a system is simply working: five tiles announcing
-                  "Reachable" is five lines of noise saying nothing happened. */}
-              {state !== 'up' && inForce && (
-                <span className="fault" data-testid={`state-${node.target}`}>
-                  {inForce.label}
-                </span>
-              )}
-              {said[node.target] && (
-                <span className="said" data-testid={`said-${node.target}`}>
-                  {said[node.target]}
-                </span>
-              )}
-              <TileMenu
-                testId={node.target}
-                menuLabel={`Break ${node.label} on purpose`}
-                sections={sections}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
-
   return (
     <div className="hub" data-testid="diagram">
-      {sources}
+      {column(LEFT, 'left')}
       {props.hub}
-      {targets}
+      {column(RIGHT, 'right')}
     </div>
   );
 }

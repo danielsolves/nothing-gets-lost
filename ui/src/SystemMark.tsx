@@ -15,8 +15,7 @@
 import {
   EnvelopeOpen, EnvelopeSimple, Receipt, Storefront, type Icon,
 } from '@phosphor-icons/react';
-import type { SwitchableTarget } from '@ngl/contracts';
-import type { SourceNode } from './machine';
+import type { NodeId } from './machine';
 import { BRAND_MARKS } from './brand-marks';
 
 interface Look {
@@ -26,10 +25,7 @@ interface Look {
   glyph?: Icon;
 }
 
-/** Everything the drawing can put a mark on: the five targets and the two sources. */
-export type MarkId = SwitchableTarget | SourceNode['id'];
-
-export const SYSTEM_LOOK: Record<MarkId, Look> = {
+export const SYSTEM_LOOK: Record<NodeId, Look> = {
   stripe: { tint: '#635BFF' },
   hubspot: { tint: '#FF7A59' },
   slack: { tint: '#611F69' },
@@ -39,7 +35,7 @@ export const SYSTEM_LOOK: Record<MarkId, Look> = {
   mail: { tint: '#EFB366', glyph: EnvelopeOpen },
 };
 
-export function SystemMark({ target }: { target: MarkId }) {
+export function SystemMark({ target }: { target: NodeId }) {
   const look = SYSTEM_LOOK[target];
   const brand = BRAND_MARKS[target];
   const Glyph = look.glyph;

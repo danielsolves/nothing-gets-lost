@@ -234,7 +234,12 @@ body {
 
 .order-form { display: grid; gap: 9px; width: 100%; margin-top: 4px; }
 .order-form .stage-actions { display: grid; gap: 7px; }
-.order-form .stage-cta { width: 100%; padding: 12px 18px; font-size: 13.5px; }
+.order-form .stage-cta {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 12px;
+  letter-spacing: 0;
+}
 
 .order-disclosure {
   justify-self: start;
@@ -244,7 +249,9 @@ body {
   background: transparent;
   color: var(--muted);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
   cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease;
 }
@@ -455,8 +462,12 @@ body {
   display: grid;
   /* The left column is wider than the right on purpose: it holds the button that
      starts the demo and the form behind it, where the right holds five labels. */
-  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 26rem) minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 26rem) minmax(0, 1fr);
+  /* Everything starts at the top. Centred, the hub floated down the page while the
+     shop tile sat at the top of the column beside it, and the entry point and the
+     thing it feeds read as belonging to different rows. The columns then simply end
+     where their tiles run out, which is what the bus down each inner edge is for. */
+  align-items: start;
   gap: 0;
   padding: clamp(20px, 3vw, 40px);
   background: var(--surface);
@@ -471,34 +482,60 @@ body {
   max-width: 62ch;
 }
 
+/* A bus down the inner edge, and every line ends on it.
+
+   Without it the outermost lines began in mid-air: the hub is only as tall as it
+   needs to be, the column beside it is as tall as its tiles, and the two are never
+   the same height, so the top and bottom wires arrived beside the hub rather than
+   at it. The bus spans the first row's midline to the last row's midline, which is
+   why every column declares how many rows it has. */
 .spokes {
+  --spoke-gap: clamp(10px, 1.4vw, 18px);
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: clamp(10px, 1.4vw, 18px);
+  gap: var(--spoke-gap);
 }
 
 .spoke {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(24px, 1fr);
-  align-items: center;
-}
-.spokes[data-side='right'] .spoke {
-  grid-template-columns: minmax(24px, 1fr) auto;
   align-items: stretch;
 }
+.line { align-self: center; }
 
-/* Equal rows, so a tile that has something to say does not end up taller than its
-   neighbours and turn the column into a staircase. */
-.spokes[data-side='right'] { grid-auto-rows: 1fr; }
-.spokes[data-side='right'] .line { align-self: center; }
-
-/* The left column is where an order is composed and sent, not just a label on
-   the picture, so its tiles take the width rather than the wire taking it. */
-.spokes[data-side='left'] .spoke {
-  grid-template-columns: minmax(0, 1fr) minmax(24px, 72px);
+.spokes[data-side='right'] .spoke {
+  grid-template-columns: minmax(24px, 1fr) auto;
 }
+
+/* A bus down the inner edge, so every line ends somewhere.
+
+   Without it the outermost lines began in mid-air: the hub is only as tall as it
+   needs to be, a column is as tall as its tiles, and the two are never the same
+   height, so the top and bottom wires arrived beside the hub rather than at it.
+
+   It is drawn a row at a time rather than once per column, because the rows are
+   not the same height: the shop tile carries a button and a form and the rest do
+   not. Each row draws from its own midline down past the gap to where the next row
+   begins, and each row also draws its own upper half, so consecutive rows meet
+   exactly. The first row skips its upper half and the last skips its lower half,
+   or the bus would overshoot the outermost tiles and point at nothing. */
+.spoke::before, .spoke::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  background: oklch(from var(--accent) l c h / 0.45);
+}
+.spoke::before { top: 0; height: 50%; }
+.spoke::after { top: 50%; bottom: calc(-1 * var(--spoke-gap)); }
+.spoke:first-child::before, .spoke:last-child::after { display: none; }
+
+.spokes[data-side='left'] .spoke::before,
+.spokes[data-side='left'] .spoke::after { right: 0; }
+.spokes[data-side='right'] .spoke::before,
+.spokes[data-side='right'] .spoke::after { left: 0; }
 
 /* The wire carries the state too, so a cut reads as a broken connection and not
    only as a differently coloured tile. */
@@ -565,13 +602,18 @@ body {
 }
 
 /* Every wire carries dots, and each one still stands for something that really
-   happened. On the right a delivery changed state. On the shop wire an order
-   arrived, once per order and not once per delivery it queues, or the dot would
-   be counting the fan-out rather than the order.
+   happened: a delivery that changed state, or an order that arrived, once per
+   order and not once per delivery it queues, or the dot would be counting the
+   fan-out rather than the order.
+
+   Which way a dot travels belongs to the node rather than to the column, now that
+   both columns hold systems. A delivery leaves the hub, an arrival goes to it, and
+   on the left both of those run against the reading direction.
 
    The mail wire stays empty, and truthfully so: reading a free-text order is a
    step that ends in the extractor, and neither of the two malformed orders it can
    be handed ever reaches the queue. */
+.spokes[data-side='left'] .line[data-flow='out'] .dot { animation-direction: reverse; }
 
 /* Delivered: travels the wire and is taken in at the far end. */
 @keyframes dot-through {
@@ -615,7 +657,10 @@ body {
   gap: 3px;
   width: clamp(9.5rem, 11.5vw, 12.5rem);
   height: 100%;
-  min-height: clamp(9rem, 10.5vw, 11.5rem);
+  /* One height for every tile, chosen to hold the longest thing any of them has
+     to say without growing. Tiles of two heights in one column read as two kinds
+     of thing, and only the shop is allowed to be a different kind. */
+  min-height: clamp(11rem, 12.8vw, 13.5rem);
   padding: clamp(14px, 1.4vw, 18px);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
@@ -628,17 +673,15 @@ body {
 .target:hover { border-color: var(--line-input); }
 
 /* Sources are drawn, not driven. Nothing about them can be in a fault state, so
-   they carry no border colour of their own.
+   they carry no border colour of their own, only a dashed one that says they are
+   not somewhere we call. Otherwise they are ordinary tiles: the order mail is a
+   part of the machine like any other and reads wrong drawn larger than the systems
+   it feeds. */
+.target.source { border-style: dashed; }
 
-   They are also not squares. The shop tile holds the button that starts the whole
-   demo and the form behind it, and a source with nothing to say is still better
-   read as a wide label than as an undersized version of a system. */
-.target.source {
-  border-style: dashed;
-  width: 100%;
-  aspect-ratio: auto;
-  gap: 5px;
-}
+/* Every tile is the same width, including the one that carries the button. A row
+   of systems drawn at two different sizes reads as two different kinds of thing,
+   and they are not. The shop is simply taller, because it has more in it. */
 
 .system-mark {
   display: grid;
