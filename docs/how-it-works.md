@@ -156,7 +156,9 @@ export function idempotencyKey(eventId: string, target: Target): string {
 | Target | Technique | Where |
 |---|---|---|
 | Stripe | `idempotency-key` header on `POST /v1/payment_intents`. Stripe replays the original response instead of charging twice. | `targets/stripe.target.ts` |
-| HubSpot | Natural key. Search contacts by email, then `PATCH` the existing id or `POST` a new contact. A `409` or a missing id triggers a read back, because another worker may have won the race. | `targets/hubspot.target.ts` |
+| HubSpot, the buyer | Natural key. Search contacts by email, then `PATCH` the existing id or `POST` a new contact. A `409` or a missing id triggers a read back, because another worker may have won the race. | `targets/hubspot.target.ts` |
+| HubSpot, the order | The deal is named after the event id, and a retry searches for that name before creating one. Its basket is read back before it is written, so a retry adds only the lines a crash left missing. | `targets/hubspot.order.ts` |
+| HubSpot, the catalogue | A sku is claimed in `hubspot_products` before the product is created and its id written after. Search cannot carry this: HubSpot indexes a new product about seven seconds after creating it, and the first two retry gaps are two and eight. An interrupted claim is settled by age. | `hubspot-catalogue.log.ts` |
 | Slack, my workspace | No key and no natural key. The delivery embeds `idempotencyKey` as a marker in the message text and reads `conversations.history` back before posting. My own app holds `channels:history`, so this is available here and only here. | `targets/slack.target.ts` |
 | Slack, your workspace | Same marker, no read. Connecting asks for `chat:write` and `incoming-webhook` only, so a row in `slack_visitor_sends` is written before the call and completed after it. | `slack-send.log.ts` |
 | ledger | `UNIQUE (event_id)` on `invoices`, plus `ON CONFLICT (event_id) DO NOTHING` and a read back, so a repeat returns the original invoice number rather than an error. | `services/ledger/src/invoice.service.ts` |

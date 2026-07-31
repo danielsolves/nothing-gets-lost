@@ -11,6 +11,7 @@
 // (spec 9.4, 10.1).
 import { HubSpotClient, HubSpotTarget } from './hubspot.target';
 import { HubSpotOrders } from './hubspot.order';
+import { HubSpotCatalogue } from './hubspot.catalogue';
 import { StripeClient, StripeTarget } from './stripe.target';
 import { SlackClient, SlackTarget } from './slack.target';
 import { LedgerClient, LedgerTarget } from './ledger.target';
@@ -18,6 +19,7 @@ import { MailerClient, MailerTarget } from './mailer.target';
 import { WebhookTarget } from './webhook.target';
 import type { CredentialResolver } from '../credentials';
 import type { SlackSendLog } from '../slack-send.log';
+import type { CatalogueLog } from '../hubspot-catalogue.log';
 import type { DeliveryTarget } from '../target.interface';
 
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
@@ -29,13 +31,14 @@ function via(target: string): string {
 export function buildTargets(
   credentials: CredentialResolver,
   slackSendLog: SlackSendLog,
+  catalogueLog: CatalogueLog,
   env: NodeJS.ProcessEnv = process.env,
   webhookUrl: () => Promise<string | null> = () => Promise.resolve(null),
 ): DeliveryTarget[] {
   return [
     new HubSpotTarget(
       new HubSpotClient(via('hubspot')), () => credentials.hubspot(),
-      new HubSpotOrders(via('hubspot')),
+      new HubSpotOrders(via('hubspot'), new HubSpotCatalogue(via('hubspot'), catalogueLog)),
     ),
     new StripeTarget(new StripeClient(via('stripe'), env.STRIPE_SECRET_KEY ?? '')),
     new SlackTarget(

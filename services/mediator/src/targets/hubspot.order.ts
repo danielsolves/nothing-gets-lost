@@ -17,6 +17,7 @@
 // demo need a setup step before it could be believed.
 import type { HubSpotCredentials } from '../credentials';
 import { HubSpotHttp, type Fetch } from './hubspot.http';
+import type { HubSpotCatalogue } from './hubspot.catalogue';
 
 /** The basket as the order was priced, frozen into the event payload at intake. */
 export interface OrderLine {
@@ -37,27 +38,10 @@ export interface OrderPayload {
 interface Created { id?: string }
 interface Found { total?: number; results?: Array<{ id: string }> }
 interface Associated { results?: Array<{ toObjectId: string | number }> }
-interface ReadBack { results?: Array<{ properties?: { name?: string } }> }
+interface ReadBack { results?: Array<{ properties?: { hs_sku?: string } }> }
 
 function euros(cents: number): string {
   return (cents / 100).toFixed(2);
-}
-
-/**
- * The basket in words, for the deal's description.
- *
- * The line items are the real record and this is a copy of them, which is normally
- * the wrong trade. It earns its place because HubSpot will not show the real one:
- * the card that lists line items on a deal belongs to the paid products tooling, so
- * on a free account the deal says 73.00 and never says what for. A visitor reading
- * the CRM should not have to open an API client to find out what was ordered.
- *
- * Written once, when the deal is created. A retry finds the deal and leaves it
- * alone, so this never overwrites anything a person edited by hand.
- */
-export function basketText(lines: OrderLine[], totalCents: number): string {
-  const rows = lines.map((line) => `${line.qty} x ${line.name}  ${euros(line.cents)} EUR`);
-  return [...rows, `Total  ${euros(totalCents)} EUR`].join('\n');
 }
 
 /**
@@ -72,7 +56,11 @@ export function dealNameFor(eventId: string): string {
 export class HubSpotOrders {
   private readonly http: HubSpotHttp;
 
-  constructor(baseUrl: string, doFetch: Fetch = fetch) {
+  constructor(
+    baseUrl: string,
+    private readonly catalogue: HubSpotCatalogue,
+    doFetch: Fetch = fetch,
+  ) {
     this.http = new HubSpotHttp(baseUrl, doFetch);
   }
 
@@ -97,19 +85,17 @@ export class HubSpotOrders {
     const existing = await this.findDeal(creds, dealname);
     if (existing) return existing;
 
-    const lines = payload.lines ?? [];
+    // No description. The basket used to be copied in here as prose, because line
+    // items pointing at nothing were invisible on the deal, and it left the record
+    // stating its total twice and disagreeing with itself if anyone edited one. The
+    // products card carries the basket now (see hubspot.catalogue.ts), and the
+    // amount below is the only place the total is stated.
     const created = await this.http.call(creds, '/crm/v3/objects/deals', {
       method: 'POST',
       body: JSON.stringify({
         properties: {
           dealname,
           amount: euros(payload.totalCents),
-          // Absent rather than empty for an order that was never booked as a basket,
-          // a Stripe payment webhook being the one that does that. A description
-          // reading "Total 73.00" and nothing else says less than no description.
-          ...(lines.length > 0
-            ? { description: basketText(lines, payload.totalCents) }
-            : {}),
         },
       }),
     });
@@ -137,29 +123,39 @@ export class HubSpotOrders {
   }
 
   /**
-   * Only the lines that are not on the deal already, matched by name.
+   * Only the lines that are not on the deal already, matched by sku.
    *
    * A retry that simply created the basket again would double it, and a basket that
    * doubles on a retry is precisely the failure this whole demo is built to say
    * cannot happen here. Reading first costs one call and makes the claim true even
    * when the worker dies between creating the deal and filling it.
+   *
+   * Matched by sku rather than by the name a person reads: two catalogue entries may
+   * end up sharing a name, and none of them can share a sku. The line item carries
+   * one because it points at a product that does.
    */
   private async addMissingLines(
     creds: HubSpotCredentials, dealId: string, lines: OrderLine[],
   ): Promise<void> {
     if (lines.length === 0) return;
-    const already = await this.lineNamesOn(creds, dealId);
+    const already = await this.lineSkusOn(creds, dealId);
     for (const line of lines) {
-      if (already.has(line.name)) continue;
+      if (already.has(line.sku)) continue;
+      const productId = await this.catalogue.idFor(creds, line);
       const created = await this.http.call(creds, '/crm/v3/objects/line_items', {
         method: 'POST',
         body: JSON.stringify({
           properties: {
-            name: line.name,
+            // Naming the product is what puts this line on the deal's products card.
+            // Name and sku come across from it, so they are not repeated here and
+            // cannot drift from the catalogue.
+            hs_product_id: productId,
             quantity: String(line.qty),
             // HubSpot prices a line item per unit and multiplies it out itself. The
             // payload carries the whole line, because that is the figure a visitor
-            // checks against the receipt, so it is divided back down here.
+            // checks against the receipt, so it is divided back down here. Stated
+            // even though the product carries a price, because an order is the price
+            // it was placed at and the catalogue may move afterwards.
             price: euros(line.cents / line.qty),
           },
         }),
@@ -169,7 +165,7 @@ export class HubSpotOrders {
     }
   }
 
-  private async lineNamesOn(
+  private async lineSkusOn(
     creds: HubSpotCredentials, dealId: string,
   ): Promise<Set<string>> {
     const links = await this.http.call(
@@ -181,12 +177,12 @@ export class HubSpotOrders {
 
     const read = await this.http.call(creds, '/crm/v3/objects/line_items/batch/read', {
       method: 'POST',
-      body: JSON.stringify({ properties: ['name'], inputs: ids.map((id) => ({ id })) }),
+      body: JSON.stringify({ properties: ['hs_sku'], inputs: ids.map((id) => ({ id })) }),
     });
-    const names = ((read.body as ReadBack).results ?? [])
-      .map((row) => row.properties?.name)
-      .filter((name): name is string => typeof name === 'string');
-    return new Set(names);
+    const skus = ((read.body as ReadBack).results ?? [])
+      .map((row) => row.properties?.hs_sku)
+      .filter((sku): sku is string => typeof sku === 'string');
+    return new Set(skus);
   }
 
   /**

@@ -18,6 +18,7 @@ import { buildTargets } from './targets';
 import { assertTestMode } from './stripe.webhook';
 import { CredentialResolver } from './credentials';
 import { PgSlackSendLog } from './slack-send.log';
+import { PgCatalogueLog } from './hubspot-catalogue.log';
 
 const PORT = 3002;
 
@@ -67,7 +68,9 @@ async function bootstrap(): Promise<void> {
 
   const worker = new WorkerService(
     queue,
-    buildTargets(credentials, new PgSlackSendLog(pool), process.env, webhookUrl),
+    buildTargets(
+      credentials, new PgSlackSendLog(pool), new PgCatalogueLog(pool), process.env, webhookUrl,
+    ),
     pool,
     new CompletionService(pool),
   );
