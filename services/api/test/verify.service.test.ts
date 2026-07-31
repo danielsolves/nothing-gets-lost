@@ -23,7 +23,7 @@ const clients = {
       return {
         requestUrl: `https://api.hubapi.com/crm/v3/objects/contacts/${id}`,
         status: 200,
-        body: { id, properties: { hs_createdate: '2026-07-30T14:06:31.000Z' } },
+        body: { id, properties: { createdate: '2026-07-30T14:06:31.000Z' } },
       };
     },
   },

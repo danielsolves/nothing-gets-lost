@@ -59,7 +59,7 @@ class FakeWorld {
       const id = this.contacts.get(email);
       return json({
         total: id ? 1 : 0,
-        results: id ? [{ id, properties: { email, hs_createdate: '2026-07-30T14:06:31.000Z' } }] : [],
+        results: id ? [{ id, properties: { email, createdate: '2026-07-30T14:06:31.000Z' } }] : [],
       });
     }
 
@@ -68,13 +68,13 @@ class FakeWorld {
       this.hubspotWrites.push({ token, email });
       const id = `contact-${this.nextContact++}`;
       this.contacts.set(email, id);
-      return json({ id, properties: { hs_createdate: '2026-07-30T14:06:31.000Z' } }, 201);
+      return json({ id, properties: { createdate: '2026-07-30T14:06:31.000Z' } }, 201);
     }
 
     if (init?.method === 'PATCH') {
       const id = String(url.split('/').pop());
       this.hubspotWrites.push({ token, email: body.properties.email });
-      return json({ id, properties: { hs_createdate: '2026-07-30T14:06:31.000Z' } });
+      return json({ id, properties: { createdate: '2026-07-30T14:06:31.000Z' } });
     }
 
     return json({ ok: false, error: 'unknown' }, 404);

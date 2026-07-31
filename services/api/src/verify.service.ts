@@ -70,13 +70,13 @@ export class VerifyService {
         };
       }
       const result = await this.clients.hubspot.getContact(creds, id);
-      const body = result.body as { properties?: { hs_createdate?: string } };
+      const body = result.body as { properties?: { createdate?: string } };
       return {
         target, indisputable,
         requestUrl: result.requestUrl,
         httpStatus: result.status,
         remoteRef: id,
-        remoteAt: body.properties?.hs_createdate ?? null,
+        remoteAt: body.properties?.createdate ?? null,
         rawBody: result.body,
       };
     }

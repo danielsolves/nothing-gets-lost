@@ -24,7 +24,7 @@ You do not have to take my word for any of it:
 | **SQL console** | query the database yourself, read-only |
 | **Your own endpoint** | give it a url and see the retries arrive on your server |
 | **Your own Slack** | connect a workspace and the notification appears in the channel you pick |
-| **Your own HubSpot** | connect a portal and the contact appears in your CRM, with HubSpot's own `hs_createdate` |
+| **Your own HubSpot** | connect a portal and the contact appears in your CRM, with HubSpot's own `createdate` |
 
 Connecting is optional and lasts 24 hours. Slack is asked for `chat:write` and
 `incoming-webhook`, HubSpot for `crm.objects.contacts.read` and `.write`, and nothing

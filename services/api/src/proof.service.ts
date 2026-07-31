@@ -58,7 +58,7 @@ export class ProofService {
 
 /**
  * The production lookups. Every timestamp here was written by a foreign system and
- * only stored by us: Stripe's charge time and HubSpot's hs_createdate arrive as
+ * only stored by us: Stripe's charge time and HubSpot's createdate arrive as
  * remote_at, and sent_mail.sent_at is the row the mailer writes around its own send.
  */
 export class ProofLookups implements Lookups {

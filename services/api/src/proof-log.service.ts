@@ -24,7 +24,7 @@ const HOW_TO_VERIFY: Record<string, string> = {
     'Open the confirmation in your own inbox and read the Received header. Your mail '
     + 'provider wrote that timestamp, not us. Indisputable.',
   hubspot:
-    'The read-back shows api.hubapi.com and HubSpot own hs_createdate, but we render '
+    'The read-back shows api.hubapi.com and HubSpot own createdate, but we render '
     + 'it, so treat it as an indication. Connect your own HubSpot portal for proof.',
   slack:
     'Join the open demo channel and find the message, or connect your own workspace. '

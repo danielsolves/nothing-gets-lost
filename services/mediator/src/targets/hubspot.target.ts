@@ -5,6 +5,14 @@
 // address identifies the contact. A retry after a crash finds the existing contact
 // and patches it instead of creating a second one (spec 6.5).
 //
+// The timestamp read back is `createdate`. It was `createdate` for a long time,
+// which is a real HubSpot property on several object types and is not one on a
+// contact: the api answers with the field simply absent rather than with an error,
+// so every delivery landed, reported success, and carried no remote time at all.
+// That is the one field the proof chain wants from HubSpot (spec 9.1), and it was
+// quietly null on every order. The fakes in the tests said createdate too, so
+// they agreed with the bug instead of catching it.
+//
 // That holds just as well in the visitor's own portal (spec 9.4): their email
 // address is a natural key over there too, so connecting a portal changes the token
 // and nothing else about how exactly-once is achieved.
@@ -57,22 +65,22 @@ export class HubSpotClient {
       method: 'POST',
       body: JSON.stringify({
         filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }],
-        properties: ['email', 'hs_createdate'],
+        properties: ['email', 'createdate'],
       }),
-    })) as { body: { total: number; results: Array<{ id: string; properties: { hs_createdate: string } }> } };
+    })) as { body: { total: number; results: Array<{ id: string; properties: { createdate: string } }> } };
 
     const first = result.body.results?.[0];
     return {
       total: result.body.total ?? 0,
       id: first?.id ?? null,
-      createdAt: first?.properties?.hs_createdate ?? null,
+      createdAt: first?.properties?.createdate ?? null,
     };
   }
 
   async getContact(
     creds: HubSpotCredentials, id: string,
   ): Promise<{ requestUrl: string; status: number; body: unknown }> {
-    const path = `/crm/v3/objects/contacts/${id}?properties=email,hs_createdate`;
+    const path = `/crm/v3/objects/contacts/${id}?properties=email,createdate`;
     const result = (await this.call(creds, path)) as { status: number; body: unknown };
     return { requestUrl: `${this.baseUrl}${path}`, status: result.status, body: result.body };
   }
@@ -97,7 +105,7 @@ export class HubSpotClient {
     const created = (await this.call(creds, '/crm/v3/objects/contacts', {
       method: 'POST',
       body: JSON.stringify({ properties }),
-    })) as { status: number; body: { id?: string; properties?: { hs_createdate?: string } } };
+    })) as { status: number; body: { id?: string; properties?: { createdate?: string } } };
 
     // Two workers raced us to it. Read back instead of failing.
     if (created.status === 409 || !created.body.id) {
@@ -108,7 +116,7 @@ export class HubSpotClient {
 
     return {
       id: created.body.id,
-      createdAt: created.body.properties?.hs_createdate ?? null,
+      createdAt: created.body.properties?.createdate ?? null,
     };
   }
 }

@@ -30,7 +30,7 @@ class FakeHubSpot {
       return json({
         total: found ? 1 : 0,
         results: found
-          ? [{ id: found.id, properties: { email, hs_createdate: found.createdAt } }]
+          ? [{ id: found.id, properties: { email, createdate: found.createdAt } }]
           : [],
       });
     }
@@ -45,20 +45,20 @@ class FakeHubSpot {
         createdAt: '2026-07-30T14:06:31.000Z',
       };
       this.contacts.set(email, created);
-      return json({ id: created.id, properties: { hs_createdate: created.createdAt } }, 201);
+      return json({ id: created.id, properties: { createdate: created.createdAt } }, 201);
     }
 
     if (init?.method === 'PATCH') {
       const id = url.split('/').pop()!;
       const entry = [...this.contacts.values()].find((c) => c.id === id);
-      return json({ id, properties: { hs_createdate: entry?.createdAt } });
+      return json({ id, properties: { createdate: entry?.createdAt } });
     }
 
     if (init?.method === undefined || init.method === 'GET') {
       const id = url.split('/')[url.split('/').length - 1].split('?')[0];
       const entry = [...this.contacts.values()].find((c) => c.id === id);
       if (!entry) return json({ status: 'error' }, 404);
-      return json({ id, properties: { hs_createdate: entry.createdAt } });
+      return json({ id, properties: { createdate: entry.createdAt } });
     }
 
     return json({ status: 'error' }, 500);
