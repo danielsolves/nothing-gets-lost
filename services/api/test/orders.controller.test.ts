@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
+import type { PlaceOrderRequest } from '@ngl/contracts';
 import { OrderViewsService } from '../src/order-views.service';
 import { OrdersService } from '../src/orders.service';
 import type { EventIntake, IntakeInput, IntakeResult } from '../src/intake.port';
@@ -87,6 +88,64 @@ describe('OrdersService', () => {
       'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
     );
     expect(rows.map((r) => r.target)).toEqual(['hubspot', 'ledger', 'slack', 'stripe']);
+  });
+
+  // A visitor picks Stripe or PayPal when the order is placed and exactly one of
+  // them is charged. Both would be a shop that bills twice, neither a shop that
+  // ships for free, and the demo only shows things that are true.
+
+  it('queues the route the visitor picked and not the other one', async () => {
+    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
+    const { rows } = await pool.query(
+      'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
+    );
+    expect(rows.map((r) => r.target)).toEqual(['hubspot', 'ledger', 'paypal', 'slack']);
+  });
+
+  it('books the route on the order, where the read-only console can reach it', async () => {
+    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
+    const { rows } = await pool.query<{ payment_route: string }>(
+      'SELECT payment_route FROM orders WHERE id = $1', [result.orderId],
+    );
+    expect(rows[0].payment_route).toBe('paypal');
+  });
+
+  it('carries the route in the payload, the only copy the mediator reads', async () => {
+    // A mediator that restarts mid-order reads the payload back rather than
+    // deciding anything again, and it never looks at the orders table.
+    const result = await orders.place({ ...request, paymentRoute: 'paypal' });
+    const { rows } = await pool.query<{ route: string }>(
+      `SELECT payload->>'paymentRoute' AS route FROM events WHERE id = $1`,
+      [result.eventId],
+    );
+    expect(rows[0].route).toBe('paypal');
+  });
+
+  it('sends an order with no stated route to stripe, and says so on the row', async () => {
+    const result = await orders.place(request);
+    const { rows } = await pool.query<{ payment_route: string }>(
+      'SELECT payment_route FROM orders WHERE id = $1', [result.orderId],
+    );
+    expect(rows[0].payment_route).toBe('stripe');
+  });
+
+  it('sends the demo order, which carries no body at all, to stripe', async () => {
+    const result = await orders.placeDemo(request.items);
+    const { rows } = await pool.query(
+      'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
+    );
+    expect(rows.map((r) => r.target)).toContain('stripe');
+    expect(rows.map((r) => r.target)).not.toContain('paypal');
+  });
+
+  it('refuses a payment route nothing can charge', async () => {
+    // Not a cast: JSON.parse is what the body actually arrives as, and the type
+    // annotation is the same claim the controller makes about it. The claim is
+    // wrong here, which is exactly the case the check exists for.
+    const fromTheWire: PlaceOrderRequest = JSON.parse(
+      '{"items":[{"sku":"MUG-BLUE","qty":1}],"paymentRoute":"bitcoin"}',
+    );
+    await expect(orders.place(fromTheWire)).rejects.toThrow(/payment route/i);
   });
 
   it('rejects an unknown sku instead of pricing it as zero', async () => {

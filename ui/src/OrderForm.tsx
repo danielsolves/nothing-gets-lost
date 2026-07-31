@@ -13,7 +13,17 @@
 // witness of the proof chain. It is simply no longer the toll gate. Leave it out and
 // there is no mail step, rather than a mail addressed to nobody.
 import { useEffect, useState } from 'react';
-import { DEFAULT_BASKET, type CatalogItem, type PlaceOrderResponse } from '@ngl/contracts';
+import {
+  DEFAULT_BASKET, DEFAULT_PAYMENT_ROUTE, PAYMENT_ROUTES,
+  type CatalogItem, type PaymentRoute, type PlaceOrderResponse,
+} from '@ngl/contracts';
+
+/**
+ * One order is paid once. Two providers charged for one basket is not a thing that
+ * happens in a shop, and this page has nothing to sell but its own truthfulness, so
+ * these are a radio group and never a pair of checkboxes.
+ */
+const ROUTE_LABELS: Record<PaymentRoute, string> = { stripe: 'Stripe', paypal: 'PayPal' };
 
 const STARTING_BASKET: Record<string, number> = Object.fromEntries(
   DEFAULT_BASKET.map((line) => [line.sku, line.qty]),
@@ -30,6 +40,7 @@ export function OrderForm({
   const [quantities, setQuantities] = useState<Record<string, number>>(STARTING_BASKET);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [route, setRoute] = useState<PaymentRoute>(DEFAULT_PAYMENT_ROUTE);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +70,9 @@ export function OrderForm({
         ? await fetch('/api/orders', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ customerName: name, customerEmail: email, items }),
+            body: JSON.stringify({
+              customerName: name, customerEmail: email, items, paymentRoute: route,
+            }),
           })
         : await fetch('/api/demo-order', { method: 'POST' });
 
@@ -126,6 +139,27 @@ export function OrderForm({
               </li>
             ))}
           </ul>
+
+          <fieldset className="order-routes">
+            <legend>How to pay</legend>
+            {PAYMENT_ROUTES.map((option) => (
+              <label key={option}>
+                <input
+                  type="radio"
+                  name="payment-route"
+                  data-testid={`route-${option}`}
+                  checked={route === option}
+                  onChange={() => setRoute(option)}
+                />
+                {ROUTE_LABELS[option]}
+              </label>
+            ))}
+            <p className="order-hint" data-testid="route-note">
+              Only Stripe ends in a receipt page stripe.com serves itself, which is
+              the one payment proof nobody here can fake. PayPal is just as real and
+              leaves no such page.
+            </p>
+          </fieldset>
 
           <input placeholder="Your name, if you like" value={name} data-testid="order-name"
                  aria-label="Your name" autoComplete="name"

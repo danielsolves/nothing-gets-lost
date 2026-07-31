@@ -29,7 +29,7 @@ beforeEach(async () => { await pool.query('TRUNCATE events CASCADE'); });
 /** A delivery frozen in a given state, with the two timestamps set explicitly. */
 async function seed(options: {
   state: string; attempts: number; secondsUntilRetry?: number;
-  lastError?: string; remoteRef?: string;
+  lastError?: string; remoteRef?: string; target?: string;
 }): Promise<void> {
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO events (external_id, kind, payload)
@@ -39,11 +39,12 @@ async function seed(options: {
   await pool.query(
     `INSERT INTO deliveries
        (event_id, target, state, attempts, next_at, last_error, remote_ref, updated_at)
-     VALUES ($1, 'slack', $2, $3,
+     VALUES ($1, $7, $2, $3,
              now() + make_interval(secs => $4), $5, $6, now())`,
     [
       rows[0].id, options.state, options.attempts,
       options.secondsUntilRetry ?? 0, options.lastError ?? null, options.remoteRef ?? null,
+      options.target ?? 'slack',
     ],
   );
 }
@@ -57,6 +58,14 @@ describe('DeliveriesService timeline', () => {
     const second = await service.timeline(10);
 
     expect(second[0].text).toBe(first[0].text);
+  });
+
+  it('calls the paypal line PayPal rather than leaving it unnamed', async () => {
+    // The label map covers every target by type. A missing entry does not fail to
+    // compile in the browser, it reads as "undefined: confirmed" on the page.
+    await seed({ state: 'done', attempts: 1, remoteRef: '3C41', target: 'paypal' });
+    const [entry] = await service.timeline(10);
+    expect(entry.text).toBe('PayPal: confirmed as 3C41');
   });
 
   it('phrases the delay as the schedule it was given', async () => {

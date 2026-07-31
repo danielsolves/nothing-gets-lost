@@ -98,6 +98,7 @@ describe('OrderForm', () => {
         customerName: 'M. Berger',
         customerEmail: 'm@example.com',
         items: [{ sku: 'TEAPOT', qty: 3 }, { sku: 'MUG-BLUE', qty: 2 }],
+        paymentRoute: 'stripe',
       },
     }]);
   });
@@ -110,8 +111,45 @@ describe('OrderForm', () => {
 
     expect(sent).toEqual([{
       url: '/api/orders',
-      body: { customerName: '', customerEmail: '', items: [{ sku: 'TEAPOT', qty: 1 }] },
+      body: {
+        customerName: '', customerEmail: '',
+        items: [{ sku: 'TEAPOT', qty: 1 }], paymentRoute: 'stripe',
+      },
     }]);
+  });
+
+  it('takes the usual route when nobody chose one', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('send-order'));
+    expect((sent[0].body as { paymentRoute: string }).paymentRoute).toBe('stripe');
+  });
+
+  it('sends the other route when it is picked', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('route-paypal'));
+    fireEvent.click(screen.getByTestId('send-order'));
+    expect((sent[0].body as { paymentRoute: string }).paymentRoute).toBe('paypal');
+  });
+
+  it('offers exactly one route at a time, because an order is paid once', async () => {
+    // Two payment providers charged for one basket is not a thing that happens in a
+    // shop, and this page has nothing to sell but its own truthfulness.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByTestId('route-stripe')).toBeChecked();
+    expect(screen.getByTestId('route-paypal')).not.toBeChecked();
+    fireEvent.click(screen.getByTestId('route-paypal'));
+    expect(screen.getByTestId('route-stripe')).not.toBeChecked();
+  });
+
+  it('says what the visitor gives up by leaving the usual route', async () => {
+    // Only one of the two ends in a page a stranger can open, and the proof chain is
+    // the whole product.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByTestId('route-note')).toHaveTextContent(/receipt/i);
   });
 
   it('will not send an empty basket, and says what is missing', async () => {

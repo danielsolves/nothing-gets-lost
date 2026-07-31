@@ -29,7 +29,7 @@ const base = {
 afterEach(cleanup);
 
 const ALL_UP: Record<SwitchableTarget, SwitchState> = {
-  hubspot: 'up', stripe: 'up', slack: 'up', ledger: 'up', mailer: 'up',
+  hubspot: 'up', stripe: 'up', paypal: 'up', slack: 'up', ledger: 'up', mailer: 'up',
 };
 
 const waiting: DeliveryView[] = [

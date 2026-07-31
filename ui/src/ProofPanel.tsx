@@ -7,8 +7,19 @@
 // that sat there saying "not yet" forever would read as the machine being stuck,
 // which is the exact opposite of the claim. It says plainly what is missing and how
 // to get it instead.
+//
+// The same goes for the payment. There are two routes and only one of them ends in a
+// page a stranger can open: Stripe serves a receipt, PayPal does not. Rendering the
+// receipt link for both would hand half the visitors a dead link, and quietly
+// omitting it would leave them wondering what they had missed. It says which it is.
 import { useEffect, useState } from 'react';
-import type { ProofResponse } from '@ngl/contracts';
+import type { PaymentRoute, ProofResponse } from '@ngl/contracts';
+
+/**
+ * Named rather than printed raw, because the label is a claim about who stamped
+ * the time and the wire carries an identifier, not a sentence.
+ */
+const PAYER: Record<PaymentRoute, string> = { stripe: 'Stripe', paypal: 'PayPal' };
 
 export function ProofPanel({
   eventId, expectMail,
@@ -33,12 +44,22 @@ export function ProofPanel({
 
       <div className="witnesses">
         <div className="witness">
-          <span className="who">Stripe stamped the payment</span>
+          <span className="who" data-testid="proof-paid-by">
+            {proof.paidAtSource === null
+              ? 'Nothing was paid for this one'
+              : `${PAYER[proof.paidAtSource]} stamped the payment`}
+          </span>
           <time data-testid="proof-paid">{format(proof.paidAt)}</time>
-          {proof.receiptUrl && (
+          {proof.receiptUrl ? (
             <a href={proof.receiptUrl} target="_blank" rel="noreferrer">
               Open the receipt on stripe.com
             </a>
+          ) : proof.paidAtSource === 'paypal' && (
+            <small data-testid="proof-no-receipt">
+              PayPal serves no receipt page anybody can open, so this half of the
+              chain rests on the timestamp alone. Pay with the other route and you
+              get a page stripe.com serves itself.
+            </small>
           )}
         </div>
 

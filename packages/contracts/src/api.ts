@@ -1,7 +1,7 @@
 // packages/contracts/src/api.ts
 // Request and response types for the 24 endpoints listed in spec 16.2.
 import type { BoardSnapshot } from './stream';
-import type { Target, SwitchState } from './targets';
+import type { Target, SwitchState, PaymentRoute } from './targets';
 
 export interface CatalogItem { sku: string; name: string; cents: number }
 
@@ -15,6 +15,12 @@ export interface CatalogItem { sku: string; name: string; cents: number }
 export interface PlaceOrderRequest {
   customerName?: string;
   customerEmail?: string;
+  /**
+   * Which of the two providers takes the money. Optional, and absent means
+   * DEFAULT_PAYMENT_ROUTE: POST /api/demo-order carries no body at all and has to
+   * keep working untouched. Exactly one route is charged either way.
+   */
+  paymentRoute?: PaymentRoute;
   items: Array<{ sku: string; qty: number }>;
 }
 export interface PlaceOrderResponse { eventId: string; orderId: string }
@@ -62,7 +68,13 @@ export interface VerifyResponse {
 export interface ProofResponse {
   eventId: string;
   paidAt: string | null;
-  paidAtSource: 'stripe';
+  /**
+   * Which provider stamped `paidAt`, read off the delivery that took the money
+   * rather than off what the order asked for. Null when the event has no payment
+   * leg at all, which a Stripe webhook does not: it arrives already paid.
+   */
+  paidAtSource: PaymentRoute | null;
+  /** Only Stripe serves one. PayPal has no page a visitor can open (spec 9.2). */
   receiptUrl: string | null;
   mailReceivedAt: string | null;
   mailReceivedAtSource: 'recipient mail server';

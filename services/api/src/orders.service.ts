@@ -9,15 +9,26 @@
 // fields come out of one: `customerEmail` is the identity the order is booked
 // under, always present, house address if nobody gave one; `confirmTo` is the
 // promise of a mail and exists only when a real person asked for it.
+//
+// The payment route is settled here too, and only here. The mediator decides
+// nothing about it: this is where the target list is built, so exactly one of the
+// two payment targets is ever queued, and a mediator that restarts reads the
+// delivery rows back rather than choosing again.
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import type { PlaceOrderRequest, PlaceOrderResponse } from '@ngl/contracts';
+import {
+  DEFAULT_PAYMENT_ROUTE, isPaymentRoute,
+  type PaymentRoute, type PlaceOrderRequest, type PlaceOrderResponse, type Target,
+} from '@ngl/contracts';
 import type { EventIntake } from './intake.port';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-/** The confirmation mail is missing on purpose: rule 6.7 queues it at the end. */
-const TARGETS = ['stripe', 'hubspot', 'ledger', 'slack'] as const;
+/**
+ * Everywhere an order goes apart from the payment, which is one target chosen per
+ * order. The confirmation mail is missing on purpose: rule 6.7 queues it at the end.
+ */
+const TARGETS = ['hubspot', 'ledger', 'slack'] as const;
 
 /**
  * Every order has to be booked under some address, because Stripe wants one for
@@ -56,6 +67,7 @@ export class OrdersService {
 
     const customerName = request.customerName?.trim() || HOUSE_NAME;
     const customerEmail = confirmTo || HOUSE_IDENTITY;
+    const paymentRoute = this.routeFor(request);
     const totalCents = await this.priceFromCatalogue(request);
 
     const intake = await this.intake.accept({
@@ -65,27 +77,50 @@ export class OrdersService {
         customerName,
         customerEmail,
         ...(confirmTo === '' ? {} : { confirmTo }),
+        paymentRoute,
         items: request.items,
         totalCents,
       },
       // custom_webhook joins only when a url is configured. Queueing it
       // unconditionally would hand every visitor a dead letter for a target
       // they never asked for.
-      targets: (await this.webhook?.get()) ? [...TARGETS, 'custom_webhook'] : TARGETS,
+      targets: await this.targetsFor(paymentRoute),
     });
 
     const { rows } = await this.pool.query<{ id: string }>(
-      `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents, source)
-       VALUES ($1, $2, $3, $4::jsonb, $5, 'form') RETURNING id`,
+      `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
+                           source, payment_route)
+       VALUES ($1, $2, $3, $4::jsonb, $5, 'form', $6) RETURNING id`,
       [
         intake.eventId, customerName, customerEmail,
-        JSON.stringify(request.items), totalCents,
+        JSON.stringify(request.items), totalCents, paymentRoute,
       ],
     );
     const order = rows[0];
     if (!order) throw new Error('the order could not be stored');
 
     return { eventId: intake.eventId, orderId: order.id };
+  }
+
+  /**
+   * The body is whatever the network sent, whatever the type says about it, and a
+   * route we cannot charge has to be refused rather than quietly turned into the
+   * default. Somebody who asked for PayPal and was billed by Stripe was not served,
+   * they were overruled.
+   */
+  private routeFor(request: PlaceOrderRequest): PaymentRoute {
+    const asked = request.paymentRoute;
+    if (asked === undefined) return DEFAULT_PAYMENT_ROUTE;
+    if (!isPaymentRoute(asked)) {
+      throw new Error(`unknown payment route: ${String(asked)}`);
+    }
+    return asked;
+  }
+
+  /** Exactly one payment target, never both and never neither. */
+  private async targetsFor(paymentRoute: PaymentRoute): Promise<readonly Target[]> {
+    const targets: Target[] = [paymentRoute, ...TARGETS];
+    return (await this.webhook?.get()) ? [...targets, 'custom_webhook'] : targets;
   }
 
   private async priceFromCatalogue(request: PlaceOrderRequest): Promise<number> {

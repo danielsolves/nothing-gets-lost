@@ -65,6 +65,14 @@ describe('ProofLogService', () => {
     expect(log.howToVerify.hubspot).toContain('indication');
   });
 
+  it('says plainly that a paypal capture has no page to open', async () => {
+    // The file has to be readable by somebody who was not at the demo. Leaving
+    // PayPal out would let a reader assume its line is as checkable as Stripe's.
+    const log = await service.build(await seed());
+    expect(log.howToVerify.paypal).toMatch(/no receipt page/i);
+    expect(log.howToVerify.paypal).not.toMatch(/indisputable/i);
+  });
+
   it('does not leak the customer email address', async () => {
     const eventId = await seed();
     await pool.query(

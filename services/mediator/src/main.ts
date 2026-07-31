@@ -35,6 +35,14 @@ export async function createMediatorApp(intake: IntakeService): Promise<INestApp
 async function bootstrap(): Promise<void> {
   // Before anything opens a socket. Spec 11 rules out production Stripe keys by
   // construction rather than by asking nicely, and this is the construction.
+  //
+  // There is deliberately no matching line for PayPal. A test Stripe key says
+  // sk_test_ on the front, so a live one can be recognised and refused; a PayPal
+  // client id says nothing at all about which account minted it, and a guard that
+  // cannot tell the two apart would only pretend to. The same promise is kept a
+  // level down instead: the egress contract pins PayPal to the sandbox host, so
+  // live credentials fail to authenticate and no variable can move this demo onto
+  // real money. A missing PayPal credential must never stop this process starting.
   assertTestMode(process.env.STRIPE_SECRET_KEY);
 
   const pool = getPool();

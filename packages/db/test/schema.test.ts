@@ -72,6 +72,73 @@ describe('schema guarantees', () => {
     expect(Number(rows[0].count)).toBe(8);
   });
 
+  it('accepts paypal as a delivery target', async () => {
+    const eventId = await newEvent('evt_paypal_target');
+    await expect(
+      pool.query(`INSERT INTO deliveries (event_id, target) VALUES ($1, 'paypal')`, [eventId]),
+    ).resolves.toBeDefined();
+  });
+
+  it('gives paypal a switch of its own, so the line to it can be cut', async () => {
+    // Without the row the gate reads no state for paypal and every call sails
+    // through, which would make "cut the line to PayPal" a button that does nothing.
+    const { rows } = await pool.query<{ state: string }>(
+      `SELECT state FROM switches WHERE target = 'paypal'`,
+    );
+    expect(rows[0].state).toBe('up');
+  });
+
+  it('records which payment route an order took', async () => {
+    const eventId = await newEvent('evt_route_recorded');
+    const { rows } = await pool.query<{ payment_route: string }>(
+      `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
+                           source, payment_route)
+       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'paypal')
+       RETURNING payment_route`,
+      [eventId],
+    );
+    expect(rows[0].payment_route).toBe('paypal');
+  });
+
+  it('refuses a payment route nothing can charge', async () => {
+    const eventId = await newEvent('evt_route_invented');
+    await expect(
+      pool.query(
+        `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
+                             source, payment_route)
+         VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'bitcoin')`,
+        [eventId],
+      ),
+    ).rejects.toThrow(/violates check constraint/);
+  });
+
+  it('books an order under the default route when nobody said', async () => {
+    // POST /api/demo-order carries no body at all. A NOT NULL column with no default
+    // would turn that endpoint into an error the first time this migration ran.
+    const eventId = await newEvent('evt_route_unstated');
+    const { rows } = await pool.query<{ payment_route: string }>(
+      `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents, source)
+       VALUES ($1, 'Demo order', 'demo@example.invalid', '[]'::jsonb, 4900, 'form')
+       RETURNING payment_route`,
+      [eventId],
+    );
+    expect(rows[0].payment_route).toBe('stripe');
+  });
+
+  it('shows the route in the read-only view, where a visitor can check it', async () => {
+    const eventId = await newEvent('evt_route_public');
+    await pool.query(
+      `INSERT INTO orders (event_id, customer_name, customer_email, items, total_cents,
+                           source, payment_route)
+       VALUES ($1, 'M. Berger', 'm@example.com', '[]'::jsonb, 4900, 'form', 'paypal')`,
+      [eventId],
+    );
+    const { rows } = await pool.query<{ payment_route: string }>(
+      'SELECT payment_route FROM v_orders WHERE event_id = $1', [eventId],
+    );
+    expect(rows[0].payment_route).toBe('paypal');
+  });
+
   it('allows only one slack send marker per event', async () => {
     const eventId = await newEvent('evt_one_marker');
     await pool.query(

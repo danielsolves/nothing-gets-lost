@@ -4,14 +4,15 @@
 // instead of here, so this test is the cheap place to catch it.
 import { describe, it, expect } from 'vitest';
 import {
-  TARGETS, DELIVERY_STATES, SWITCH_STATES, CHAOS_KINDS,
-  EGRESS_BASE_URLS, isTarget,
+  TARGETS, SWITCHABLE_TARGETS, DELIVERY_STATES, SWITCH_STATES, CHAOS_KINDS,
+  PAYMENT_ROUTES, DEFAULT_PAYMENT_ROUTE,
+  EGRESS_BASE_URLS, isTarget, isPaymentRoute,
 } from '../src/index';
 
 describe('frozen contracts', () => {
-  it('names the six targets exactly as the spec does', () => {
+  it('names the seven targets exactly as the spec does', () => {
     expect([...TARGETS]).toEqual(
-      ['hubspot', 'stripe', 'slack', 'ledger', 'mailer', 'custom_webhook'],
+      ['hubspot', 'stripe', 'paypal', 'slack', 'ledger', 'mailer', 'custom_webhook'],
     );
   });
 
@@ -29,14 +30,33 @@ describe('frozen contracts', () => {
     );
   });
 
-  it('has an egress base url for every proxied target', () => {
-    for (const target of ['hubspot', 'stripe', 'slack', 'ledger', 'mailer'] as const) {
+  it('has an egress base url for every switchable target', () => {
+    // Not a convenience. A target without a base url here cannot be reached through
+    // the gate at all, which would mean its switch says "cut" and nothing happens.
+    for (const target of SWITCHABLE_TARGETS) {
       expect(EGRESS_BASE_URLS[target]).toMatch(/^https?:\/\//);
     }
+  });
+
+  it('sends paypal to the sandbox host and nowhere else', () => {
+    // Spec 11 rules out real money by construction. Stripe does it with a key
+    // prefix; PayPal client ids carry no such marker, so the host is pinned here
+    // instead and a live credential simply fails to authenticate against it.
+    expect(EGRESS_BASE_URLS.paypal).toBe('https://api-m.sandbox.paypal.com');
   });
 
   it('recognises valid and invalid targets', () => {
     expect(isTarget('hubspot')).toBe(true);
     expect(isTarget('facebook')).toBe(false);
+  });
+
+  it('offers two payment routes and both of them are targets', () => {
+    expect([...PAYMENT_ROUTES]).toEqual(['stripe', 'paypal']);
+    for (const route of PAYMENT_ROUTES) expect(isTarget(route)).toBe(true);
+  });
+
+  it('defaults to a route it can actually charge', () => {
+    expect(isPaymentRoute(DEFAULT_PAYMENT_ROUTE)).toBe(true);
+    expect(isPaymentRoute('bitcoin')).toBe(false);
   });
 });

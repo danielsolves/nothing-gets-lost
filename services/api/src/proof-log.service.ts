@@ -20,6 +20,11 @@ export interface ProofLog {
 const HOW_TO_VERIFY: Record<string, string> = {
   stripe:
     'Open the receipt url. That page is served by stripe.com, not by this demo. Indisputable.',
+  paypal:
+    'The capture id and its timestamp come from PayPal, but PayPal serves no receipt '
+    + 'page anyone can open, so there is nothing here to click. The holder of the '
+    + 'sandbox account can find the same id in their PayPal activity; treat what is '
+    + 'printed here as an indication.',
   mailer:
     'Open the confirmation in your own inbox and read the Received header. Your mail '
     + 'provider wrote that timestamp, not us. Indisputable.',

@@ -24,7 +24,8 @@ beforeEach(async () => { await store.resetAll(); });
 describe('SwitchStore', () => {
   it('starts with every target up', async () => {
     expect(await store.all()).toEqual({
-      hubspot: 'up', stripe: 'up', slack: 'up', ledger: 'up', mailer: 'up',
+      hubspot: 'up', stripe: 'up', paypal: 'up', slack: 'up', ledger: 'up',
+      mailer: 'up',
     });
   });
 
@@ -39,7 +40,8 @@ describe('SwitchStore', () => {
     await store.set('ledger', 'slow');
     await store.resetAll();
     expect(await store.all()).toEqual({
-      hubspot: 'up', stripe: 'up', slack: 'up', ledger: 'up', mailer: 'up',
+      hubspot: 'up', stripe: 'up', paypal: 'up', slack: 'up', ledger: 'up',
+      mailer: 'up',
     });
   });
 
