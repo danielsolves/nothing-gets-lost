@@ -10,6 +10,7 @@
 // entry lands in is decided per delivery and can change while items are queued
 // (spec 9.4, 10.1).
 import { HubSpotClient, HubSpotTarget } from './hubspot.target';
+import { HubSpotOrders } from './hubspot.order';
 import { StripeClient, StripeTarget } from './stripe.target';
 import { SlackClient, SlackTarget } from './slack.target';
 import { LedgerClient, LedgerTarget } from './ledger.target';
@@ -34,6 +35,7 @@ export function buildTargets(
   return [
     new HubSpotTarget(
       new HubSpotClient(via('hubspot')), () => credentials.hubspot(),
+      new HubSpotOrders(via('hubspot')),
     ),
     new StripeTarget(new StripeClient(via('stripe'), env.STRIPE_SECRET_KEY ?? '')),
     new SlackTarget(

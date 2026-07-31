@@ -3,11 +3,13 @@
 //
 // Separate from POST /api/orders on purpose, and not because of the address: it
 // carries no basket either, so it works before a visitor has touched anything.
-// The order it places is real in every other respect and is booked under the house
-// identity, which means no confirmation mail is ever promised or queued for it.
+// The order it places is real in every other respect. The buyer and the basket are
+// invented here rather than fixed, so the CRM at the far end fills with customers
+// instead of one contact patched over and over. Nobody's address is asked for and
+// none is promised, so rule 6.7 still queues no confirmation mail for it.
 import { Controller, HttpException, HttpStatus, Inject, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
-import { DEFAULT_BASKET, type PlaceOrderResponse } from '@ngl/contracts';
+import { type PlaceOrderResponse } from '@ngl/contracts';
 import { OrdersService } from './orders.service';
 import { LIMITS, RateLimiter, hashIp } from './rate-limit.guard';
 import { RATE_LIMITER } from './orders.controller';
@@ -30,6 +32,6 @@ export class DemoOrderController {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    return this.orders.placeDemo([...DEFAULT_BASKET]);
+    return this.orders.placeDemo();
   }
 }

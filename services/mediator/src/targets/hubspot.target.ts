@@ -23,39 +23,22 @@
 // for the one visitor most likely to check.
 import type { DeliveryContext, DeliveryOutcome, DeliveryTarget } from '../target.interface';
 import type { HubSpotCredentials } from '../credentials';
-import { CALLER_TIMEOUT_MS } from '@ngl/contracts';
-
-type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
-
-interface ContactPayload {
-  customerName: string;
-  customerEmail: string;
-  totalCents: number;
-}
+import { HubSpotHttp, type Fetch } from './hubspot.http';
+import type { HubSpotOrders, OrderPayload } from './hubspot.order';
 
 export class HubSpotClient {
-  constructor(
-    private readonly baseUrl: string,
-    private readonly doFetch: Fetch = fetch,
-  ) {}
+  private readonly http: HubSpotHttp;
+
+  constructor(baseUrl: string, doFetch: Fetch = fetch) {
+    this.http = new HubSpotHttp(baseUrl, doFetch);
+  }
+
+  private get baseUrl(): string { return this.http.baseUrl; }
 
   private async call(
     creds: HubSpotCredentials, path: string, init?: RequestInit,
   ): Promise<unknown> {
-    const response = await this.doFetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        authorization: `Bearer ${creds.token}`,
-        'content-type': 'application/json',
-        ...(init?.headers ?? {}),
-      },
-      signal: AbortSignal.timeout(CALLER_TIMEOUT_MS),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (response.status >= 500 || response.status === 429) {
-      throw new Error(`HubSpot responded ${response.status}`);
-    }
-    return { status: response.status, body };
+    return this.http.call(creds, path, init);
   }
 
   async findByEmail(
@@ -86,7 +69,7 @@ export class HubSpotClient {
   }
 
   async upsertContact(
-    creds: HubSpotCredentials, input: ContactPayload,
+    creds: HubSpotCredentials, input: OrderPayload,
   ): Promise<{ id: string; createdAt: string | null }> {
     const existing = await this.findByEmail(creds, input.customerEmail);
     const properties = {
@@ -127,12 +110,26 @@ export class HubSpotTarget implements DeliveryTarget {
   constructor(
     private readonly client: HubSpotClient,
     private readonly credentials: () => Promise<HubSpotCredentials>,
+    private readonly orders?: HubSpotOrders,
   ) {}
 
+  /**
+   * The buyer, then what they bought. In that order and not the other way round: a
+   * deal has to hang off a contact, and a deal with no contact is a purchase HubSpot
+   * cannot tell you who made.
+   *
+   * remoteRef stays the contact id even though a deal is written too. It is what the
+   * proof panel reads back to show a record on api.hubapi.com (spec 9.2), and a
+   * delivery may only carry one remote reference, so it carries the one a visitor is
+   * shown. The deal is found from the event id whenever it is needed again.
+   */
   async deliver(ctx: DeliveryContext): Promise<DeliveryOutcome> {
-    const payload = ctx.payload as ContactPayload;
+    const payload = ctx.payload as OrderPayload;
     const creds = await this.credentials();
     const contact = await this.client.upsertContact(creds, payload);
+    await this.orders?.record(creds, {
+      eventId: ctx.eventId, contactId: contact.id, payload,
+    });
     return {
       remoteRef: contact.id,
       remoteAt: contact.createdAt ? new Date(contact.createdAt) : null,

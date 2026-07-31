@@ -18,9 +18,11 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
   DEFAULT_PAYMENT_ROUTE, isPaymentRoute,
-  type PaymentRoute, type PlaceOrderRequest, type PlaceOrderResponse, type Target,
+  type OrderLine, type PaymentRoute, type PlaceOrderRequest, type PlaceOrderResponse,
+  type Target,
 } from '@ngl/contracts';
 import type { EventIntake } from './intake.port';
+import { demoBasket, demoBuyer, DEMO_DOMAIN, type Chance } from './demo-order';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -48,7 +50,7 @@ const TARGETS = ['hubspot', 'ledger', 'slack'] as const;
  * that drifted apart from the one the cleanup rule protects would quietly start
  * erasing it as though it were a real person's.
  */
-export const HOUSE_IDENTITY = 'orders@ngl.danielsolves.ai';
+export const HOUSE_IDENTITY = `orders@${DEMO_DOMAIN}`;
 const HOUSE_NAME = 'Demo order';
 
 /** Reads the visitor's own endpoint, if they registered one (spec 10.2). */
@@ -59,14 +61,35 @@ export class OrdersService {
     private readonly pool: Pool,
     private readonly intake: EventIntake,
     private readonly webhook?: WebhookUrlSource,
+    private readonly chance: Chance = (upTo) => Math.floor(Math.random() * upTo),
   ) {}
 
-  /** The order the page's own button sends: a plausible basket and nobody's address. */
-  async placeDemo(items: PlaceOrderRequest['items']): Promise<PlaceOrderResponse> {
-    return this.place({ items });
+  /**
+   * The order the page's own button sends: an invented buyer and an invented basket,
+   * and still nobody's address.
+   *
+   * The buyer's address goes in as the identity rather than as `customerEmail`,
+   * which is the field that promises a confirmation mail. Passing it there would
+   * queue a mail to somebody who does not exist, and rule 6.7 would hold the whole
+   * chain open waiting for it to arrive.
+   */
+  async placeDemo(): Promise<PlaceOrderResponse> {
+    const buyer = demoBuyer(this.chance);
+    const items = demoBasket(await this.catalogueSkus(), this.chance);
+    return this.book({ items, customerName: buyer.name }, buyer.email);
   }
 
   async place(request: PlaceOrderRequest): Promise<PlaceOrderResponse> {
+    return this.book(request, HOUSE_IDENTITY);
+  }
+
+  /**
+   * @param identity what the order is booked under when nobody gave an address. It
+   *   is the natural key HubSpot upserts on, and it is never written to.
+   */
+  private async book(
+    request: PlaceOrderRequest, identity: string,
+  ): Promise<PlaceOrderResponse> {
     if (request.items.length === 0) throw new Error('no items in the order');
 
     // Blank is not the same as wrong. Somebody who tabbed through the field has
@@ -77,9 +100,10 @@ export class OrdersService {
     }
 
     const customerName = request.customerName?.trim() || HOUSE_NAME;
-    const customerEmail = confirmTo || HOUSE_IDENTITY;
+    const customerEmail = confirmTo || identity;
     const paymentRoute = this.routeFor(request);
-    const totalCents = await this.priceFromCatalogue(request);
+    const lines = await this.priceFromCatalogue(request);
+    const totalCents = lines.reduce((sum, line) => sum + line.cents, 0);
 
     const intake = await this.intake.accept({
       externalId: `order_${randomUUID()}`,
@@ -90,6 +114,11 @@ export class OrdersService {
         ...(confirmTo === '' ? {} : { confirmTo }),
         paymentRoute,
         items: request.items,
+        // The basket as it was priced, not as it was asked for. A target that has to
+        // write the order down somewhere needs a name and a figure per line, and the
+        // mediator holds no catalogue to look either up in. Joining it back later
+        // would read tomorrow's prices onto yesterday's order.
+        lines,
         totalCents,
       },
       // custom_webhook joins only when a url is configured. Queueing it
@@ -135,18 +164,39 @@ export class OrdersService {
     return (await this.webhook?.get()) ? [...targets, 'custom_webhook'] : targets;
   }
 
-  private async priceFromCatalogue(request: PlaceOrderRequest): Promise<number> {
-    const { rows: catalog } = await this.pool.query<{ sku: string; cents: number }>(
-      'SELECT sku, cents FROM products WHERE sku = ANY($1)',
+  /**
+   * The basket, priced. `cents` is the whole line rather than the unit price, so a
+   * reader holding the card against the receipt never has to multiply to check it,
+   * and the total is these lines added up rather than a second sum arrived at
+   * separately.
+   */
+  /** Every sku on the shelf, so an invented basket only asks for things that exist. */
+  private async catalogueSkus(): Promise<string[]> {
+    const { rows } = await this.pool.query<{ sku: string }>(
+      'SELECT sku FROM products ORDER BY sku',
+    );
+    return rows.map((row) => row.sku);
+  }
+
+  private async priceFromCatalogue(request: PlaceOrderRequest): Promise<OrderLine[]> {
+    const { rows: catalog } = await this.pool.query<{
+      sku: string; name: string; cents: number;
+    }>(
+      'SELECT sku, name, cents FROM products WHERE sku = ANY($1)',
       [request.items.map((item) => item.sku)],
     );
-    const prices = new Map(catalog.map((entry) => [entry.sku, entry.cents]));
-    const unknown = request.items.filter((item) => !prices.has(item.sku));
+    const known = new Map(catalog.map((entry) => [entry.sku, entry]));
+    const unknown = request.items.filter((item) => !known.has(item.sku));
     if (unknown.length > 0) {
       throw new Error(`unknown sku: ${unknown.map((item) => item.sku).join(', ')}`);
     }
-    return request.items.reduce(
-      (sum, item) => sum + (prices.get(item.sku) ?? 0) * item.qty, 0,
-    );
+    return request.items.map((item) => {
+      const product = known.get(item.sku);
+      if (!product) throw new Error(`unknown sku: ${item.sku}`);
+      return {
+        sku: item.sku, name: product.name, qty: item.qty,
+        cents: product.cents * item.qty,
+      };
+    });
   }
 }

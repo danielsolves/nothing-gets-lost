@@ -9,7 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
-import { isPaymentRoute, type PlaceOrderRequest } from '@ngl/contracts';
+import { isPaymentRoute, type OrderLine, type PlaceOrderRequest } from '@ngl/contracts';
 import { OrderViewsService } from '../src/order-views.service';
 import { OrdersService } from '../src/orders.service';
 import type { EventIntake, IntakeInput, IntakeResult } from '../src/intake.port';
@@ -113,6 +113,36 @@ describe('OrdersService', () => {
     expect(rows[0].payment_route).toBe('stripe');
   });
 
+  it('freezes the basket into the payload, named and priced', async () => {
+    // The payload carried sku and quantity, which is enough to charge for and not
+    // enough to write down anywhere. HubSpot wants a line item with a name and a
+    // price on it, and the mediator has no catalogue to look either up in.
+    //
+    // Frozen at order time rather than joined later, because prices move: a line
+    // built from tomorrow's catalogue would show a figure nobody was charged, next
+    // to a Stripe receipt that says otherwise.
+    const result = await orders.place({
+      ...request, items: [{ sku: 'TEAPOT', qty: 1 }, { sku: 'MUG-BLUE', qty: 2 }],
+    });
+    const { rows } = await pool.query<{ lines: OrderLine[] }>(
+      `SELECT payload->'lines' AS lines FROM events WHERE id = $1`, [result.eventId],
+    );
+    expect(rows[0].lines).toEqual([
+      { sku: 'TEAPOT', name: 'Teapot', qty: 1, cents: 4900 },
+      { sku: 'MUG-BLUE', name: 'Blue mug', qty: 2, cents: 2400 },
+    ]);
+  });
+
+  it('prices a line as the whole line, so nobody has to multiply to check it', async () => {
+    const result = await orders.place({ ...request, items: [{ sku: 'MUG-BLUE', qty: 3 }] });
+    const { rows } = await pool.query<{ lines: OrderLine[]; total: number }>(
+      `SELECT payload->'lines' AS lines, (payload->>'totalCents')::int AS total
+         FROM events WHERE id = $1`, [result.eventId],
+    );
+    expect(rows[0].lines[0].cents).toBe(3600);
+    expect(rows[0].total).toBe(3600);
+  });
+
   it('carries the route in the payload, the only copy the mediator reads', async () => {
     // A mediator that restarts mid-order reads the payload back rather than
     // deciding anything again, and it never looks at the orders table.
@@ -133,7 +163,7 @@ describe('OrdersService', () => {
   });
 
   it('sends the demo order, which carries no body at all, to stripe', async () => {
-    const result = await orders.placeDemo(request.items);
+    const result = await orders.placeDemo();
     const { rows } = await pool.query(
       'SELECT target FROM deliveries WHERE event_id = $1 ORDER BY target', [result.eventId],
     );
@@ -208,7 +238,7 @@ describe('OrdersService', () => {
   });
 
   it('places the demo order without inventing a customer to write to', async () => {
-    const result = await orders.placeDemo(request.items);
+    const result = await orders.placeDemo();
     const { rows } = await pool.query(
       `SELECT payload->>'confirmTo' AS confirm_to FROM events WHERE id = $1`,
       [result.eventId],
