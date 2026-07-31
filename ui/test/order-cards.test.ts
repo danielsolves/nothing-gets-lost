@@ -46,6 +46,37 @@ function group(deliveries: DeliveryView[], orders?: OrderView[]): OrderCard[] {
   );
 }
 
+describe('the payment checkpoint', () => {
+  // An order takes one of two payment routes and exactly one is ever charged, so a
+  // card that drew a box for both would show a checkpoint that can never be reached
+  // and would say "4 of 6" about an order that is finished.
+
+  it('draws the route the order actually took', () => {
+    const [card] = group([d('evt-1', 'paypal', 'done'), d('evt-1', 'slack', 'done')]);
+    expect(card.steps.map((step) => step.target)).toEqual(
+      ['paypal', 'hubspot', 'ledger', 'slack', 'mailer'],
+    );
+  });
+
+  it('never draws the route it did not take', () => {
+    const [card] = group([d('evt-1', 'paypal', 'done')]);
+    expect(card.steps.map((step) => step.target)).not.toContain('stripe');
+    expect(card.total).toBe(5);
+  });
+
+  it('names it, so the card and the tile under the hub agree', () => {
+    const [card] = group([d('evt-1', 'paypal', 'done')]);
+    expect(card.steps[0].label).toBe('PayPal');
+  });
+
+  it('falls back to the usual route before any payment row exists', () => {
+    // The card has to draw five boxes from the first frame rather than four and
+    // then grow one.
+    const [card] = group([d('evt-1', 'slack', 'pending')]);
+    expect(card.steps.map((step) => step.target)).toEqual(CHECKPOINTS);
+  });
+});
+
 describe('groupIntoOrders', () => {
   it('makes one card per order, not one per delivery', () => {
     const orders = group([

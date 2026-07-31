@@ -11,17 +11,41 @@
 // It takes two lists. The deliveries say how the order is getting on; the order entry
 // says which order it is, when it came in and what was in it, none of which a
 // delivery row knows and none of which is worth repeating on all five of them.
-import type {
-  DeliveryState, DeliveryView, OrderBooking, OrderView, Target,
+import {
+  DEFAULT_PAYMENT_ROUTE, PAYMENT_ROUTES,
+  type DeliveryState, type DeliveryView, type OrderBooking, type OrderView,
+  type PaymentRoute, type Target,
 } from '@ngl/contracts';
 
-/** Always drawn, always in this order, so a card reads the same every time. */
-export const CHECKPOINTS = ['stripe', 'hubspot', 'ledger', 'slack', 'mailer'] as const;
+/**
+ * Everything after the payment, always drawn and always in this order, so a card
+ * reads the same every time. The payment itself is prepended per order, because an
+ * order takes one of two routes and drawing a box for the route it did not take
+ * would leave a checkpoint that can never be reached.
+ */
+const AFTER_PAYMENT = ['hubspot', 'ledger', 'slack', 'mailer'] as const;
+
+/** Kept exported for anything that wants the shape of a card without an order. */
+export const CHECKPOINTS = [DEFAULT_PAYMENT_ROUTE, ...AFTER_PAYMENT] as const;
 
 const LABELS: Record<Target, string> = {
-  stripe: 'Stripe', hubspot: 'HubSpot', ledger: 'Invoice',
+  stripe: 'Stripe', paypal: 'PayPal', hubspot: 'HubSpot', ledger: 'Invoice',
   slack: 'Slack', mailer: 'Confirmation mail', custom_webhook: 'Your endpoint',
 };
+
+/**
+ * Which way this order was paid, read off the delivery rows rather than carried as
+ * a field of its own: exactly one payment target is ever queued per order, so the
+ * rows already say it and a second copy could only disagree with them.
+ *
+ * Before any row exists there is nothing to read, and the card still has to draw
+ * five boxes rather than four and then grow one. It falls back to the route an
+ * order takes when nobody chose, which is the one it will almost always turn out
+ * to be.
+ */
+function routeOf(found: Map<Target, DeliveryView>): PaymentRoute {
+  return PAYMENT_ROUTES.find((route) => found.has(route)) ?? DEFAULT_PAYMENT_ROUTE;
+}
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
 
@@ -109,7 +133,8 @@ export function groupIntoOrders(
     const found = new Map<Target, DeliveryView>();
     for (const row of rows) found.set(row.target, row);
 
-    const steps: OrderStep[] = CHECKPOINTS.map(
+    const checkpoints: readonly Target[] = [routeOf(found), ...AFTER_PAYMENT];
+    const steps: OrderStep[] = checkpoints.map(
       (target) => {
         const row = found.get(target);
         return row ? toStep(row) : emptyStep(target);

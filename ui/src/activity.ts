@@ -47,7 +47,7 @@ export interface Activity {
  * `activityFor` rather than missing something.
  */
 const LABELS: Record<Target, string> = {
-  stripe: 'Stripe', hubspot: 'HubSpot', ledger: 'Invoices',
+  stripe: 'Stripe', paypal: 'PayPal', hubspot: 'HubSpot', ledger: 'Invoices',
   slack: 'Slack', mailer: 'Confirmation mail', custom_webhook: 'your endpoint',
 };
 
