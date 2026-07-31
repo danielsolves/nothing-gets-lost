@@ -724,14 +724,12 @@ body {
 /* The hub. Biggest element on the page, and it shows its own state rather than
    asking to be believed. Content starts at the top: the panel grows downward as
    the queue fills, and centring made everything shuffle on every delivery. */
-/* The panel is as tall as the column of systems beside it, so the queue has to
-   take whatever is left rather than stopping at a fixed height and leaving a
-   third of the biggest box on the page empty. Head, counts and tabs take what
-   they need; the last row gets the rest. */
+/* As tall as the column of systems beside it. Head, counts and tabs take what
+   they need; the panel underneath gets whatever is left. */
 .mediator {
   align-self: stretch;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(16rem, 1fr);
   gap: 14px;
   padding: clamp(20px, 2.2vw, 30px);
   border: 1px solid var(--accent);
@@ -901,9 +899,21 @@ body {
 }
 .mediator-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.mediator-panel { min-height: 16rem; display: grid; grid-template-rows: minmax(0, 1fr); }
-.mediator-panel .queue,
-.mediator-panel .timeline-scroll { max-height: none; min-height: 0; }
+/* The queue is taken out of flow inside the panel, which is the only way to make
+   it both fill the space and not create it. In flow it did one or the other: a
+   fixed height left a third of the biggest box on the page empty, and letting it
+   grow made a busy queue stretch the hub past the column of systems beside it,
+   so the drawing changed shape every time an order arrived.
+   Out of flow it contributes nothing, the panel keeps its floor, and the height
+   of the whole picture is set by the systems, which do not move. */
+.mediator-panel { position: relative; min-height: 16rem; }
+.mediator-panel > * {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .extractor-note {
   margin: 0;
@@ -1218,10 +1228,9 @@ body {
      overflow the container and draw on top of each other. */
   .board { grid-template-columns: 1fr; }
 
-  /* Stacked, the panel no longer has a column of systems next to it setting its
-     height, so the queue would grow without end. It goes back to a cap. */
-  .mediator-panel .queue,
-  .mediator-panel .timeline-scroll { max-height: 19rem; }
+  /* Stacked, there is no column of systems beside the panel to set its height,
+     so the panel has to name one itself. */
+  .mediator-panel { height: 22rem; }
 }
 
 @media (max-width: 40rem) {
@@ -1239,21 +1248,41 @@ body {
      so no one of them looks like the next one's cause. */
   .hub { grid-template-columns: 1fr; gap: 0; }
   .spokes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .spoke { grid-template-columns: 1fr; justify-items: stretch; }
 
-  /* Upright, and always drawn on the hub side of its tile. */
+  /* Both sides are named, because the desktop rule that swaps the wire to the
+     other side of the tile is the more specific of the two and would otherwise
+     keep winning here. */
+  .spokes[data-side='left'] .spoke,
+  .spokes[data-side='right'] .spoke {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+  }
+
+  /* Upright, and still between its tile and the hub: source tiles are written
+     before their wire and target tiles after it, so turning the column is all it
+     takes for each wire to end up on the hub side. */
   .line { height: 20px; width: 2px; justify-self: center; }
   .line[data-state='cut'] {
     background: repeating-linear-gradient(
       180deg, var(--bad) 0 5px, transparent 5px 11px
     );
   }
-  .spokes[data-side='left'] .spoke { grid-template-rows: auto auto; }
   .dot { display: none; }
 
   /* The tile keeps its own square only where there is room for one. */
   .target { width: 100%; aspect-ratio: auto; min-height: 8.5rem; }
-  .tile-menu-list { width: min(19rem, 78vw); }
+
+  /* The menu hangs off the tile here rather than off the three dots. Anchored to
+     a 30px button on a 390px screen, a menu wide enough to read runs off one edge
+     or the other whatever you do; anchored to the tile it has a whole column to
+     start from. Which edge it opens from depends on which of the two columns the
+     tile is in, and the tiles fill the grid in order, so the position in the row
+     is the position on the screen. */
+  .tile-menu { position: static; }
+  .tile-menu-toggle { position: absolute; top: 8px; right: 8px; }
+  .tile-menu-list { top: calc(100% + 6px); width: min(20rem, 84vw); }
+  .spoke:nth-child(odd) .tile-menu-list { left: 0; right: auto; }
+  .spoke:nth-child(even) .tile-menu-list { right: 0; left: auto; }
 
   .catalog li { grid-template-columns: 1fr 72px; }
   .catalog .price { grid-column: 1; font-size: 12px; }
