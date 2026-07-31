@@ -103,6 +103,22 @@ export function Mediator(props: {
           <b data-testid="hub-lost">{props.counters.lost}</b>
           <i>lost</i>
         </span>
+
+        {/* Only once there is one, because it is the answer to a question nobody has
+            asked yet: a visitor flips "Deliver the payment twice" on the Stripe tile
+            and this is the only place on the page that shows the second one being
+            thrown away. It carries no colour, unlike the four beside it. Those say
+            how the work is going; this one says the machine held its rule. */}
+        {props.counters.duplicatesDropped > 0 && (
+          <span className="mediator-count">
+            <b data-testid="hub-duplicates">{props.counters.duplicatesDropped}</b>
+            <i>
+              {props.counters.duplicatesDropped === 1
+                ? 'duplicate dropped'
+                : 'duplicates dropped'}
+            </i>
+          </span>
+        )}
       </div>
 
       <p className="mediator-doing" data-testid="hub-doing" data-tone={doing.tone}>

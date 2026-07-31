@@ -8,9 +8,13 @@
 // that meant two things on screen telling the visitor what to do, so the walkthrough
 // went and the diagram carries it: one loud button to send an order, and every system
 // in the picture is the switch that breaks it.
+//
+// A bar of counters used to sit above the machine, for the reason spec 2 wants a
+// running score on screen. The hub then grew a row of the same numbers. Showing
+// "lost 0" in two places does not make it twice as true, so the bar went and the hub
+// kept them: they belong next to the queue they are counting.
 import { useState } from 'react';
 import { Connections } from './Connections';
-import { CountersBar } from './Counters';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
 import { OrderForm } from './OrderForm';
@@ -40,10 +44,6 @@ export function App() {
 
       <main className="page">
         <Stage connected={connected} viewers={viewers} />
-
-        {/* The counters stay above everything: spec 2 wants the running score
-            on screen for every second of the demo, lost included. */}
-        <CountersBar counters={counters} />
 
         {/* The machine: hub in the middle, the systems it delivers to around it.
             The hub carries the queue and the log, so neither needs a panel of its

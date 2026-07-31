@@ -308,45 +308,6 @@ body {
 .order-hint { margin: 0; color: var(--warn); font-size: 13.5px; }
 .order-form .error { margin: 0; font-size: 13px; }
 
-/* Counters ------------------------------------------------------------------ */
-
-.counters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  overflow: hidden;
-}
-
-.counter {
-  display: grid;
-  gap: 2px;
-  padding: 18px 20px;
-  background: var(--surface);
-}
-
-.counter .value {
-  font-family: var(--mono);
-  font-size: 30px;
-  font-weight: 600;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-.counter .label {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.counter.warn .value { color: var(--warn); }
-.counter.emphasis { background: var(--accent-soft); }
-.counter.emphasis .value { color: var(--accent); }
-.counter.emphasis .label { color: var(--accent); }
-
 /* The queue --------------------------------------------------------------------
    One card per order, five checkpoints, quiet until opened. This is the panel the
    whole hand-built queue exists to make visible. */
@@ -1118,7 +1079,11 @@ body {
 
 .mediator-counts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* One row whatever the count, rather than a fixed four. The duplicate tally only
+     appears once something has been dropped, and a fixed four sent it to a second
+     row on its own, where the 1px gaps drew a box around a single number. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
@@ -1528,8 +1493,13 @@ body {
 }
 
 @media (max-width: 40rem) {
-  .counters { grid-template-columns: repeat(2, 1fr); }
   .timeline li { grid-template-columns: 1fr; gap: 2px; }
+
+  /* Five counts share about 270px here, so the labels have to give a little rather
+     than be cut off mid-word by the panel's own overflow. Tightening the tracking
+     buys more room than the point size does, and costs less to read. */
+  .mediator-count { padding: 10px 4px; }
+  .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
 
   /* A node-and-edge picture is the hardest thing to keep legible on a phone, and
      the spec says the visitor may well arrive on one. Sources on top, then the

@@ -71,6 +71,19 @@ describe('Mediator', () => {
     expect(screen.getByTestId('hub-lost')).toHaveTextContent('0');
   });
 
+  it('counts the duplicates it threw away, because that is the proof of exactly once', () => {
+    // "Deliver the payment twice" is a switch on the Stripe tile, and this number is
+    // the only place on the page that answers it. It used to sit in the header bar
+    // above the diagram, which said the same four numbers as this row and has gone.
+    render(<Mediator {...props} />);
+    expect(screen.getByTestId('hub-duplicates')).toHaveTextContent('1');
+  });
+
+  it('says nothing about duplicates until one has been dropped', () => {
+    render(<Mediator {...props} counters={{ ...counters, duplicatesDropped: 0 }} />);
+    expect(screen.queryByTestId('hub-duplicates')).not.toBeInTheDocument();
+  });
+
   it('keeps its explanation out of the way until asked', () => {
     render(<Mediator {...props} />);
     expect(screen.queryByTestId('hub-help')).not.toBeInTheDocument();
