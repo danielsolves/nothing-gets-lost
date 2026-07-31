@@ -13,6 +13,7 @@ import { Connections } from './Connections';
 import { CountersBar } from './Counters';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
+import { OrderForm } from './OrderForm';
 import { ProofPanel } from './ProofPanel';
 import { Mediator } from './Mediator';
 import { SqlConsole } from './SqlConsole';
@@ -38,11 +39,7 @@ export function App() {
       <div className="grain" aria-hidden="true" />
 
       <main className="page">
-        <Stage
-          connected={connected}
-          viewers={viewers}
-          onPlaced={(eventId, expectMail) => setPlaced({ eventId, expectMail })}
-        />
+        <Stage connected={connected} viewers={viewers} />
 
         {/* The counters stay above everything: spec 2 wants the running score
             on screen for every second of the demo, lost included. */}
@@ -56,6 +53,11 @@ export function App() {
             switches={switches}
             deliveries={deliveries}
             openOrder={openOrder}
+            orderForm={
+              <OrderForm
+                onPlaced={(eventId, expectMail) => setPlaced({ eventId, expectMail })}
+              />
+            }
             hub={
               <Mediator
                 counters={counters}

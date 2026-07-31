@@ -117,3 +117,88 @@ describe('pulsesFrom', () => {
     expect(pulses).toEqual([]);
   });
 });
+
+// The diagram now draws where an order comes from, and nothing travelled along the
+// wire from the shop, so an order still appeared to begin inside the hub. An arrival
+// is not a state change of any one delivery, it is a whole order turning up, and the
+// only evidence of it in this data is an event id that was not there a moment ago.
+describe('pulsesFrom, when an order arrives', () => {
+  const order = (
+    eventId: string, firstId: number, targets: DeliveryView['target'][],
+  ): DeliveryView[] => targets.map((target, index) => ({
+    ...delivery(firstId + index, target, 'pending', 0), eventId,
+  }));
+
+  const onBoard = order('evt-old', 1, ['hubspot']);
+
+  it('sends a dot down the shop wire when a new order turns up', () => {
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...order('evt-new', 10, ['hubspot'])]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('sends one dot per order, not one per delivery the order queues', () => {
+    // One order fans out to four systems at once. Four dots on the incoming wire
+    // would say four orders arrived, which is a lie about the thing being measured.
+    const arriving = order('evt-new', 10, ['hubspot', 'stripe', 'slack', 'mailer']);
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...arriving]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('sends a dot for each of two orders arriving together', () => {
+    const pulses = pulsesFrom(onBoard, [
+      ...onBoard,
+      ...order('evt-a', 10, ['hubspot', 'stripe']),
+      ...order('evt-b', 20, ['hubspot', 'stripe']),
+    ]);
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 20, target: 'shop', kind: 'arrival' },
+    ]);
+  });
+
+  it('picks the same delivery to stand for the order however the rows are ordered', () => {
+    const arriving = order('evt-new', 10, ['hubspot', 'stripe']);
+    const forwards = pulsesFrom(onBoard, [...onBoard, ...arriving]);
+    const backwards = pulsesFrom(onBoard, [...onBoard, ...[...arriving].reverse()]);
+    expect(backwards).toEqual(forwards);
+  });
+
+  it('counts an order in even when nothing it queued is drawn', () => {
+    // The wire that matters here is the one into the hub. Which systems the order
+    // then fans out to has no bearing on whether it arrived.
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...order('evt-new', 10, ['custom_webhook'])]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('says nothing about an order that was already on the board', () => {
+    // Its deliveries moving is not the order arriving a second time.
+    const before = order('evt-1', 1, ['hubspot']);
+    const after = [{ ...before[0], state: 'done' as const, attempts: 1 }];
+    expect(pulsesFrom(before, after)).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
+  });
+
+  it('reports the arrival alongside a delivery that moved in the same snapshot', () => {
+    const inflight = delivery(1, 'hubspot', 'inflight');
+    const pulses = pulsesFrom(
+      [inflight],
+      [{ ...inflight, state: 'done' as const }, ...order('evt-new', 10, ['stripe'])],
+    );
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 1, target: 'hubspot', kind: 'delivered' },
+    ]);
+  });
+
+  it('does not announce arrivals on the first render', () => {
+    expect(pulsesFrom(undefined, order('evt-1', 1, ['hubspot', 'stripe']))).toEqual([]);
+  });
+
+  it('stays quiet after an empty snapshot, or a reload is a burst of arrivals', () => {
+    // The list is empty on mount, so an empty previous snapshot is indistinguishable
+    // from not having looked yet, and every order on the board would read as new.
+    const pulses = pulsesFrom([], [
+      ...order('evt-1', 1, ['hubspot']), ...order('evt-2', 2, ['stripe']),
+    ]);
+    expect(pulses).toEqual([]);
+  });
+});

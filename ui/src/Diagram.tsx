@@ -25,6 +25,7 @@
 // own live state and opens into the full queue.
 import { useState } from 'react';
 import type { ChaosKind, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
+import { activityFor } from './activity';
 import { SOURCES, TARGETS, faultsFor, type Mischief } from './machine';
 import { SystemMark, type MarkId } from './SystemMark';
 import { TileMenu, type MenuItem } from './TileMenu';
@@ -39,6 +40,13 @@ export function Diagram(props: {
   openOrder?: string | null;
   /** The hub itself, passed in so this file stays layout and wiring. */
   hub: React.ReactNode;
+  /**
+   * The order form, which lives on the shop tile. An order that starts at the top
+   * of the page and appears in the middle of the drawing skips the one hop the
+   * drawing exists to show, so the button that sends it sits at the place it is
+   * sent from.
+   */
+  orderForm?: React.ReactNode;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
 
@@ -57,13 +65,6 @@ export function Diagram(props: {
     if (!step) return undefined;
     return step.state === 'done' ? 'done' : 'open';
   };
-
-  const waitingFor = (target: SwitchableTarget) =>
-    props.deliveries.filter(
-      (delivery) =>
-        delivery.target === target &&
-        (delivery.state === 'pending' || delivery.state === 'inflight'),
-    ).length;
 
   const setFault = (target: SwitchableTarget, state: SwitchState) => {
     void fetch(`/api/switches/${target}`, {
@@ -112,6 +113,7 @@ export function Diagram(props: {
             {said[node.id] && (
               <span className="said" data-testid={`said-${node.id}`}>{said[node.id]}</span>
             )}
+            {node.id === 'shop' && props.orderForm}
             {node.mischief.length > 0 && (
               <TileMenu
                 testId={node.id}
@@ -130,7 +132,7 @@ export function Diagram(props: {
     <ul className="spokes" data-side="right">
       {TARGETS.map((node) => {
         const state = props.switches[node.target];
-        const held = waitingFor(node.target);
+        const doing = activityFor(node.target, props.deliveries);
         const mark = tracked(node.target);
         const faults = faultsFor(node.target);
         const inForce = faults.find((fault) => fault.state === state);
@@ -163,7 +165,18 @@ export function Diagram(props: {
               <SystemMark target={node.target} />
               <span className="name">{node.label}</span>
               <span className="note">{node.note}</span>
-              {held > 0 && <span className="waiting">{held} waiting</span>}
+              {/* What this system is doing, always, not only when something is
+                  stuck at it. A tile that says nothing while the machine works
+                  looks like a tile of a machine that is not working. */}
+              {doing && (
+                <span
+                  className="doing"
+                  data-testid={`doing-${node.target}`}
+                  data-tone={doing.tone}
+                >
+                  {doing.text}
+                </span>
+              )}
               {/* Silent while a system is simply working: five tiles announcing
                   "Reachable" is five lines of noise saying nothing happened. */}
               {state !== 'up' && inForce && (

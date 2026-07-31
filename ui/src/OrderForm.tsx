@@ -87,7 +87,7 @@ export function OrderForm({
           disabled={busy || emptyBasket}
           onClick={() => void send()}
         >
-          {busy ? 'Sending' : 'Send an order through'}
+          {busy ? 'Sending' : 'Send an order'}
         </button>
 
         <button

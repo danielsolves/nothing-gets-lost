@@ -106,6 +106,19 @@ describe('Mediator', () => {
       .toBeInTheDocument();
   });
 
+  it('says what it is doing without being asked to open a tab', () => {
+    // The log tab has always held this, and a visitor who never clicks it reads a
+    // panel of numbers with no verb in it. The one thing the mediator is doing right
+    // now belongs on the outside of the panel.
+    render(<Mediator {...props} />);
+    expect(screen.getByTestId('hub-doing')).toHaveTextContent(/hubspot/i);
+  });
+
+  it('says so plainly when there is nothing to do, rather than going blank', () => {
+    render(<Mediator {...props} deliveries={[]} counters={{ ...counters, waiting: 0 }} />);
+    expect(screen.getByTestId('hub-doing')).toHaveTextContent(/nothing has come in/i);
+  });
+
   it('wipes the board on request', () => {
     // The reset used to live at the bottom of the page in the control panel drawer,
     // which has gone. It belongs next to the counters it zeroes.

@@ -1,0 +1,273 @@
+// ui/test/activity.test.ts
+// The two lines that say out loud what is happening: one per system tile, one for
+// the mediator as a whole.
+//
+// The assertions here are about copy, which is deliberate. A tile used to say
+// nothing about itself unless something was queued at it, and the mediator only
+// admitted what it was doing to a visitor who clicked into the Log tab. Wording is
+// the whole deliverable, so it is the thing under test: what is said, in which
+// order of urgency, and what is never said at all. The raw error string is the
+// last of those. It belongs in the SQL console, not on a tile.
+//
+// Two of these tests are about length rather than meaning. A tile is a 150 pixel
+// square whose first two rows are already the system name and a one word note, so
+// a tile line that names the system again says nothing and costs several wrapped
+// rows in a space that has none. The mediator line is the opposite case: it speaks
+// for the whole machine, where the name is the point. That is why the same fact is
+// worded twice in this file, and why the tile assertions are the short ones.
+//
+// Every timing case pins `now`, because a countdown that reads differently on the
+// second run is not a test.
+import { describe, it, expect } from 'vitest';
+import type { DeliveryView, SwitchableTarget, Target } from '@ngl/contracts';
+import { activityFor, currentWork } from '../src/activity';
+import { TARGETS } from '../src/machine';
+
+const NOW = new Date('2026-07-30T22:29:37.000Z');
+const IN_4_SECONDS = '2026-07-30T22:29:41.000Z';
+const IN_10_MINUTES = '2026-07-30T22:39:37.000Z';
+const OVERDUE = '2026-07-30T22:29:31.000Z';
+
+let nextId = 1;
+
+function d(
+  target: Target, state: DeliveryView['state'], extra: Partial<DeliveryView> = {},
+): DeliveryView {
+  const id = nextId++;
+  return {
+    id, eventId: `evt-${id}`, target, state, attempts: 1,
+    nextAt: null, lastError: null, remoteRef: null, remoteAt: null, ...extra,
+  };
+}
+
+/** Every line a tile can produce, so length and wording can be checked in one go. */
+function everyLine(target: SwitchableTarget): string[] {
+  const retry = { attempts: 4, nextAt: IN_10_MINUTES };
+  const lines = [
+    activityFor(target, [d(target, 'inflight')], NOW),
+    activityFor(target, [d(target, 'inflight'), d(target, 'inflight')], NOW),
+    activityFor(target, [d(target, 'dead', { attempts: 6 })], NOW),
+    activityFor(target, [d(target, 'dead', { attempts: 6 }), d(target, 'dead', { attempts: 6 })], NOW),
+    activityFor(target, [d(target, 'pending', retry)], NOW),
+    activityFor(target, [d(target, 'pending', { attempts: 4, nextAt: OVERDUE })], NOW),
+    activityFor(target, [d(target, 'pending', retry), d(target, 'pending', retry)], NOW),
+    activityFor(target, [d(target, 'pending', { attempts: 0 })], NOW),
+    activityFor(target, [d(target, 'pending', { attempts: 0 }), d(target, 'pending', { attempts: 0 })], NOW),
+  ];
+  return lines.map((line) => line?.text ?? '');
+}
+
+describe('activityFor', () => {
+  it('stays quiet when the system has nothing outstanding', () => {
+    expect(activityFor('stripe', [], NOW)).toBeNull();
+    expect(activityFor('stripe', [d('stripe', 'done')], NOW)).toBeNull();
+  });
+
+  it('says what is going out right now', () => {
+    const activity = activityFor('stripe', [d('stripe', 'inflight')], NOW);
+    expect(activity).toEqual({ text: 'Delivering', tone: 'work' });
+  });
+
+  it('says a failed attempt is coming back, and when', () => {
+    const activity = activityFor('hubspot', [
+      d('hubspot', 'pending', { attempts: 3, nextAt: IN_4_SECONDS, lastError: 'ECONNRESET' }),
+    ], NOW);
+    expect(activity).toEqual({
+      text: 'Attempt 3 failed, trying again in 4 seconds',
+      tone: 'wait',
+    });
+  });
+
+  it('reads a long backoff in minutes rather than in six hundred seconds', () => {
+    const activity = activityFor('slack', [
+      d('slack', 'pending', { attempts: 5, nextAt: IN_10_MINUTES }),
+    ], NOW);
+    expect(activity?.text).toBe('Attempt 5 failed, trying again in 10 minutes');
+  });
+
+  it('drops the countdown once the next try is already due', () => {
+    const activity = activityFor('slack', [
+      d('slack', 'pending', { attempts: 2, nextAt: OVERDUE }),
+    ], NOW);
+    expect(activity?.text).toBe('Attempt 2 failed, trying again');
+  });
+
+  it('leads with what needs a human over what is only waiting to retry', () => {
+    const activity = activityFor('slack', [
+      d('slack', 'pending', { attempts: 2, nextAt: IN_4_SECONDS }),
+      d('slack', 'dead', { attempts: 6, lastError: 'gave up' }),
+    ], NOW);
+    expect(activity).toEqual({
+      text: 'Needs a human after 6 attempts',
+      tone: 'bad',
+    });
+  });
+
+  it('leads with the delivery going out over the one already parked', () => {
+    // A parked row never clears itself. Rank it above live work and the tile
+    // says "needs a human" for the rest of the session and never shows another
+    // delivery leaving, which is the opposite of saying what is happening now.
+    const activity = activityFor('ledger', [
+      d('ledger', 'dead', { attempts: 6 }),
+      d('ledger', 'inflight', { attempts: 1 }),
+    ], NOW);
+    expect(activity?.text).toBe('Delivering');
+  });
+
+  it('says an order is queued when nothing has been tried yet', () => {
+    const activity = activityFor('mailer', [
+      d('mailer', 'pending', { attempts: 0 }),
+    ], NOW);
+    expect(activity).toEqual({ text: 'Queued', tone: 'wait' });
+  });
+
+  it('counts several at once instead of naming them one by one', () => {
+    const inflight = activityFor('stripe', [
+      d('stripe', 'inflight'), d('stripe', 'inflight'), d('stripe', 'inflight'),
+    ], NOW);
+    expect(inflight?.text).toBe('Delivering 3 orders');
+
+    const parked = activityFor('stripe', [
+      d('stripe', 'dead', { attempts: 6 }), d('stripe', 'dead', { attempts: 6 }),
+    ], NOW);
+    expect(parked?.text).toBe('2 orders need a human');
+
+    const retrying = activityFor('stripe', [
+      d('stripe', 'pending', { attempts: 2, nextAt: IN_10_MINUTES }),
+      d('stripe', 'pending', { attempts: 1, nextAt: IN_4_SECONDS }),
+    ], NOW);
+    expect(retrying?.text).toBe('2 orders waiting to retry, next in 4 seconds');
+
+    const queued = activityFor('stripe', [
+      d('stripe', 'pending', { attempts: 0 }), d('stripe', 'pending', { attempts: 0 }),
+    ], NOW);
+    expect(queued?.text).toBe('2 orders queued');
+  });
+
+  it('reports only its own system', () => {
+    const activity = activityFor('stripe', [
+      d('hubspot', 'inflight'),
+      d('slack', 'dead', { attempts: 6 }),
+    ], NOW);
+    expect(activity).toBeNull();
+  });
+
+  it('never repeats the name of the tile it sits on', () => {
+    // The tile prints the name and a one word note above this line. Repeating it
+    // spends a third of a 150 pixel square on a word the reader is looking at.
+    for (const node of TARGETS) {
+      for (const text of everyLine(node.target)) {
+        expect(text.toLowerCase()).not.toContain(node.label.toLowerCase());
+      }
+    }
+  });
+
+  it('stays short enough to read on a tile', () => {
+    for (const text of everyLine('hubspot')) {
+      expect(text.length).toBeLessThanOrEqual(60);
+    }
+
+    // The four everyday lines, the ones a visitor sees most of the time, hold to
+    // half of that and fit on one row.
+    const short = [
+      activityFor('hubspot', [d('hubspot', 'inflight')], NOW),
+      activityFor('hubspot', [d('hubspot', 'dead', { attempts: 6 })], NOW),
+      activityFor('hubspot', [d('hubspot', 'pending', { attempts: 4, nextAt: OVERDUE })], NOW),
+      activityFor('hubspot', [d('hubspot', 'pending', { attempts: 0 })], NOW),
+    ];
+    for (const line of short) {
+      expect(line?.text.length).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it('never puts the raw error in front of a visitor', () => {
+    const lastError = 'AggregateError: connect ECONNREFUSED 127.0.0.1:4003';
+    const lines = [
+      activityFor('hubspot', [d('hubspot', 'pending', { attempts: 3, lastError })], NOW),
+      activityFor('hubspot', [d('hubspot', 'dead', { attempts: 6, lastError })], NOW),
+      currentWork([d('hubspot', 'dead', { attempts: 6, lastError })], NOW),
+    ];
+    for (const line of lines) {
+      expect(line?.text).not.toContain('ECONNREFUSED');
+      expect(line?.text).not.toContain('127.0.0.1');
+    }
+  });
+});
+
+describe('currentWork', () => {
+  it('says nothing has come in rather than inventing work', () => {
+    expect(currentWork([], NOW)).toEqual({ text: 'Nothing has come in yet', tone: 'wait' });
+  });
+
+  it('says the work is finished rather than claiming to be busy', () => {
+    const work = currentWork([d('stripe', 'done'), d('slack', 'done')], NOW);
+    expect(work).toEqual({ text: 'Everything delivered, nothing waiting', tone: 'wait' });
+  });
+
+  it('names what is going out and counts what is left behind it', () => {
+    const work = currentWork([
+      d('stripe', 'inflight'),
+      d('hubspot', 'pending', { attempts: 0 }),
+      d('slack', 'pending', { attempts: 2, nextAt: IN_4_SECONDS }),
+      d('ledger', 'done'),
+    ], NOW);
+    expect(work).toEqual({ text: 'Delivering to Stripe, 2 more waiting', tone: 'work' });
+  });
+
+  it('leaves the count off when there is nothing else to count', () => {
+    const work = currentWork([d('stripe', 'inflight'), d('slack', 'done')], NOW);
+    expect(work.text).toBe('Delivering to Stripe');
+  });
+
+  it('names the parked delivery once nothing is in flight', () => {
+    const work = currentWork([
+      d('slack', 'dead', { attempts: 6 }),
+      d('stripe', 'done'),
+    ], NOW);
+    expect(work).toEqual({ text: 'Slack needs a human after 6 attempts', tone: 'bad' });
+  });
+
+  it('counts the parked deliveries rather than listing them', () => {
+    const work = currentWork([
+      d('slack', 'dead', { attempts: 6 }),
+      d('hubspot', 'dead', { attempts: 6 }),
+      d('stripe', 'pending', { attempts: 0 }),
+    ], NOW);
+    expect(work).toEqual({ text: '2 orders need a human, 1 more waiting', tone: 'bad' });
+  });
+
+  it('says when the next retry is due', () => {
+    const work = currentWork([
+      d('hubspot', 'pending', { attempts: 4, nextAt: IN_10_MINUTES }),
+      d('slack', 'pending', { attempts: 1, nextAt: IN_4_SECONDS }),
+    ], NOW);
+    expect(work).toEqual({ text: 'Retrying Slack in 4 seconds, 1 more waiting', tone: 'wait' });
+  });
+
+  it('drops the countdown when the next try is overdue', () => {
+    const work = currentWork([
+      d('hubspot', 'pending', { attempts: 4, nextAt: OVERDUE }),
+    ], NOW);
+    expect(work.text).toBe('Waiting to retry HubSpot');
+  });
+
+  it('falls back to the queue when nothing has been tried yet', () => {
+    const work = currentWork([
+      d('stripe', 'pending', { attempts: 0 }),
+      d('hubspot', 'pending', { attempts: 0 }),
+    ], NOW);
+    expect(work).toEqual({ text: 'Queued for Stripe, 1 more waiting', tone: 'wait' });
+  });
+
+  it('speaks of the visitor endpoint in their own words', () => {
+    const work = currentWork([d('custom_webhook', 'inflight')], NOW);
+    expect(work.text).toBe('Delivering to your endpoint');
+  });
+
+  it('starts the line with a capital letter whichever system it names', () => {
+    const work = currentWork([d('custom_webhook', 'pending', { attempts: 0 })], NOW);
+    expect(work.text).toBe('Queued for your endpoint');
+    expect(currentWork([d('custom_webhook', 'dead', { attempts: 6 })], NOW).text)
+      .toBe('Your endpoint needs a human after 6 attempts');
+  });
+});

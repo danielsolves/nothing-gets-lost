@@ -11,8 +11,13 @@
 // The explanation of what a mediator even is sits behind a question mark. It is the
 // one thing on this panel that never changes, so it should not compete every second
 // with the numbers that do.
+//
+// What it is doing right now sits outside the tabs, because a visitor who never
+// opens the Log reads four numbers with no verb among them and cannot tell a busy
+// machine from a stopped one. Counters say how much; this says what.
 import { useState } from 'react';
 import type { Counters, DeliveryView, TimelineEntry } from '@ngl/contracts';
+import { currentWork } from './activity';
 import { Queue } from './Queue';
 import { Timeline } from './Timeline';
 
@@ -27,6 +32,7 @@ export function Mediator(props: {
 }) {
   const [tab, setTab] = useState<Tab>('queue');
   const [help, setHelp] = useState(false);
+  const doing = currentWork(props.deliveries);
 
   return (
     <section className="mediator" data-testid="mediator">
@@ -97,6 +103,10 @@ export function Mediator(props: {
           <i>lost</i>
         </span>
       </div>
+
+      <p className="mediator-doing" data-testid="hub-doing" data-tone={doing.tone}>
+        {doing.text}
+      </p>
 
       <div className="mediator-tabs" role="tablist" aria-label="What the mediator holds">
         <button

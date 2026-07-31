@@ -9,7 +9,7 @@
 // contradicted each other. It belongs next to the step it describes.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { Stage } from '../src/Stage';
 
 afterEach(cleanup);
@@ -26,7 +26,7 @@ beforeEach(() => {
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
-const props = { connected: true, viewers: 1, onPlaced: () => {} };
+const props = { connected: true, viewers: 1 };
 
 describe('Stage', () => {
   it('makes the claim before anything else', () => {
@@ -45,17 +45,21 @@ describe('Stage', () => {
     expect(screen.getByTestId('connection')).toHaveTextContent(/reconnecting/i);
   });
 
-  it('offers one obvious thing to press', () => {
+  it('sends nothing itself, because an order starts at the shop in the drawing', () => {
+    // Sent from up here it appeared in the middle of the picture, skipping the one
+    // hop the picture exists to show.
     render(<Stage {...props} />);
-    fireEvent.click(screen.getByTestId('send-order'));
-    expect(sent).toEqual(['/api/demo-order']);
+    expect(screen.queryByTestId('send-order')).not.toBeInTheDocument();
+    expect(sent).toEqual([]);
   });
 
-  it('tells the visitor the boxes are the controls', () => {
-    // With the walkthrough gone this line is the only thing that says a box can be
-    // clicked. It carries the whole success criterion, so it is pinned.
+  it('says where to start and that the systems are the controls', () => {
+    // The first thing to press is no longer the first thing on the screen, so this
+    // line carries the whole success criterion on its own. It is pinned.
     render(<Stage {...props} />);
-    expect(screen.getByTestId('stage-hint')).toHaveTextContent(/menu on any system/i);
+    const hint = screen.getByTestId('stage-hint');
+    expect(hint).toHaveTextContent(/shop/i);
+    expect(hint).toHaveTextContent(/menu on any system/i);
   });
 
   it('never puts the recorded-operation note beside the live badge', () => {

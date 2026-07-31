@@ -19,9 +19,11 @@ import { Diagram } from '../src/Diagram';
 
 /** The props every test shares. Individual tests override what they are about. */
 const base = {
-  // The hub is passed in rather than built here: this file is about the layout and
-  // the wiring, and Mediator.test.tsx is about the panel itself.
+  // The hub and the order form are passed in rather than built here: this file is
+  // about the layout and the wiring, and Mediator.test.tsx and OrderForm.test.tsx
+  // are about the panels themselves.
   hub: <div data-testid="mediator">hub</div>,
+  orderForm: <div data-testid="order-form">form</div>,
 };
 
 afterEach(cleanup);
@@ -82,6 +84,14 @@ describe('Diagram', () => {
   it('leaves the shop page alone, having nothing to offer that the page does not', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.queryByTestId('menu-shop')).not.toBeInTheDocument();
+  });
+
+  it('puts the order form on the shop, which is where an order comes from', () => {
+    // Sent from the top of the page instead, an order appears in the middle of the
+    // drawing, skipping the one hop the drawing exists to show.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    const shop = screen.getByTestId('box-shop');
+    expect(shop).toContainElement(screen.getByTestId('order-form'));
   });
 
   it('offers all four faults rather than one on and off', () => {
@@ -174,14 +184,21 @@ describe('Diagram', () => {
     expect(screen.getByTestId('line-hubspot')).toHaveAttribute('data-state', 'cut');
   });
 
-  it('counts what is held up at a system', () => {
+  it('says what a system is doing, not merely how many are stacked up at it', () => {
+    // A count is a number to interpret. The visitor watching an outage wants the
+    // verb: whether anything is moving, and when it will be tried again.
     render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
-    expect(screen.getByTestId('box-hubspot')).toHaveTextContent('1 waiting');
+    expect(screen.getByTestId('doing-hubspot')).toHaveTextContent(/attempt 2 failed/i);
   });
 
-  it('says nothing about waiting when nothing is', () => {
+  it('never makes a tile repeat its own name back at the reader', () => {
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
+    expect(screen.getByTestId('doing-hubspot')).not.toHaveTextContent(/hubspot/i);
+  });
+
+  it('stays quiet about a system with nothing outstanding', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.getByTestId('box-hubspot')).not.toHaveTextContent('waiting');
+    expect(screen.queryByTestId('doing-hubspot')).not.toBeInTheDocument();
   });
 
   it('marks nothing while no order is open in the queue', () => {

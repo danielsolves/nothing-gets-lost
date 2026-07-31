@@ -10,14 +10,24 @@
 // same state name over and over as the retries fail; only the attempt counter tells
 // the second failure from the first, and the visitor watching an outage needs to see
 // each retry go out.
+//
+// Arrivals obey the same rule from the other end. An order coming in is not a state
+// change of any delivery, so it needs its own evidence: an event id in the list that
+// was not in the list before. Nothing here polls for it and nothing announces it.
 import { SWITCHABLE_TARGETS, type DeliveryView, type SwitchableTarget } from '@ngl/contracts';
 
-export type PulseKind = 'delivered' | 'held' | 'parked';
+export type PulseKind = 'delivered' | 'held' | 'parked' | 'arrival';
+
+/**
+ * An arrival travels the wire from the shop rather than one of the outgoing ones,
+ * so a pulse can name a source as well as a system.
+ */
+export type PulseTarget = SwitchableTarget | 'shop';
 
 export interface Pulse {
   /** The delivery this dot stands for. Also its React key. */
   id: number;
-  target: SwitchableTarget;
+  target: PulseTarget;
   kind: PulseKind;
 }
 
@@ -40,6 +50,46 @@ function signature(delivery: DeliveryView): string {
 }
 
 /**
+ * One dot for one order turning up, never one per delivery that order queued: an
+ * order fans out to four or five systems in the same snapshot, and four dots on the
+ * wire into the hub would say four orders came in when one did. The event id is what
+ * an order is here; the deliveries are what it then does.
+ *
+ * The lowest of its delivery ids stands for the order, so the dot does not depend on
+ * the order the rows happen to be listed in.
+ *
+ * Deliberately not a `delivered` dot pointed the other way. This one runs into the
+ * hub rather than out of it, and one kind covering both would mean any later change
+ * to how a confirmed delivery looks restyled the arrival as a side effect.
+ *
+ * A delivery carries no origin, so an order read out of the mail draws on the shop
+ * wire too. Correcting that means a field on a frozen contract, and every order
+ * appearing out of the middle of the picture was the worse of the two.
+ */
+function arrivals(previous: DeliveryView[], current: DeliveryView[]): Pulse[] {
+  // An empty previous list is the shape the list has before the first one lands, so
+  // treating it as a baseline would fire an arrival for every order on the board on
+  // every page load. The price is the first order after a reset, which goes
+  // unannounced because there is nothing it can be compared against.
+  if (previous.length === 0) return [];
+
+  const known = new Set(previous.map((delivery) => delivery.eventId));
+  const standsFor = new Map<string, number>();
+
+  for (const delivery of current) {
+    if (known.has(delivery.eventId)) continue;
+    const lowest = standsFor.get(delivery.eventId);
+    if (lowest === undefined || delivery.id < lowest) {
+      standsFor.set(delivery.eventId, delivery.id);
+    }
+  }
+
+  const pulses: Pulse[] = [];
+  for (const id of standsFor.values()) pulses.push({ id, target: 'shop', kind: 'arrival' });
+  return pulses;
+}
+
+/**
  * @param previous the delivery list as it was last render, or undefined on the first
  *   one. Undefined means no dots: a visitor arriving mid-experiment must not be shown
  *   a burst for every delivery already on the board.
@@ -50,7 +100,10 @@ export function pulsesFrom(
   if (previous === undefined) return [];
 
   const before = new Map(previous.map((delivery) => [delivery.id, signature(delivery)]));
-  const pulses: Pulse[] = [];
+
+  // Arrivals first, because an order reaches the hub before anything it queues can
+  // move, and a snapshot that holds both should read in that order.
+  const pulses: Pulse[] = arrivals(previous, current);
 
   for (const delivery of current) {
     if (!drawn(delivery)) continue;
