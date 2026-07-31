@@ -4,6 +4,12 @@
 // The claim is inserted BEFORE the send and rolled back if the send throws. Inserting
 // afterwards would let two retries send two mails; inserting and keeping the row on
 // failure would swallow the mail entirely.
+//
+// Exactly-once rests on the UNIQUE (event_id) and nothing else. That matters more
+// than it looks: the nightly sweep in the api replaces recipient with a marker after
+// 24 hours, so a rule that read the address back to decide anything would start
+// misfiring a day late. sent_at and message_id survive, and they are what the repeat
+// answer is built from.
 import type { Pool } from 'pg';
 
 export interface Transport {

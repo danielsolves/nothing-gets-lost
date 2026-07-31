@@ -1,6 +1,9 @@
 // services/mailer/test/mail.service.test.ts
 // Holds the mailer to "exactly once per event": one send, no second send on a retry,
-// and no record left behind when the SMTP call fails — the proof chain reads this row.
+// and no record left behind when the SMTP call fails. The proof chain reads this row.
+//
+// The last case keeps the promise honest from the other side: a day later the api's
+// sweep empties the address out of this table, and exactly-once has to survive it.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
@@ -59,6 +62,21 @@ describe('MailService', () => {
     ).rejects.toThrow('SMTP down');
     const { rows } = await pool.query('SELECT count(*) FROM sent_mail');
     expect(Number(rows[0].count)).toBe(0);
+  });
+
+  it('refuses a second send after the address has been erased', async () => {
+    const transport = fakeTransport();
+    const service = new MailService(pool, transport, 'demo@example.com');
+    await service.send(eventId, 'buyer@example.com', 'Subject', 'Body');
+    // What the nightly sweep does to this row a day later. Exactly-once hangs on the
+    // UNIQUE (event_id) alone, so an emptied address must not buy a second mail.
+    await pool.query(
+      `UPDATE sent_mail SET recipient = '[deleted]' WHERE event_id = $1`, [eventId],
+    );
+    const second = await service.send(eventId, 'buyer@example.com', 'Subject', 'Body');
+    expect(second.alreadySent).toBe(true);
+    expect(second.messageId).toBe('<msg-1@demo>');
+    expect(transport.calls).toBe(1);
   });
 
   it('reads the send record back for the proof chain', async () => {
