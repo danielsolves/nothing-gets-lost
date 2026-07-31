@@ -724,10 +724,14 @@ body {
 /* The hub. Biggest element on the page, and it shows its own state rather than
    asking to be believed. Content starts at the top: the panel grows downward as
    the queue fills, and centring made everything shuffle on every delivery. */
+/* The panel is as tall as the column of systems beside it, so the queue has to
+   take whatever is left rather than stopping at a fixed height and leaving a
+   third of the biggest box on the page empty. Head, counts and tabs take what
+   they need; the last row gets the rest. */
 .mediator {
   align-self: stretch;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 14px;
   padding: clamp(20px, 2.2vw, 30px);
   border: 1px solid var(--accent);
@@ -897,9 +901,9 @@ body {
 }
 .mediator-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.mediator-panel { min-height: 16rem; }
-.mediator-panel .queue { max-height: 21rem; }
-.mediator-panel .timeline-scroll { max-height: 21rem; }
+.mediator-panel { min-height: 16rem; display: grid; grid-template-rows: minmax(0, 1fr); }
+.mediator-panel .queue,
+.mediator-panel .timeline-scroll { max-height: none; min-height: 0; }
 
 .extractor-note {
   margin: 0;
@@ -1213,7 +1217,11 @@ body {
   /* Queue and diagram no longer fit side by side. Left as two columns they
      overflow the container and draw on top of each other. */
   .board { grid-template-columns: 1fr; }
-  .queue { max-height: 18rem; }
+
+  /* Stacked, the panel no longer has a column of systems next to it setting its
+     height, so the queue would grow without end. It goes back to a cap. */
+  .mediator-panel .queue,
+  .mediator-panel .timeline-scroll { max-height: 19rem; }
 }
 
 @media (max-width: 40rem) {
