@@ -1311,7 +1311,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.order-panel input, .connection input, .sql-console textarea {
+/* Text fields only. It used to say `input` and caught the payment radios, which
+   came out as full width circles with the label pushed to the far edge. */
+.order-panel input:not([type='radio']),
+.connection input, .sql-console textarea {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -1324,11 +1327,11 @@ body {
 }
 .catalog input { min-height: 38px; text-align: center; font-family: var(--mono); }
 
-.order-panel input::placeholder,
+.order-panel input:not([type='radio'])::placeholder,
 .connection input::placeholder,
 .sql-console textarea::placeholder { color: var(--faint); }
 
-.order-panel input:focus-visible,
+.order-panel input:not([type='radio']):focus-visible,
 .connection input:focus-visible,
 .sql-console textarea:focus-visible {
   outline: 2px solid var(--accent);
