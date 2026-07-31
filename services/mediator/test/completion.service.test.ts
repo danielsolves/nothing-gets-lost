@@ -49,6 +49,15 @@ async function seedWith(
   return eventId;
 }
 
+/**
+ * The address an order with no address is booked under. Spelled out rather than
+ * imported: this service is in another package, and rule 6.7 has to keep its hands
+ * off the house address whatever the api happens to call it today. A test that
+ * imported the value would pass even if the two drifted apart, which is the one
+ * thing it is here to catch.
+ */
+const HOUSE_ADDRESS = 'orders@ngl.danielsolves.ai';
+
 describe('CompletionService', () => {
   it('does not queue the mail while any delivery is still pending', async () => {
     const eventId = await seedWith([['hubspot', 'done'], ['ledger', 'pending']]);
@@ -109,7 +118,7 @@ describe('CompletionService', () => {
     // address included. confirmTo is the promise to a real person, and only that
     // promise may create a delivery.
     const eventId = await seedWith(
-      [['hubspot', 'done']], { customerEmail: 'demo@nothing-gets-lost.example' },
+      [['hubspot', 'done']], { customerEmail: HOUSE_ADDRESS },
     );
     expect(await completion.enqueueMailIfComplete(eventId)).toBe(false);
   });

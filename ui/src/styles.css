@@ -331,26 +331,37 @@ body {
   font-size: 14.5px;
 }
 
+/* The card is the box, and the box is what grows. Everything that draws it lives
+   here rather than on the button inside it: the detail cannot be a child of a
+   button, so a card whose border belonged to the button could only ever have put
+   the detail outside its own outline. */
 .order-card {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.order-card:hover { border-color: var(--line-input); }
+.order-card[data-open='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The head, and the only part of the card that can be pressed. */
+.order-summary {
   width: 100%;
   display: grid;
   gap: 8px;
   padding: 13px 15px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-control);
-  background: var(--surface-sunken);
+  border: 0;
+  background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
 }
-.order-card:hover { border-color: var(--line-input); }
-.order-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.order-card[data-selected] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
+.order-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .order-head {
   display: flex;
@@ -452,16 +463,21 @@ body {
 /* min-height: 0 as well as the clip. A row of 0fr takes none of the leftover
    space, but its base size is still the item's content minimum, so without this the
    fold sits 28px tall while shut and every card carries a sliver of its own detail. */
-.order-fold > * { overflow: hidden; min-height: 0; }
+/* The clip belongs on the fold, not on the child. A child clipping its own overflow
+   still paints its padding, so a shut card wore a 24px strip of the detail's
+   background below it. min-height: 0 as well, or the grid item refuses to go under
+   its content height. */
+.order-fold { overflow: hidden; }
+.order-fold > * { min-height: 0; }
 
+/* Inside the card now, so it brings no border, no corners and no colour of its own.
+   A hairline says where the head ends; the box around both is the card. */
 .order-detail {
-  margin: 4px 0 0;
-  padding: 12px 15px;
+  margin: 0 15px;
+  padding: 12px 0 13px;
   display: grid;
   gap: 12px;
-  border-left: 2px solid var(--accent);
-  background: var(--surface-sunken);
-  border-radius: 0 var(--r-control) var(--r-control) 0;
+  border-top: 1px solid var(--line);
   font-size: 13px;
 }
 
@@ -519,7 +535,7 @@ body {
      once wider, from when its tiles could grow to hold the button that starts the
      demo. The tiles are a fixed square now, so the extra width never reached them:
      it went into the connecting line and pushed the hub off centre. */
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 26rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, calc(26rem + 30px)) minmax(0, 1fr);
   /* What comes in on the left, what the order is written into on the right, and the
      money underneath. The payment has its own row because it is the one hop every
      order makes before any of the others is worth doing, and because there is more
@@ -1190,20 +1206,19 @@ body {
    stopped at a height of its own and left the rest of the panel empty, or it grew
    and the whole drawing changed shape every time an order arrived. Out of flow it
    fills the window and never sets its size. */
-/* The window. It grows while a card is open: fixed, it was a fifth the height of an
-   opened card, so unfolding one put the detail into a scroll box too small to read
-   it in and the card looked as though it had opened somewhere else. The flanking
-   columns start at the top, so a taller hub moves none of them.
+/* A window onto a list, of a size that does not move. It was briefly made to grow
+   while a card was open, and that was the wrong reading of the same complaint: the
+   hub stretched, left a field of empty panel under the one open card, and the whole
+   drawing changed shape every time somebody opened an order. The card grows; the
+   cards below it move down; the window stays where it is and the list scrolls.
 
-   overflow: hidden is what makes the sideways travel a slide rather than two panels
-   briefly side by side in a wider box. */
+   overflow: hidden is also what makes the sideways travel a slide rather than two
+   panels briefly side by side in a wider box. */
 .mediator-panels {
   position: relative;
   min-height: 17rem;
   overflow: hidden;
-  transition: min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.mediator-panels[data-open='true'] { min-height: 31rem; }
 
 .mediator-panel {
   position: absolute;

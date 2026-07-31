@@ -36,8 +36,19 @@ const TARGETS = ['hubspot', 'ledger', 'slack'] as const;
  * existing contact instead of creating a second one. An order placed without one
  * is booked under the house, and the payload says so by carrying no `confirmTo`:
  * nobody was promised a mail, so no mail is ever queued (rule 6.7).
+ *
+ * On the demo's own domain, and not on a .example one. That is the reserved TLD for
+ * exactly this purpose and it is the obvious choice right up to the point where the
+ * address is handed to a real CRM: HubSpot rejects it as INVALID_EMAIL, so every
+ * demo order placed without an address failed at HubSpot six times and parked a dead
+ * letter, and the demo's own "needs a human" counter climbed for a reason that was
+ * nothing to do with the outage it was meant to be showing.
+ *
+ * Exported because three test files used to spell it out again, and a house address
+ * that drifted apart from the one the cleanup rule protects would quietly start
+ * erasing it as though it were a real person's.
  */
-const HOUSE_IDENTITY = 'demo@nothing-gets-lost.example';
+export const HOUSE_IDENTITY = 'orders@ngl.danielsolves.ai';
 const HOUSE_NAME = 'Demo order';
 
 /** Reads the visitor's own endpoint, if they registered one (spec 10.2). */

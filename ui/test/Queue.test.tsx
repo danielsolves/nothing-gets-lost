@@ -70,6 +70,17 @@ describe('Queue', () => {
     expect(screen.getByTestId('queue-empty')).toBeInTheDocument();
   });
 
+  it('grows the card itself instead of opening a second box beneath it', () => {
+    // The detail used to be a sibling of the card: its own bordered, tinted block
+    // sitting under a card that never changed size. Two boxes for one order, and
+    // the lower one carried a strip of its own background below every shut card.
+    // One box now, and opening an order makes that box taller.
+    render(<Queue {...props} openOrder={EVENT} />);
+    const card = screen.getByTestId(`order-card-${EVENT}`);
+    expect(card).toContainElement(screen.getByTestId(`order-summary-${EVENT}`));
+    expect(card).toContainElement(screen.getByTestId(`order-detail-${EVENT}`));
+  });
+
   it('draws one card per order', () => {
     render(<Queue {...props} />);
     expect(screen.getAllByTestId(/^order-card-/)).toHaveLength(1);
@@ -119,8 +130,8 @@ describe('Queue', () => {
     // It is one of the two ways an order gets in, not somewhere it goes. A sixth
     // checkbox for it would claim a delivery that never happens.
     render(<Queue {...props} openOrder={EVENT} />);
-    const card = screen.getByTestId(`order-card-${EVENT}`);
-    expect(within(card).queryByText(/order mail/i)).not.toBeInTheDocument();
+    const head = screen.getByTestId(`order-summary-${EVENT}`);
+    expect(within(head).queryByText(/order mail/i)).not.toBeInTheDocument();
   });
 
   it('stays quiet until it is opened, and out of a reader ear', () => {
@@ -187,31 +198,33 @@ describe('Queue', () => {
   it('opens on a click, because opening is also what selects', () => {
     const onToggle = vi.fn();
     render(<Queue {...props} onToggle={onToggle} />);
-    fireEvent.click(screen.getByTestId(`order-card-${EVENT}`));
+    fireEvent.click(screen.getByTestId(`order-summary-${EVENT}`));
     expect(onToggle).toHaveBeenCalledWith(EVENT);
   });
 
   it('tells assistive tech whether a card is open', () => {
     const { rerender } = render(<Queue {...props} />);
-    expect(screen.getByTestId(`order-card-${EVENT}`)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId(`order-summary-${EVENT}`))
+      .toHaveAttribute('aria-expanded', 'false');
     rerender(<Queue {...props} openOrder={EVENT} />);
-    expect(screen.getByTestId(`order-card-${EVENT}`)).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId(`order-summary-${EVENT}`))
+      .toHaveAttribute('aria-expanded', 'true');
   });
 
   it('marks the open card as the selected one', () => {
     render(<Queue {...props} openOrder={EVENT} />);
-    expect(screen.getByTestId(`order-card-${EVENT}`)).toHaveAttribute('data-selected', 'true');
+    expect(screen.getByTestId(`order-summary-${EVENT}`)).toHaveAttribute('data-selected', 'true');
   });
 
   it('can be reached and opened from the keyboard', () => {
     render(<Queue {...props} />);
-    expect(screen.getByTestId(`order-card-${EVENT}`).tagName).toBe('BUTTON');
+    expect(screen.getByTestId(`order-summary-${EVENT}`).tagName).toBe('BUTTON');
   });
 
   it('puts no tab stop in the card head for something nobody can tick', () => {
     render(<Queue {...props} />);
-    const card = screen.getByTestId(`order-card-${EVENT}`);
-    expect(within(card).queryAllByRole('checkbox')).toHaveLength(0);
-    expect(card.querySelectorAll('input')).toHaveLength(0);
+    const head = screen.getByTestId(`order-summary-${EVENT}`);
+    expect(within(head).queryAllByRole('checkbox')).toHaveLength(0);
+    expect(head.querySelectorAll('input')).toHaveLength(0);
   });
 });

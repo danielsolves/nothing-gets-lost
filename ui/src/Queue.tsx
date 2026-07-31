@@ -44,11 +44,22 @@ export function Queue(props: {
       {orders.map((order) => {
         const open = props.openOrder === order.eventId;
         return (
-          <li key={order.eventId}>
+          // One box per order, and opening the order makes that box taller. The
+          // detail used to be a sibling of the card: a second bordered, tinted
+          // block under a card that never changed size, which read as two things
+          // about one order. It also cannot live inside the button, because a
+          // button may not contain a definition list, so the card is the shell and
+          // the button is only its head.
+          <li
+            key={order.eventId}
+            className="order-card"
+            data-testid={`order-card-${order.eventId}`}
+            data-open={open ? 'true' : 'false'}
+          >
             <button
               type="button"
-              className="order-card"
-              data-testid={`order-card-${order.eventId}`}
+              className="order-summary"
+              data-testid={`order-summary-${order.eventId}`}
               data-selected={open ? 'true' : undefined}
               aria-expanded={open}
               onClick={() => props.onToggle(order.eventId)}
@@ -95,6 +106,7 @@ export function Queue(props: {
                 it can only appear; one that is already there can unfold. The queue
                 holds a dozen cards at most, so the markup this costs is small next
                 to what it buys. */}
+
             <div
               className="order-fold"
               data-testid={`order-fold-${order.eventId}`}

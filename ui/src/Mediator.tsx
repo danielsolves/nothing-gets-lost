@@ -189,13 +189,10 @@ export function Mediator(props: {
           focus has nowhere to travel from, and the swap made the two tabs read as
           two places instead of two views of one thing.
 
-          The window is only as tall as it needs to be for the panel on show, so the
-          height is carried out here and the panels inside it fill whatever it is. */}
-      <div
-        className="mediator-panels"
-        data-tab={tab}
-        data-open={tab === 'queue' && props.openOrder ? 'true' : undefined}
-      >
+          Its height is fixed and does not answer to what is inside it. An opened
+          card makes itself taller and pushes the cards below it down; the window
+          stays the size it was and the list scrolls. */}
+      <div className="mediator-panels" data-tab={tab}>
         <div
           className="mediator-panel"
           id="hub-panel-queue"

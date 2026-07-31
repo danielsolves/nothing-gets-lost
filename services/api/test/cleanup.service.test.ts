@@ -11,6 +11,7 @@ import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
 import { CleanupService } from '../src/cleanup.service';
+import { HOUSE_IDENTITY } from '../src/orders.service';
 
 let container: StartedPostgreSqlContainer;
 let pool: Pool;
@@ -81,7 +82,7 @@ const VISITOR = {
 
 /** Nobody typed anything, so the order runs under the house and promises nothing. */
 const HOUSE = {
-  customerName: 'Demo order', customerEmail: 'demo@nothing-gets-lost.example',
+  customerName: 'Demo order', customerEmail: HOUSE_IDENTITY,
   totalCents: 1200,
 };
 
@@ -140,7 +141,7 @@ describe('CleanupService', () => {
     const eventId = await seedEvent(30, HOUSE);
     expect(await cleanup.run()).toBe(0);
     expect((await payloadOf(eventId)).customerEmail)
-      .toBe('demo@nothing-gets-lost.example');
+      .toBe(HOUSE_IDENTITY);
   });
 
   it('finds nothing left to erase on the next sweep', async () => {
