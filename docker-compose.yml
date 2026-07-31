@@ -21,20 +21,28 @@ x-env-file: &env-file
 # The database url from .env.example points at localhost, which is right for
 # `npm run dev` on the host and wrong inside a container. It is overridden here
 # rather than in .env so that both ways of running the demo keep working.
+#
+# The passwords fall back to the demo values so that a clone still starts on one
+# command, and a public host sets DATABASE_PASSWORD and DATABASE_READONLY_PASSWORD in
+# .env instead. Postgres only reads POSTGRES_PASSWORD when it initialises an empty
+# volume, so changing it on a database that already exists changes nothing: set it
+# before the first `up`, or drop the volume.
 x-db-env: &db-env
   NODE_ENV: production
-  DATABASE_URL: postgres://ngl:ngl@db:5432/ngl
+  DATABASE_URL: postgres://ngl:${DATABASE_PASSWORD:-ngl}@db:5432/ngl
 
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ngl
-      POSTGRES_PASSWORD: ngl
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-ngl}
       POSTGRES_DB: ngl
     # Published so the tests and `npm run dev` on the host reach the same database
-    # the containers use. Closing this is the first thing to do on a public host.
-    ports: ['5432:5432']
+    # the containers use. Bound to the loopback address on purpose: on a public host
+    # a bare 5432:5432 would put Postgres on the internet, and the demo has no reason
+    # to be reachable from anywhere but the machine it runs on.
+    ports: ['127.0.0.1:5432:5432']
     volumes: ['pgdata:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ngl -d ngl']
@@ -144,7 +152,7 @@ services:
       <<: *db-env
       # A second role for the public SQL console: read-only, four views, nothing
       # else. Created by migration 005, so it exists by the time this starts.
-      DATABASE_URL_READONLY: postgres://ngl_ro:ngl_ro@db:5432/ngl
+      DATABASE_URL_READONLY: postgres://ngl_ro:${DATABASE_READONLY_PASSWORD:-ngl_ro}@db:5432/ngl
       # The model key is passed straight through. The page derives what it says
       # about the extraction from whether this is set, so there is no second
       # label to keep in sync and no way for the two to disagree.

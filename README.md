@@ -2,7 +2,7 @@
 
 ![An order runs through five systems, HubSpot is cut with a click, waiting climbs and lost stays at zero](docs/demo.gif)
 
-[![CI](https://github.com/OWNER/nothing-gets-lost/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/nothing-gets-lost/actions/workflows/ci.yml)
+[![CI](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml/badge.svg)](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml)
 
 When two systems talk to each other, things go missing. A payment arrives but the
 customer never appears in the CRM. A form is submitted but no invoice is written.
@@ -38,7 +38,7 @@ Everything in the table above is not.
 ## Run it
 
 ```bash
-git clone https://github.com/OWNER/nothing-gets-lost
+git clone https://github.com/danielsolves/nothing-gets-lost
 cd nothing-gets-lost
 cp .env.example .env
 docker compose up

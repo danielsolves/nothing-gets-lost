@@ -37,6 +37,33 @@ export async function runMigrations(pool: Pool): Promise<void> {
   }
 }
 
+/**
+ * The read-only role's real password, from the environment rather than the repository.
+ *
+ * Migration 005 creates `ngl_ro` with a password anyone can read in the checkout,
+ * which is right for a demo somebody clones and wrong for a public host. Migrations
+ * are never edited once applied and cannot read the environment anyway, so the real
+ * one is set here, after them, every time the migrator runs. Unset leaves the demo
+ * password standing, which is what a local checkout wants.
+ *
+ * ALTER ROLE takes no bind parameters, so the value is inlined. It is checked against
+ * a conservative alphabet first rather than escaped and hoped for: a password this
+ * process cannot quote with certainty is a password that should not reach the
+ * database, and saying so beats being clever about apostrophes.
+ */
+export async function setReadonlyPassword(
+  pool: Pool, password: string | undefined,
+): Promise<void> {
+  if (!password) return;
+  if (!/^[A-Za-z0-9_.~-]{16,}$/.test(password)) {
+    throw new Error(
+      'DATABASE_READONLY_PASSWORD must be at least 16 characters of letters, digits, '
+      + 'underscore, dot, tilde or hyphen',
+    );
+  }
+  await pool.query(`ALTER ROLE ngl_ro PASSWORD '${password}'`);
+}
+
 const invokedDirectly =
   process.argv[1] !== undefined &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -46,6 +73,7 @@ if (invokedDirectly) {
   const pool = getPool();
   try {
     await runMigrations(pool);
+    await setReadonlyPassword(pool, process.env.DATABASE_READONLY_PASSWORD);
   } finally {
     await pool.end();
   }
