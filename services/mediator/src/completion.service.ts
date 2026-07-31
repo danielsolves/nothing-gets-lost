@@ -8,6 +8,15 @@
 // still cut, and it would prove nothing.
 //
 // It is also simply correct: you confirm to a customer once everything is booked.
+//
+// There is a second condition, and leaving it out cost the demo its own headline
+// number. `confirmTo` is set only when a visitor actually gave an address. Every
+// other order runs under the house identity, and queueing a mail to that identity
+// failed six times and parked itself for a human, so an untouched demo grew a pile
+// of dead letters it then had to explain. No addressee, no delivery.
+//
+// `customerEmail` is deliberately not the field asked about here: that one is the
+// identity the order is booked under at Stripe and HubSpot, and it is always set.
 import type { Pool } from 'pg';
 
 export class CompletionService {
@@ -17,7 +26,11 @@ export class CompletionService {
     const { rowCount } = await this.pool.query(
       `INSERT INTO deliveries (event_id, target, state)
        SELECT $1, 'mailer', 'pending'
-        WHERE NOT EXISTS (
+        WHERE EXISTS (
+              SELECT 1 FROM events
+               WHERE id = $1
+                 AND coalesce(payload->>'confirmTo', '') <> '')
+          AND NOT EXISTS (
               SELECT 1 FROM deliveries
                WHERE event_id = $1
                  AND target <> 'mailer'

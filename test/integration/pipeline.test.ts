@@ -18,7 +18,12 @@ beforeEach(async () => {
 
 const ORDER = {
   kind: 'order.placed' as const,
-  payload: { customerName: 'M. Berger', customerEmail: 'm@example.com', totalCents: 4900 },
+  // confirmTo is what makes rule 6.7 create the mail step at all: this visitor
+  // asked to be written to.
+  payload: {
+    customerName: 'M. Berger', customerEmail: 'm@example.com',
+    confirmTo: 'm@example.com', totalCents: 4900,
+  },
   targets: ['hubspot', 'stripe', 'ledger', 'slack'] as const,
 };
 

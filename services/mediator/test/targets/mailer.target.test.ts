@@ -42,7 +42,9 @@ beforeEach(() => {
 const ctx = (eventId: string) => ({
   eventId,
   idempotencyKey: `${eventId}:mailer`,
-  payload: { customerEmail: 'visitor@example.com', customerName: 'M. Berger', totalCents: 1200 },
+  // confirmTo, not customerEmail: the mail goes to the person who asked to be
+  // told, which is not always the identity the order is booked under.
+  payload: { confirmTo: 'visitor@example.com', customerName: 'M. Berger', totalCents: 1200 },
 });
 
 describe('MailerTarget', () => {

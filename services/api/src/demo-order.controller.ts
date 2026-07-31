@@ -1,10 +1,10 @@
 // services/api/src/demo-order.controller.ts
-// POST /api/demo-order: the one button the guided walkthrough starts with.
+// POST /api/demo-order: the loud button at the top of the page.
 //
-// Separate from POST /api/orders on purpose. The visitor's own order needs their
-// email, because that address is the strongest proof they have (spec 9.7). The
-// walkthrough must work before anyone has typed anything, so it uses a house
-// customer and skips the mail.
+// Separate from POST /api/orders on purpose, and not because of the address: it
+// carries no basket either, so it works before a visitor has touched anything.
+// The order it places is real in every other respect and is booked under the house
+// identity, which means no confirmation mail is ever promised or queued for it.
 import { Controller, HttpException, HttpStatus, Inject, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { PlaceOrderResponse } from '@ngl/contracts';

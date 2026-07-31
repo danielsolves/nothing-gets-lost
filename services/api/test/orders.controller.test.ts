@@ -86,4 +86,56 @@ describe('OrdersService', () => {
     await expect(orders.place({ ...request, customerEmail: 'not-an-email' }))
       .rejects.toThrow(/email/i);
   });
+
+  // Spec 9.7 makes the address mandatory. It is optional here on the owner's
+  // instruction, so that a visitor can watch a real order go through before
+  // deciding to hand anything over. The tests below are what "optional" has to
+  // mean if the demo is to stay honest about it.
+
+  it('accepts an order with no address at all', async () => {
+    const result = await orders.place({ items: request.items });
+    expect(result.eventId).toBeTruthy();
+  });
+
+  it('promises a confirmation only to somebody who asked for one', async () => {
+    const withAddress = await orders.place(request);
+    const without = await orders.place({ items: request.items });
+
+    const { rows } = await pool.query<{ id: string; confirm_to: string | null }>(
+      `SELECT id, payload->>'confirmTo' AS confirm_to FROM events WHERE id = ANY($1)`,
+      [[withAddress.eventId, without.eventId]],
+    );
+    const byId = new Map(rows.map((row) => [row.id, row.confirm_to]));
+    expect(byId.get(withAddress.eventId)).toBe('m@example.com');
+    expect(byId.get(without.eventId)).toBeNull();
+  });
+
+  it('still books an anonymous order under an identity Stripe and HubSpot can use', async () => {
+    // Both of those need an address as a natural key. Dropping it would break
+    // exactly-once at HubSpot, which is the more expensive promise to lose.
+    const result = await orders.place({ items: request.items });
+    const { rows } = await pool.query<{ email: string }>(
+      `SELECT payload->>'customerEmail' AS email FROM events WHERE id = $1`,
+      [result.eventId],
+    );
+    expect(rows[0].email).toMatch(/@/);
+  });
+
+  it('treats a blank address as no address rather than refusing the order', async () => {
+    const result = await orders.place({ ...request, customerEmail: '   ' });
+    const { rows } = await pool.query(
+      `SELECT payload->>'confirmTo' AS confirm_to FROM events WHERE id = $1`,
+      [result.eventId],
+    );
+    expect(rows[0].confirm_to).toBeNull();
+  });
+
+  it('places the demo order without inventing a customer to write to', async () => {
+    const result = await orders.placeDemo(request.items);
+    const { rows } = await pool.query(
+      `SELECT payload->>'confirmTo' AS confirm_to FROM events WHERE id = $1`,
+      [result.eventId],
+    );
+    expect(rows[0].confirm_to).toBeNull();
+  });
 });

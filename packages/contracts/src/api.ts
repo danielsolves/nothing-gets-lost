@@ -5,9 +5,16 @@ import type { Target, SwitchableTarget, SwitchState } from './targets';
 
 export interface CatalogItem { sku: string; name: string; cents: number }
 
+/**
+ * Name and address are both optional, which departs from spec 9.7 and does so on
+ * purpose: a visitor should be able to watch a real order go through without
+ * handing over anything first. Give an address and the confirmation mail becomes
+ * the second witness of the proof chain; leave it out and there is no mail step at
+ * all, rather than one addressed to nobody.
+ */
 export interface PlaceOrderRequest {
-  customerName: string;
-  customerEmail: string;
+  customerName?: string;
+  customerEmail?: string;
   items: Array<{ sku: string; qty: number }>;
 }
 export interface PlaceOrderResponse { eventId: string; orderId: string }
