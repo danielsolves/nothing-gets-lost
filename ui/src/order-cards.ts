@@ -1,4 +1,4 @@
-// ui/src/queue.ts
+// ui/src/order-cards.ts
 // Turns the flat delivery list back into what it actually is: one order, five
 // checkpoints, and a plain sentence about where it currently stands.
 //

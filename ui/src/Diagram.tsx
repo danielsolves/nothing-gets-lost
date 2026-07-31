@@ -24,8 +24,21 @@ const BOXES: Array<{ target: SwitchableTarget; label: string; note: string }> = 
 export function Diagram(props: {
   switches: Record<SwitchableTarget, SwitchState>;
   deliveries: DeliveryView[];
+  /** The order opened in the queue, if any. Its path is marked here. */
+  openOrder?: string | null;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
+
+  // Opening a card in the queue lights up that order's path here, so the two
+  // panels read as one thing seen twice rather than as neighbours.
+  const tracked = (target: SwitchableTarget): 'open' | 'done' | undefined => {
+    if (!props.openOrder) return undefined;
+    const step = props.deliveries.find(
+      (delivery) => delivery.eventId === props.openOrder && delivery.target === target,
+    );
+    if (!step) return undefined;
+    return step.state === 'done' ? 'done' : 'open';
+  };
 
   const waitingFor = (target: SwitchableTarget) =>
     props.deliveries.filter(
@@ -56,6 +69,7 @@ export function Diagram(props: {
         {BOXES.map((box) => {
           const state = props.switches[box.target];
           const held = waitingFor(box.target);
+          const mark = tracked(box.target);
           const travelling = pulses.filter((pulse) => pulse.target === box.target);
 
           return (
@@ -64,6 +78,7 @@ export function Diagram(props: {
                 className="line"
                 data-testid={`line-${box.target}`}
                 data-state={state}
+                data-tracked={mark}
                 aria-hidden="true"
               >
                 {travelling.map((pulse) => (
@@ -76,6 +91,7 @@ export function Diagram(props: {
                 className="target"
                 data-testid={`box-${box.target}`}
                 data-state={state}
+                data-tracked={mark}
                 aria-label={
                   state === 'up'
                     ? `Cut the line to ${box.label}`

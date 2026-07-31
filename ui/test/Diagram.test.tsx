@@ -100,4 +100,34 @@ describe('Diagram', () => {
     render(<Diagram switches={ALL_UP} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).not.toHaveTextContent('waiting');
   });
+
+  it('marks nothing while no order is open in the queue', () => {
+    render(<Diagram switches={ALL_UP} deliveries={waiting} />);
+    expect(screen.getByTestId('box-hubspot')).not.toHaveAttribute('data-tracked');
+  });
+
+  it('marks the systems the open order is still waiting on', () => {
+    // The card and the wires are the same thing seen twice, so opening a card has
+    // to be visible over here or the two panels are just neighbours.
+    render(<Diagram switches={ALL_UP} deliveries={waiting} openOrder="evt-1" />);
+    expect(screen.getByTestId('box-hubspot')).toHaveAttribute('data-tracked', 'open');
+    expect(screen.getByTestId('line-hubspot')).toHaveAttribute('data-tracked', 'open');
+  });
+
+  it('marks a system the open order has already reached as settled', () => {
+    const mixed: DeliveryView[] = [
+      ...waiting,
+      {
+        id: 2, target: 'stripe', state: 'done', attempts: 1, eventId: 'evt-1',
+        nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null,
+      },
+    ];
+    render(<Diagram switches={ALL_UP} deliveries={mixed} openOrder="evt-1" />);
+    expect(screen.getByTestId('box-stripe')).toHaveAttribute('data-tracked', 'done');
+  });
+
+  it('leaves the systems of another order unmarked', () => {
+    render(<Diagram switches={ALL_UP} deliveries={waiting} openOrder="evt-other" />);
+    expect(screen.getByTestId('box-hubspot')).not.toHaveAttribute('data-tracked');
+  });
 });

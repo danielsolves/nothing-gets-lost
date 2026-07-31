@@ -1,4 +1,4 @@
-// ui/test/queue.test.ts
+// ui/test/order-cards.test.ts
 // The queue is the thing the whole project exists to show. The specification calls
 // the mediator the heart of the repo and defends building the queue by hand with:
 // "take a ready-made one and the most interesting part becomes invisible."
@@ -9,7 +9,7 @@
 // a plain sentence about where it is stuck.
 import { describe, it, expect } from 'vitest';
 import type { DeliveryView, Target } from '@ngl/contracts';
-import { groupIntoOrders, CHECKPOINTS } from '../src/queue';
+import { groupIntoOrders, CHECKPOINTS } from '../src/order-cards';
 
 let nextId = 1;
 

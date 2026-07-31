@@ -260,13 +260,134 @@ body {
 .counter.emphasis .value { color: var(--accent); }
 .counter.emphasis .label { color: var(--accent); }
 
+/* The queue --------------------------------------------------------------------
+   One card per order, five checkpoints, quiet until opened. This is the panel the
+   whole hand-built queue exists to make visible. */
+
+.queue-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: clamp(18px, 2.4vw, 28px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-shell);
+}
+
+.queue-panel h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.queue-empty {
+  margin: 0;
+  padding: 22px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.order-card {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.order-card:hover { border-color: var(--line-input); }
+.order-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.order-card[data-selected] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.order-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.order-id {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.order-progress {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Five checkpoints, and the state of each one is the whole point. */
+.order-dots { display: flex; gap: 6px; }
+.order-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  transition: background 0.25s ease;
+}
+.order-dot[data-state='done'] { background: var(--good); }
+.order-dot[data-state='inflight'] {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow);
+}
+.order-dot[data-state='pending'] { background: var(--warn); }
+.order-dot[data-state='dead'] { background: var(--bad); }
+
+.order-headline { font-size: 13.5px; color: var(--muted); }
+
+.order-detail {
+  margin: 4px 0 0;
+  padding: 12px 15px;
+  display: grid;
+  gap: 7px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-sunken);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  font-size: 13px;
+}
+.order-detail > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+.order-detail dt { font-weight: 600; }
+.order-detail dd { margin: 0; color: var(--muted); }
+.order-detail > div[data-state='done'] dd { color: var(--good); }
+.order-detail > div[data-state='dead'] dd { color: var(--bad); }
+.order-detail > div[data-state='pending'] dd { color: var(--warn); }
+
 /* The diagram: the machine, and the interface to it -------------------------- */
 
-/* Diagram and log side by side: the machine and what it just did, both on the
-   first screen without either being stretched across the whole page. */
+/* Queue on the left, systems on the right. The same thing seen twice: a card is
+   an order, a wire is one of its checkpoints. */
 .board {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
   gap: clamp(16px, 2vw, 24px);
   align-items: start;
 }
@@ -462,6 +583,11 @@ body {
   transition: opacity 0.18s ease;
 }
 .target:hover .verb, .target:focus-visible .verb { opacity: 1; }
+
+/* Marked because a card is open in the queue: this is that order's path. */
+.target[data-tracked] { border-color: var(--accent); }
+.target[data-tracked='done'] { border-color: oklch(from var(--good) l c h / 0.7); }
+.line[data-tracked='open'] { box-shadow: 0 0 10px var(--glow); }
 
 .target[data-state='slow'] { border-left-color: var(--warn); }
 .target[data-state='error'] { border-left-color: var(--bad); }
@@ -849,9 +975,10 @@ body {
 /* Mobile -------------------------------------------------------------------- */
 
 @media (max-width: 62rem) {
-  /* The log's 300px floor plus the diagram no longer fit side by side. Left as
-     two columns they overflow the container and draw on top of each other. */
+  /* Queue and diagram no longer fit side by side. Left as two columns they
+     overflow the container and draw on top of each other. */
   .board { grid-template-columns: 1fr; }
+  .queue { max-height: 18rem; }
 }
 
 @media (max-width: 40rem) {

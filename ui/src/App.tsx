@@ -16,6 +16,7 @@ import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
 import { OwnOrder } from './OwnOrder';
 import { ProofPanel } from './ProofPanel';
+import { Queue } from './Queue';
 import { SqlConsole } from './SqlConsole';
 import { Stage } from './Stage';
 import { Timeline } from './Timeline';
@@ -26,6 +27,9 @@ export function App() {
     counters, switches, deliveries, timeline, viewers, connected, extractorMode,
   } = useStream();
   const [placed, setPlaced] = useState<string | null>(null);
+  // One open card at a time, and open doubles as selected: the order being read is
+  // the one marked in the diagram.
+  const [openOrder, setOpenOrder] = useState<string | null>(null);
 
   return (
     <>
@@ -40,13 +44,24 @@ export function App() {
             on screen for every second of the demo, lost included. */}
         <CountersBar counters={counters} />
 
-        {/* The machine, and the evidence it produces, both always on screen. */}
+        {/* The queue on the left, the systems on the right. The same thing twice:
+            a card is an order, a wire is one of its checkpoints. */}
         <section className="board">
-          <Diagram switches={switches} deliveries={deliveries} />
-          <section className="log">
-            <h2>What just happened</h2>
-            <Timeline entries={timeline} />
+          <section className="queue-panel">
+            <h2>In the queue</h2>
+            <Queue
+              deliveries={deliveries}
+              openOrder={openOrder}
+              onToggle={(eventId) =>
+                setOpenOrder((current) => (current === eventId ? null : eventId))}
+            />
           </section>
+          <Diagram switches={switches} deliveries={deliveries} openOrder={openOrder} />
+        </section>
+
+        <section className="log">
+          <h2>What just happened</h2>
+          <Timeline entries={timeline} />
         </section>
 
         {/* Spec 8.5 wants this said out loud. It sits here, next to the machine it
