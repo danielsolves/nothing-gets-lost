@@ -13,7 +13,6 @@ import { Connections } from './Connections';
 import { CountersBar } from './Counters';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
-import { OwnOrder } from './OwnOrder';
 import { ProofPanel } from './ProofPanel';
 import { Mediator } from './Mediator';
 import { SqlConsole } from './SqlConsole';
@@ -24,7 +23,10 @@ export function App() {
   const {
     counters, switches, deliveries, timeline, viewers, connected, extractorMode,
   } = useStream();
-  const [placed, setPlaced] = useState<string | null>(null);
+  // The order the visitor just sent, and whether a confirmation mail is coming for
+  // it. Without an address there is no second witness, and the proof panel has to
+  // say so rather than wait for a timestamp that will never arrive.
+  const [placed, setPlaced] = useState<{ eventId: string; expectMail: boolean } | null>(null);
   // One open card at a time, and open doubles as selected: the order being read is
   // the one marked in the diagram.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
@@ -36,7 +38,11 @@ export function App() {
       <div className="grain" aria-hidden="true" />
 
       <main className="page">
-        <Stage connected={connected} viewers={viewers} />
+        <Stage
+          connected={connected}
+          viewers={viewers}
+          onPlaced={(eventId, expectMail) => setPlaced({ eventId, expectMail })}
+        />
 
         {/* The counters stay above everything: spec 2 wants the running score
             on screen for every second of the demo, lost included. */}
@@ -83,18 +89,16 @@ export function App() {
           </p>
         )}
 
-        {/* No longer locked behind finishing a walkthrough there no longer is. */}
-        <OwnOrder onPlaced={setPlaced} />
-
         {placed && (
           <>
             <p className="placed" data-testid="placed">
-              Your order is event {placed}. Watch it in the log above, and in your
-              inbox.
+              Your order is event {placed.eventId}. Watch it in the queue above
+              {placed.expectMail ? ', and in your inbox.' : '.'}
             </p>
-            {/* The proof chain only means anything for an order the visitor placed
-                themselves: the second timestamp is stamped by their own mail server. */}
-            <ProofPanel eventId={placed} />
+            {/* The proof chain is at its strongest for an order the visitor placed
+                themselves with their own address: the second timestamp is then
+                stamped by their own mail server. */}
+            <ProofPanel eventId={placed.eventId} expectMail={placed.expectMail} />
           </>
         )}
 

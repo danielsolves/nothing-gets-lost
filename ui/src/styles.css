@@ -219,7 +219,43 @@ body {
 .stage-cta:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .stage-cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.stage-hint { color: var(--muted); font-size: 14.5px; max-width: 44ch; }
+.stage-hint { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 52ch; }
+
+/* The order form ------------------------------------------------------------
+   It sits under the claim rather than at the foot of the page, where it used to
+   be a second section called "Place your own order" that a visitor had to scroll
+   past the whole demo to find. Everything except the button is folded away: most
+   people press once and watch, and the ones who want their own basket and their
+   own address in the picture are one click from both. */
+
+.order-form { display: grid; gap: 14px; }
+
+.order-disclosure {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-input);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.order-disclosure:hover { color: var(--text); border-color: var(--accent); }
+.order-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.order-panel {
+  display: grid;
+  gap: 12px;
+  max-width: 34rem;
+  padding: clamp(16px, 2vw, 22px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.order-why { margin: 0; color: var(--muted); font-size: 14px; }
+.order-hint { margin: 0; color: var(--warn); font-size: 14px; }
 
 /* Counters ------------------------------------------------------------------ */
 
@@ -874,7 +910,6 @@ body {
   font-size: 14px;
 }
 
-.own-order button:focus-visible,
 .sql-console button:focus-visible,
 .connection .button:focus-visible,
 .connection button:focus-visible {
@@ -884,7 +919,7 @@ body {
 
 /* Sections ------------------------------------------------------------------ */
 
-.log, .own-order, .connections, .sql-console, .proof-panel {
+.log, .connections, .sql-console, .proof-panel {
   display: grid;
   gap: 14px;
   padding: clamp(18px, 2.4vw, 28px);
@@ -893,14 +928,14 @@ body {
   border-radius: var(--r-shell);
 }
 
-.log h2, .own-order h2, .connections h2, .sql-console h2, .proof-panel h2 {
+.log h2, .connections h2, .sql-console h2, .proof-panel h2 {
   margin: 0;
   font-size: var(--fs-section);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.own-order > p, .connections > p, .proof-panel > p {
+.connections > p, .proof-panel > p {
   margin: 0;
   color: var(--muted);
   max-width: 68ch;
@@ -956,7 +991,7 @@ body {
   text-align: center;
 }
 
-/* Own order ----------------------------------------------------------------- */
+/* Catalogue and inputs ------------------------------------------------------- */
 
 .catalog { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
 
@@ -975,7 +1010,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.own-order input, .connection input, .sql-console textarea {
+.order-panel input, .connection input, .sql-console textarea {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -988,11 +1023,11 @@ body {
 }
 .catalog input { min-height: 38px; text-align: center; font-family: var(--mono); }
 
-.own-order input::placeholder,
+.order-panel input::placeholder,
 .connection input::placeholder,
 .sql-console textarea::placeholder { color: var(--faint); }
 
-.own-order input:focus-visible,
+.order-panel input:focus-visible,
 .connection input:focus-visible,
 .sql-console textarea:focus-visible {
   outline: 2px solid var(--accent);
@@ -1000,7 +1035,7 @@ body {
   border-color: var(--accent);
 }
 
-.own-order button, .sql-console button {
+.sql-console button {
   min-height: 48px;
   border: 1px solid var(--accent);
   border-radius: var(--r-pill);
@@ -1012,15 +1047,15 @@ body {
   cursor: pointer;
   transition: box-shadow 0.2s ease, transform 0.1s ease;
 }
-.own-order button:hover, .sql-console button:hover { box-shadow: 0 0 28px var(--glow); }
-.own-order button:active, .sql-console button:active { transform: translateY(1px); }
-.own-order button:disabled, .sql-console button:disabled {
+.sql-console button:hover { box-shadow: 0 0 28px var(--glow); }
+.sql-console button:active { transform: translateY(1px); }
+.sql-console button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.own-order .error, .connection .error, .sql-console .error {
+.order-form .error, .connection .error, .sql-console .error {
   margin: 0;
   color: var(--bad);
   font-size: 14px;

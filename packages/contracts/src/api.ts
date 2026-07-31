@@ -19,6 +19,19 @@ export interface PlaceOrderRequest {
 }
 export interface PlaceOrderResponse { eventId: string; orderId: string }
 
+/**
+ * A basket that shows a realistic total without needing a choice from anyone.
+ *
+ * It lives here rather than in the api service because two places need the same
+ * one: POST /api/demo-order sends it when a visitor has chosen nothing, and the
+ * order form starts from it when a visitor opens the panel to change it. Two
+ * copies would let the plain order and the customised order quietly diverge.
+ */
+export const DEFAULT_BASKET: ReadonlyArray<{ sku: string; qty: number }> = [
+  { sku: 'TEAPOT', qty: 1 },
+  { sku: 'MUG-BLUE', qty: 2 },
+];
+
 export interface StateResponse {
   counters: Counters;
   switches: Record<SwitchableTarget, SwitchState>;

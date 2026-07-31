@@ -26,7 +26,7 @@ beforeEach(() => {
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
-const props = { connected: true, viewers: 1 };
+const props = { connected: true, viewers: 1, onPlaced: () => {} };
 
 describe('Stage', () => {
   it('makes the claim before anything else', () => {

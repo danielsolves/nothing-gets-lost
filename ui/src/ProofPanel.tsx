@@ -2,10 +2,17 @@
 // Shows the two foreign timestamps side by side with the measured gap between them.
 // The instruction on how to read the Received header matters: without it the second
 // witness stays theoretical for most visitors.
+//
+// The address is optional now, so the second witness is not always coming. A panel
+// that sat there saying "not yet" forever would read as the machine being stuck,
+// which is the exact opposite of the claim. It says plainly what is missing and how
+// to get it instead.
 import { useEffect, useState } from 'react';
 import type { ProofResponse } from '@ngl/contracts';
 
-export function ProofPanel({ eventId }: { eventId: string }) {
+export function ProofPanel({
+  eventId, expectMail,
+}: { eventId: string; expectMail: boolean }) {
   const [proof, setProof] = useState<ProofResponse | null>(null);
 
   useEffect(() => {
@@ -36,19 +43,32 @@ export function ProofPanel({ eventId }: { eventId: string }) {
         </div>
 
         <div className="gap" data-testid="proof-gap">
-          {proof.gapSeconds === null
-            ? 'waiting for the chain to complete'
-            : `${formatGap(proof.gapSeconds)} apart`}
+          {!expectMail
+            ? 'one witness only'
+            : proof.gapSeconds === null
+              ? 'waiting for the chain to complete'
+              : `${formatGap(proof.gapSeconds)} apart`}
         </div>
 
-        <div className="witness">
-          <span className="who">Your mail provider stamped the arrival</span>
-          <time data-testid="proof-mail">{format(proof.mailReceivedAt)}</time>
-          <small>
-            Open the confirmation in your inbox and choose “Show original” to read the
-            Received header. That timestamp is written by your provider, not by us.
-          </small>
-        </div>
+        {expectMail ? (
+          <div className="witness">
+            <span className="who">Your mail provider stamped the arrival</span>
+            <time data-testid="proof-mail">{format(proof.mailReceivedAt)}</time>
+            <small>
+              Open the confirmation in your inbox and choose “Show original” to read the
+              Received header. That timestamp is written by your provider, not by us.
+            </small>
+          </div>
+        ) : (
+          <div className="witness" data-testid="proof-no-mail">
+            <span className="who">The second witness is missing</span>
+            <small>
+              You sent this order without an address, so there is no confirmation mail
+              to carry a timestamp stamped by somebody other than us. Send another one
+              with your address and this half fills in.
+            </small>
+          </div>
+        )}
       </div>
 
       {proof.hubspotCreatedAt && (

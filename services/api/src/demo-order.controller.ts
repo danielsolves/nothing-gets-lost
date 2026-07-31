@@ -7,13 +7,10 @@
 // identity, which means no confirmation mail is ever promised or queued for it.
 import { Controller, HttpException, HttpStatus, Inject, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
-import type { PlaceOrderResponse } from '@ngl/contracts';
+import { DEFAULT_BASKET, type PlaceOrderResponse } from '@ngl/contracts';
 import { OrdersService } from './orders.service';
 import { LIMITS, RateLimiter, hashIp } from './rate-limit.guard';
 import { RATE_LIMITER } from './orders.controller';
-
-/** A basket that shows a realistic total without needing a choice from anyone. */
-const DEMO_BASKET = [{ sku: 'TEAPOT', qty: 1 }, { sku: 'MUG-BLUE', qty: 2 }];
 
 @Controller('api')
 export class DemoOrderController {
@@ -33,6 +30,6 @@ export class DemoOrderController {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    return this.orders.placeDemo(DEMO_BASKET);
+    return this.orders.placeDemo([...DEFAULT_BASKET]);
   }
 }

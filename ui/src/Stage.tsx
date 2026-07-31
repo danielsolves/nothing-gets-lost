@@ -6,25 +6,18 @@
 // itself became clickable there were two things on screen telling a visitor what to
 // do, and that is worse than one thing that is obvious. What survives from it is the
 // single loudest button and the one line that says the boxes are the controls.
-import { useState } from 'react';
+//
+// The form for a visitor's own order used to sit at the very bottom of the page.
+// That was the same mistake in a different place: a visitor had to scroll past the
+// whole demo to find it, and the two buttons then competed. It is the same button
+// now, with the detail folded away behind it.
+import { OrderForm } from './OrderForm';
 
-export function Stage(props: { connected: boolean; viewers: number }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function send(): Promise<void> {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/demo-order', { method: 'POST' });
-      if (!response.ok) throw new Error(`That did not work (${response.status}).`);
-    } catch (problem) {
-      setError((problem as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
+export function Stage(props: {
+  connected: boolean;
+  viewers: number;
+  onPlaced: (eventId: string, expectMail: boolean) => void;
+}) {
   return (
     <header className="stage">
       <h1>Nothing gets lost. Not even when you break it.</h1>
@@ -50,22 +43,11 @@ export function Stage(props: { connected: boolean; viewers: number }) {
         )}
       </p>
 
-      <div className="stage-actions">
-        <button
-          type="button"
-          className="stage-cta"
-          data-testid="send-order"
-          disabled={busy}
-          onClick={() => void send()}
-        >
-          {busy ? 'Sending' : 'Send an order through'}
-        </button>
-        <span className="stage-hint" data-testid="stage-hint">
-          Then open the menu on any system below and break it. Nothing will be lost.
-        </span>
-      </div>
+      <OrderForm onPlaced={props.onPlaced} />
 
-      {error && <p className="error" data-testid="stage-error">{error}</p>}
+      <p className="stage-hint" data-testid="stage-hint">
+        Then open the menu on any system below and break it. Nothing will be lost.
+      </p>
     </header>
   );
 }
