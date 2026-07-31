@@ -2,17 +2,13 @@
 // ui/test/SystemMark.test.tsx
 // Each system gets a mark you recognise before you have read the label.
 //
-// One treatment for all five rather than real brand logos for some and stand-ins
-// for the rest. Two reasons, and the second is the stronger one:
+// The published outline of the real mark, in that brand's colour. Not the
+// full-colour logo: Slack's alone is four colours, and three foreign palettes would
+// fight the single accent the rest of the page is built on. The shape carries the
+// recognition, the colour stays consistent.
 //
-//   1. simple-icons carries Stripe and HubSpot but not Slack, which had its mark
-//      removed at the trademark holder's request. Two real logos plus one drawn
-//      approximation is exactly the mismatched look this redesign exists to fix.
-//   2. Our own invoice service and mailer have no logo at all and never will, so
-//      any logo-led system would break on two of the five anyway.
-//
-// Brand colour plus a glyph that says what the system does carries the
-// recognition without copying anyone's mark or hand-drawing a bad one.
+// Our own invoice service and mailer have no mark to be faithful to, so they take a
+// function glyph instead. Both routes have to work or the row breaks.
 import { describe, it, expect, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -35,6 +31,28 @@ describe('SystemMark', () => {
   it('renders a mark for a system', () => {
     render(<SystemMark target="stripe" />);
     expect(screen.getByTestId('mark-stripe')).toBeInTheDocument();
+  });
+
+  it('draws the real outline for a system that has one', () => {
+    const { container } = render(<SystemMark target="stripe" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
+    expect(svg?.querySelectorAll('path')).toHaveLength(1);
+  });
+
+  it('draws every piece of a mark built from several paths', () => {
+    // Slack's hash is four shapes. Dropping three of them would leave a mark that
+    // is recognisably wrong, which is worse than a neutral glyph.
+    const { container } = render(<SystemMark target="slack" />);
+    expect(container.querySelectorAll('svg path')).toHaveLength(4);
+  });
+
+  it('fills the outline with one colour rather than the brand palette', () => {
+    const { container } = render(<SystemMark target="slack" />);
+    expect(container.querySelector('svg')).toHaveAttribute('fill', 'currentColor');
+    for (const path of container.querySelectorAll('svg path')) {
+      expect(path).not.toHaveAttribute('fill');
+    }
   });
 
   it('tints the mark with the brand colour', () => {

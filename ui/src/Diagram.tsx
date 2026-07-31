@@ -1,22 +1,31 @@
 // ui/src/Diagram.tsx
-// The mediator, the five systems it delivers to, and the lines between them.
+// The machine: the mediator at the centre, the five systems it delivers to placed
+// around it, and a line from the hub out to each one.
 //
 // This is the interface, not a picture of one. Breaking something used to mean
 // scrolling past the whole page and opening a drawer called "Control panel", while
 // the success criterion in specification section 1 is that a stranger breaks
-// something on purpose within sixty seconds. So the box you want to break is the
-// button that breaks it, and the consequence lands on that same box.
+// something on purpose within sixty seconds. So the tile you want to break is the
+// button that breaks it, and the consequence lands on that same tile.
 //
-// One action here, cut and restore. The panel in the drawer keeps all four states
-// and the chaos buttons: full range for anyone who wants it, the loud action on the
-// page.
+// The hub is the biggest thing on the page on purpose. The specification calls the
+// mediator the heart of the repo and defends building the queue by hand with "take
+// a ready-made one and the most interesting part becomes invisible". Drawing it as
+// a small box with a four-word caption made it invisible anyway. It now carries its
+// own live state and opens into the full queue.
 import type { DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { useDeliveryPulses } from './useDeliveryPulses';
 import { SystemMark } from './SystemMark';
 
-const BOXES: Array<{ target: SwitchableTarget; label: string; note: string }> = [
+interface Spoke { target: SwitchableTarget; label: string; note: string }
+
+/** The two a visitor is most likely to reach for sit on the left, nearest the eye. */
+const LEFT: Spoke[] = [
   { target: 'stripe', label: 'Stripe', note: 'payment' },
   { target: 'hubspot', label: 'HubSpot', note: 'CRM' },
+];
+
+const RIGHT: Spoke[] = [
   { target: 'ledger', label: 'Invoices', note: 'our own service' },
   { target: 'slack', label: 'Slack', note: 'notification' },
   { target: 'mailer', label: 'Confirmation mail', note: 'last in the chain' },
@@ -27,11 +36,13 @@ export function Diagram(props: {
   deliveries: DeliveryView[];
   /** The order opened in the queue, if any. Its path is marked here. */
   openOrder?: string | null;
+  /** The hub itself, passed in so this file stays layout and wiring. */
+  hub: React.ReactNode;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
 
-  // Opening a card in the queue lights up that order's path here, so the two
-  // panels read as one thing seen twice rather than as neighbours.
+  // Opening a card in the queue lights up that order's path here, so the queue and
+  // the systems read as one thing seen twice rather than as neighbours.
   const tracked = (target: SwitchableTarget): 'open' | 'done' | undefined => {
     if (!props.openOrder) return undefined;
     const step = props.deliveries.find(
@@ -59,65 +70,68 @@ export function Diagram(props: {
     });
   };
 
+  const column = (spokes: Spoke[], side: 'left' | 'right') => (
+    <ul className="spokes" data-side={side}>
+      {spokes.map((spoke) => {
+        const state = props.switches[spoke.target];
+        const held = waitingFor(spoke.target);
+        const mark = tracked(spoke.target);
+        const travelling = pulses.filter((pulse) => pulse.target === spoke.target);
+
+        const wire = (
+          <span
+            className="line"
+            data-testid={`line-${spoke.target}`}
+            data-state={state}
+            data-tracked={mark}
+            aria-hidden="true"
+          >
+            {travelling.map((pulse) => (
+              <span key={pulse.key} className={`dot dot-${pulse.kind}`} />
+            ))}
+          </span>
+        );
+
+        const tile = (
+          <button
+            type="button"
+            className="target"
+            data-testid={`box-${spoke.target}`}
+            data-state={state}
+            data-tracked={mark}
+            aria-label={
+              state === 'up' ? `Cut the line to ${spoke.label}` : `Reconnect ${spoke.label}`
+            }
+            onClick={() => cut(spoke.target, state)}
+          >
+            <SystemMark target={spoke.target} />
+            <span className="name">{spoke.label}</span>
+            <span className="note">{spoke.note}</span>
+            {held > 0 && <span className="waiting">{held} waiting</span>}
+            <span className="verb" aria-hidden="true">
+              {state === 'up' ? 'cut the line' : 'reconnect'}
+            </span>
+          </button>
+        );
+
+        // The wire always sits between the tile and the hub, so it swaps sides.
+        return (
+          <li className="spoke" key={spoke.target}>
+            {side === 'left' ? tile : wire}
+            {side === 'left' ? wire : tile}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   return (
-    <div className="diagram" data-testid="diagram">
-      <div className="mediator" data-testid="mediator">
-        <strong>The mediator</strong>
-        <span className="mediator-sub">everything goes through here</span>
-        <ul className="mediator-jobs">
-          <li>holds the queue</li>
-          <li>retries with a growing gap</li>
-          <li>delivers exactly once</li>
-          <li>parks what needs a human</li>
-        </ul>
-      </div>
+    <div className="hub" data-testid="diagram">
+      {column(LEFT, 'left')}
 
-      <ul className="wires">
-        {BOXES.map((box) => {
-          const state = props.switches[box.target];
-          const held = waitingFor(box.target);
-          const mark = tracked(box.target);
-          const travelling = pulses.filter((pulse) => pulse.target === box.target);
+      {props.hub}
 
-          return (
-            <li className="wire" key={box.target}>
-              <span
-                className="line"
-                data-testid={`line-${box.target}`}
-                data-state={state}
-                data-tracked={mark}
-                aria-hidden="true"
-              >
-                {travelling.map((pulse) => (
-                  <span key={pulse.key} className={`dot dot-${pulse.kind}`} />
-                ))}
-              </span>
-
-              <button
-                type="button"
-                className="target"
-                data-testid={`box-${box.target}`}
-                data-state={state}
-                data-tracked={mark}
-                aria-label={
-                  state === 'up'
-                    ? `Cut the line to ${box.label}`
-                    : `Reconnect ${box.label}`
-                }
-                onClick={() => cut(box.target, state)}
-              >
-                <SystemMark target={box.target} />
-                <span className="name">{box.label}</span>
-                <span className="note">{box.note}</span>
-                {held > 0 && <span className="waiting">{held} waiting</span>}
-                <span className="verb" aria-hidden="true">
-                  {state === 'up' ? 'cut the line' : 'reconnect'}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {column(RIGHT, 'right')}
     </div>
   );
 }

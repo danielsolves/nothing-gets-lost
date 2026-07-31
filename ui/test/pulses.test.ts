@@ -47,6 +47,28 @@ describe('pulsesFrom', () => {
     expect(pulsesFrom(same, same)).toEqual([]);
   });
 
+  it('needs a previous state to compare against, or a reload looks like traffic', () => {
+    // On mount the delivery list is empty, so the empty array became the baseline
+    // and the first real snapshot arrived looking like forty simultaneous changes.
+    // A row seen for the first time is not a change we witnessed.
+    const pulses = pulsesFrom([], [
+      delivery(1, 'hubspot', 'done'),
+      delivery(2, 'stripe', 'done'),
+      delivery(3, 'slack', 'pending', 3),
+    ]);
+    expect(pulses).toEqual([]);
+  });
+
+  it('fires once that same row is seen changing', () => {
+    const first = [delivery(1, 'hubspot', 'pending', 0)];
+    expect(pulsesFrom([], first)).toEqual([]);
+
+    const moved = [{ ...first[0], state: 'done' as const, attempts: 1 }];
+    expect(pulsesFrom(first, moved)).toEqual([
+      { id: first[0].id, target: 'hubspot', kind: 'delivered' },
+    ]);
+  });
+
   it('does not fire on the first render, when everything looks new', () => {
     // Arriving mid-experiment must not spray a dot for every delivery on the board.
     const pulses = pulsesFrom(undefined, [
@@ -61,9 +83,11 @@ describe('pulsesFrom', () => {
   });
 
   it('fires once per delivery when several move at the same time', () => {
+    const a = delivery(1, 'hubspot', 'inflight');
+    const b = delivery(2, 'stripe', 'inflight');
     const pulses = pulsesFrom(
-      [delivery(1, 'hubspot', 'inflight'), delivery(2, 'stripe', 'inflight')],
-      [delivery(1, 'hubspot', 'done'), delivery(2, 'stripe', 'done')],
+      [a, b],
+      [{ ...a, state: 'done' }, { ...b, state: 'done' }],
     );
     expect(pulses).toHaveLength(2);
     expect(pulses.map((p) => p.target).sort()).toEqual(['hubspot', 'stripe']);

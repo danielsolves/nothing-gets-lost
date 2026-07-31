@@ -11,8 +11,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import type { DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
+import type { Counters, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { Diagram } from '../src/Diagram';
+
+const NO_COUNTERS: Counters = {
+  received: 0, delivered: 0, waiting: 0, duplicatesDropped: 0, needsHuman: 0, lost: 0,
+};
+
+/** The props every test shares. Individual tests override what they are about. */
+const base = {
+  counters: NO_COUNTERS,
+  // The hub is passed in rather than built here: this file is about the layout and
+  // the wiring, and Mediator.test.tsx is about the panel itself.
+  hub: <div data-testid="mediator">hub</div>,
+};
 
 afterEach(cleanup);
 
@@ -41,7 +53,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('Diagram', () => {
   it('draws the mediator and every system it delivers to', () => {
-    render(<Diagram switches={ALL_UP} deliveries={[]} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.getByTestId('mediator')).toBeInTheDocument();
     for (const target of ['stripe', 'hubspot', 'ledger', 'slack', 'mailer']) {
       expect(screen.getByTestId(`box-${target}`)).toBeInTheDocument();
@@ -49,67 +61,67 @@ describe('Diagram', () => {
   });
 
   it('cuts the line when a reachable system is clicked', () => {
-    render(<Diagram switches={ALL_UP} deliveries={[]} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     fireEvent.click(screen.getByTestId('box-hubspot'));
     expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'cut' } }]);
   });
 
   it('puts the line back when a cut system is clicked again', () => {
-    render(<Diagram switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
     fireEvent.click(screen.getByTestId('box-hubspot'));
     expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'up' } }]);
   });
 
   it('restores a system that is failing or slow rather than cutting it further', () => {
-    render(<Diagram switches={{ ...ALL_UP, slack: 'error' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, slack: 'error' }} deliveries={[]} />);
     fireEvent.click(screen.getByTestId('box-slack'));
     expect(sent).toEqual([{ url: '/api/switches/slack', body: { state: 'up' } }]);
   });
 
   it('is reachable from a keyboard, because clicking is not the only way', () => {
-    render(<Diagram switches={ALL_UP} deliveries={[]} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot').tagName).toBe('BUTTON');
   });
 
   it('says what the click will do, not just the name of the system', () => {
-    render(<Diagram switches={ALL_UP} deliveries={[]} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).toHaveAccessibleName(/cut the line to HubSpot/i);
   });
 
   it('says the click will reconnect once the line is cut', () => {
-    render(<Diagram switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).toHaveAccessibleName(/reconnect HubSpot/i);
   });
 
   it('carries the state on the box, so the click shows its own consequence', () => {
-    render(<Diagram switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).toHaveAttribute('data-state', 'cut');
   });
 
   it('carries the state on the line as well as the box', () => {
-    render(<Diagram switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
     expect(screen.getByTestId('line-hubspot')).toHaveAttribute('data-state', 'cut');
   });
 
   it('counts what is held up at a system', () => {
-    render(<Diagram switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
     expect(screen.getByTestId('box-hubspot')).toHaveTextContent('1 waiting');
   });
 
   it('says nothing about waiting when nothing is', () => {
-    render(<Diagram switches={ALL_UP} deliveries={[]} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     expect(screen.getByTestId('box-hubspot')).not.toHaveTextContent('waiting');
   });
 
   it('marks nothing while no order is open in the queue', () => {
-    render(<Diagram switches={ALL_UP} deliveries={waiting} />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={waiting} />);
     expect(screen.getByTestId('box-hubspot')).not.toHaveAttribute('data-tracked');
   });
 
   it('marks the systems the open order is still waiting on', () => {
     // The card and the wires are the same thing seen twice, so opening a card has
     // to be visible over here or the two panels are just neighbours.
-    render(<Diagram switches={ALL_UP} deliveries={waiting} openOrder="evt-1" />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={waiting} openOrder="evt-1" />);
     expect(screen.getByTestId('box-hubspot')).toHaveAttribute('data-tracked', 'open');
     expect(screen.getByTestId('line-hubspot')).toHaveAttribute('data-tracked', 'open');
   });
@@ -122,12 +134,12 @@ describe('Diagram', () => {
         nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null,
       },
     ];
-    render(<Diagram switches={ALL_UP} deliveries={mixed} openOrder="evt-1" />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={mixed} openOrder="evt-1" />);
     expect(screen.getByTestId('box-stripe')).toHaveAttribute('data-tracked', 'done');
   });
 
   it('leaves the systems of another order unmarked', () => {
-    render(<Diagram switches={ALL_UP} deliveries={waiting} openOrder="evt-other" />);
+    render(<Diagram {...base} switches={ALL_UP} deliveries={waiting} openOrder="evt-other" />);
     expect(screen.getByTestId('box-hubspot')).not.toHaveAttribute('data-tracked');
   });
 });

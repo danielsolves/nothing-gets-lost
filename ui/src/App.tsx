@@ -16,10 +16,9 @@ import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
 import { OwnOrder } from './OwnOrder';
 import { ProofPanel } from './ProofPanel';
-import { Queue } from './Queue';
+import { Mediator } from './Mediator';
 import { SqlConsole } from './SqlConsole';
 import { Stage } from './Stage';
-import { Timeline } from './Timeline';
 import { useStream } from './useStream';
 
 export function App() {
@@ -44,24 +43,25 @@ export function App() {
             on screen for every second of the demo, lost included. */}
         <CountersBar counters={counters} />
 
-        {/* The queue on the left, the systems on the right. The same thing twice:
-            a card is an order, a wire is one of its checkpoints. */}
+        {/* The machine: hub in the middle, the systems it delivers to around it.
+            The hub carries the queue and the log, so neither needs a panel of its
+            own further down the page. */}
         <section className="board">
-          <section className="queue-panel">
-            <h2>In the queue</h2>
-            <Queue
-              deliveries={deliveries}
-              openOrder={openOrder}
-              onToggle={(eventId) =>
-                setOpenOrder((current) => (current === eventId ? null : eventId))}
-            />
-          </section>
-          <Diagram switches={switches} deliveries={deliveries} openOrder={openOrder} />
-        </section>
-
-        <section className="log">
-          <h2>What just happened</h2>
-          <Timeline entries={timeline} />
+          <Diagram
+            switches={switches}
+            deliveries={deliveries}
+            openOrder={openOrder}
+            hub={
+              <Mediator
+                counters={counters}
+                deliveries={deliveries}
+                timeline={timeline}
+                openOrder={openOrder}
+                onToggleOrder={(eventId) =>
+                  setOpenOrder((current) => (current === eventId ? null : eventId))}
+              />
+            }
+          />
         </section>
 
         {/* Spec 8.5 wants this said out loud. It sits here, next to the machine it

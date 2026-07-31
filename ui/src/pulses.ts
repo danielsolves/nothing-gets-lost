@@ -55,8 +55,14 @@ export function pulsesFrom(
   for (const delivery of current) {
     if (!drawn(delivery)) continue;
     const was = before.get(delivery.id);
-    // Unknown id: either genuinely new, or the board was reset and refilled. Both
-    // are real movement, so long as the row has actually been attempted.
+
+    // A row we are seeing for the first time is not a change we witnessed, it is a
+    // row we just learned about. Without this, a page load fired a dot for every
+    // delivery on the board: the list starts empty, that empty list becomes the
+    // baseline, and the first real snapshot then looks like forty things moving at
+    // once. The next genuine transition of the same row still pulses, because by
+    // then there is something to compare against.
+    if (was === undefined) continue;
     if (was === signature(delivery)) continue;
 
     const kind = kindOf(delivery);
