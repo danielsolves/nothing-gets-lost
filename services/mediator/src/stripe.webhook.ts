@@ -31,8 +31,18 @@ export function verifyStripeSignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Called at startup. A live key would mean the demo could move real money. */
-export function assertTestMode(secretKey: string): void {
+/**
+ * Called at startup by the mediator. A live key would mean this demo, whose whole
+ * point is that strangers press its buttons, could move real money (spec 11).
+ *
+ * No key is fine and has to be: the README promises the thing starts and runs with
+ * an empty .env, and an unconfigured Stripe target simply fails and retries where
+ * the visitor can watch it happen. What is refused is a key that is set and is not
+ * a test secret key, which also catches a pasted publishable key or webhook secret
+ * rather than letting them fail confusingly on the first charge.
+ */
+export function assertTestMode(secretKey: string | undefined): void {
+  if (!secretKey) return;
   if (!secretKey.startsWith('sk_test_')) {
     throw new Error('STRIPE_SECRET_KEY must be a test mode key (sk_test_...)');
   }

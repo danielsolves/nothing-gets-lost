@@ -15,6 +15,7 @@ import { QueueRepository } from './queue.repository';
 import { CompletionService } from './completion.service';
 import { WorkerService } from './worker.service';
 import { buildTargets } from './targets';
+import { assertTestMode } from './stripe.webhook';
 import { CredentialResolver } from './credentials';
 import { PgSlackSendLog } from './slack-send.log';
 
@@ -32,6 +33,10 @@ export async function createMediatorApp(intake: IntakeService): Promise<INestApp
 }
 
 async function bootstrap(): Promise<void> {
+  // Before anything opens a socket. Spec 11 rules out production Stripe keys by
+  // construction rather than by asking nicely, and this is the construction.
+  assertTestMode(process.env.STRIPE_SECRET_KEY);
+
   const pool = getPool();
   const queue = new QueueRepository(pool);
   // The visitor's url is read fresh on every delivery, so unsetting it in the

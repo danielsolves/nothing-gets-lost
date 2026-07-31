@@ -50,4 +50,19 @@ describe('test mode guard', () => {
   it('refuses a live key so the demo can never touch real money', () => {
     expect(() => assertTestMode('sk_live_abc')).toThrow(/test mode/i);
   });
+
+  it('accepts no key at all, because the demo has to start without one', () => {
+    // README: "No API keys required." An empty key is not a live key, it is a
+    // Stripe target that will fail and retry where the visitor can watch it.
+    expect(() => assertTestMode('')).not.toThrow();
+    expect(() => assertTestMode(undefined)).not.toThrow();
+  });
+
+  it('refuses anything that is neither empty nor a test secret key', () => {
+    // A restricted key, a publishable key, a pasted webhook secret. None of them
+    // belong here, and all of them fail confusingly later if let through.
+    expect(() => assertTestMode('rk_live_abc')).toThrow(/test mode/i);
+    expect(() => assertTestMode('pk_test_abc')).toThrow(/test mode/i);
+    expect(() => assertTestMode('whsec_abc')).toThrow(/test mode/i);
+  });
 });
