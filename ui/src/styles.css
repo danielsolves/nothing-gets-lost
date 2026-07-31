@@ -535,6 +535,15 @@ body {
   /* The left column is wider than the right on purpose: it holds the button that
      starts the demo and the form behind it, where the right holds five labels. */
   grid-template-columns: minmax(0, 1.15fr) minmax(300px, 26rem) minmax(0, 1fr);
+  /* What comes in on the left, what the order is written into on the right, and the
+     money underneath. The payment has its own row because it is the one hop every
+     order makes before any of the others is worth doing, and because there is more
+     than one way to make it. */
+  grid-template-areas:
+    "left hub   right"
+    ".    foot  .";
+  --hub-row-gap: 38px;
+  row-gap: var(--hub-row-gap);
   /* Everything starts at the top. Centred, the hub floated down the page while the
      shop tile sat at the top of the column beside it, and the entry point and the
      thing it feeds read as belonging to different rows. The columns then simply end
@@ -582,32 +591,51 @@ body {
   grid-template-columns: minmax(24px, 1fr) auto;
 }
 
-/* A bus down the inner edge, so every line ends somewhere.
+.spokes[data-side='left'] { grid-area: left; }
+.spokes[data-side='right'] { grid-area: right; }
 
-   Without it the outermost lines began in mid-air: the hub is only as tall as it
-   needs to be, a column is as tall as its tiles, and the two are never the same
-   height, so the top and bottom wires arrived beside the hub rather than at it.
-
-   It is drawn a row at a time rather than once per column, because the rows are
-   not the same height: the shop tile carries a button and a form and the rest do
-   not. Each row draws from its own midline down past the gap to where the next row
-   begins, and each row also draws its own upper half, so consecutive rows meet
-   exactly. The first row skips its upper half and the last skips its lower half,
-   or the bus would overshoot the outermost tiles and point at nothing. */
-.spoke::before, .spoke::after {
-  content: "";
-  position: absolute;
-  width: 2px;
-  background: oklch(from var(--accent) l c h / 0.45);
+/* The foot is the same drawing turned a quarter: tiles side by side under the hub,
+   each with its own line straight up into it. It is laid out in its own rules
+   rather than by reusing the column ones, because every direction in them is the
+   other way round and a shared rule full of exceptions would be harder to read
+   than two honest ones. */
+.spokes[data-side='foot'] {
+  grid-area: foot;
+  position: relative;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  justify-items: center;
 }
-.spoke::before { top: 0; height: 50%; }
-.spoke::after { top: 50%; bottom: calc(-1 * var(--spoke-gap)); }
-.spoke:first-child::before, .spoke:last-child::after { display: none; }
+.spokes[data-side='foot'] .spoke {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  justify-items: center;
+}
+/* Straight up into the hub, one line per tile, each docking at its own point on
+   the hub's bottom edge. Exactly the height of the row gap, so it reaches and does
+   not overshoot: the hub fills its row, so its bottom edge is the row's. */
+.spokes[data-side='foot'] .line {
+  width: 2px;
+  height: var(--hub-row-gap);
+  align-self: center;
+  justify-self: center;
+}
+.spokes[data-side='foot'] .line[data-state='cut'] {
+  background: repeating-linear-gradient(
+    180deg, var(--bad) 0 5px, transparent 5px 11px
+  );
+}
 
-.spokes[data-side='left'] .spoke::before,
-.spokes[data-side='left'] .spoke::after { right: 0; }
-.spokes[data-side='right'] .spoke::before,
-.spokes[data-side='right'] .spoke::after { left: 0; }
+
+/* Every line docks at its own point on the hub and nothing runs along its edge.
+
+   There was a bus down each inner edge for a while, because the outermost lines
+   used to arrive in mid-air beside a hub that was shorter than the column next to
+   it. The hub now stretches to the full height of its row, and a row is by
+   definition at least as tall as the tallest column in it, so every tile's midline
+   falls somewhere on the hub. The bus had nothing left to solve and was drawing a
+   second line along the edge of the panel, which read as the connection running
+   sideways before it arrived. */
 
 /* The wire carries the state too, so a cut reads as a broken connection and not
    only as a differently coloured tile. */
@@ -686,6 +714,37 @@ body {
    step that ends in the extractor, and neither of the two malformed orders it can
    be handed ever reaches the queue. */
 .spokes[data-side='left'] .line[data-flow='out'] .dot { animation-direction: reverse; }
+
+/* Down in the foot rather than across. Same three stories, same timings, one axis
+   turned: a dot animating `left` on an upright wire would sit still. */
+.spokes[data-side='foot'] .dot { top: 0; left: 50%; margin-left: -4px; margin-top: 0; }
+.spokes[data-side='foot'] .dot-delivered { animation-name: dot-down-through; }
+.spokes[data-side='foot'] .dot-held { animation-name: dot-down-back; }
+.spokes[data-side='foot'] .dot-parked { animation-name: dot-down-short; }
+
+@keyframes dot-down-through {
+  from { top: 0; opacity: 0; transform: scale(0.6); }
+  14%  { opacity: 1; transform: scale(1); }
+  82%  { top: calc(100% - 8px); opacity: 1; transform: scale(1); }
+  to   { top: calc(100% - 8px); opacity: 0; transform: scale(2.1); }
+}
+
+@keyframes dot-down-back {
+  from { top: 0; opacity: 0; transform: scale(0.6); }
+  14%  { opacity: 1; transform: scale(1); }
+  46%  { top: calc(100% - 8px); opacity: 1; }
+  54%  { top: calc(100% - 14px); opacity: 1; }
+  88%  { top: 0; opacity: 1; }
+  to   { top: 0; opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes dot-down-short {
+  from { top: 0; opacity: 0; transform: scale(0.6); }
+  14%  { opacity: 1; transform: scale(1); }
+  55%  { top: 52%; opacity: 1; }
+  70%  { top: 52%; transform: scale(1.35); }
+  to   { top: 52%; opacity: 0; transform: scale(0.7); }
+}
 
 /* Delivered: travels the wire and is taken in at the far end. */
 @keyframes dot-through {
@@ -909,8 +968,14 @@ body {
    box on the page empty space with a short list floating at the top of it. The
    panel below names a height instead, and the hub sits centred against the
    systems rather than racing them. */
+/* As tall as its row, which is what lets the payment row below it draw a stub of a
+   known length. The panel underneath takes whatever is left over, so stretching
+   costs no empty space: the queue inside it is out of flow and fills whatever it is
+   given. Head, counts, the current-work line and the tabs take what they need. */
 .mediator {
+  align-self: stretch;
   display: grid;
+  grid-template-rows: auto auto auto auto minmax(17rem, 1fr);
   gap: 14px;
   padding: clamp(20px, 2.2vw, 30px);
   border: 1px solid var(--accent);
@@ -1100,7 +1165,7 @@ body {
    stopped at a height of its own and left the rest of the panel empty, or it grew
    and the whole drawing changed shape every time an order arrived. Out of flow it
    fills the window and never sets its size. */
-.mediator-panel { position: relative; height: 19rem; }
+.mediator-panel { position: relative; min-height: 17rem; }
 .mediator-panel > * {
   position: absolute;
   inset: 0;
@@ -1423,6 +1488,7 @@ body {
   .board { grid-template-columns: 1fr; }
 
   .mediator-panel { height: 17rem; }
+  .mediator { grid-template-rows: none; }
 }
 
 @media (max-width: 40rem) {
@@ -1438,7 +1504,8 @@ body {
      and a layout that fits but says something false about the system is worse than
      one that needs a scroll. The tiles stay full width and side by side in pairs,
      so no one of them looks like the next one's cause. */
-  .hub { grid-template-columns: 1fr; gap: 0; }
+  .hub { grid-template-columns: 1fr; grid-template-areas: "left" "hub" "right" "foot"; gap: 0; }
+  .spokes[data-side='foot'] { grid-auto-flow: row; }
   .spokes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
   /* Both sides are named, because the desktop rule that swaps the wire to the

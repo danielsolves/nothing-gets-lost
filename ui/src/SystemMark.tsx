@@ -27,6 +27,10 @@ interface Look {
 
 export const SYSTEM_LOOK: Record<NodeId, Look> = {
   stripe: { tint: '#635BFF' },
+  // PayPal publishes #002991, which is very nearly black and disappears against the
+  // dark surface these marks sit on. This is #009CDE from the same brand palette:
+  // still theirs, still recognisable, and legible in both themes.
+  paypal: { tint: '#009CDE' },
   hubspot: { tint: '#FF7A59' },
   slack: { tint: '#611F69' },
   ledger: { tint: '#3FB984', glyph: Receipt },

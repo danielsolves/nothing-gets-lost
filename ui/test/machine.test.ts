@@ -9,7 +9,7 @@
 // two ever read the same way again, the demo has lost its point.
 import { describe, it, expect } from 'vitest';
 import { SWITCH_STATES, SWITCHABLE_TARGETS } from '@ngl/contracts';
-import { LEFT, NODES, RIGHT, SOURCES, SYSTEMS, faultsFor } from '../src/machine';
+import { FOOT, LEFT, NODES, RIGHT, SOURCES, SYSTEMS, faultsFor } from '../src/machine';
 
 describe('faults', () => {
   it('offers every state the gate can actually be put into', () => {
@@ -87,17 +87,21 @@ describe('sources', () => {
   });
 });
 
-describe('the two columns', () => {
-  it('balances four against three, so neither side towers over the hub', () => {
+describe('the three sides', () => {
+  it('balances the two columns, so neither side towers over the hub', () => {
     // Five on one side and two on the other left the hub shorter than the column
     // beside it, and the outermost lines then began in mid-air next to the hub
     // rather than at it.
-    expect(LEFT).toHaveLength(4);
+    expect(LEFT).toHaveLength(3);
     expect(RIGHT).toHaveLength(3);
   });
 
+  it('puts the money underneath, both ways to pay side by side', () => {
+    expect(FOOT.map((node) => node.id)).toEqual(['stripe', 'paypal']);
+  });
+
   it('draws every node exactly once', () => {
-    expect([...LEFT, ...RIGHT]).toHaveLength(NODES.length);
+    expect([...LEFT, ...RIGHT, ...FOOT]).toHaveLength(NODES.length);
     expect(new Set(NODES.map((node) => node.id)).size).toBe(NODES.length);
   });
 

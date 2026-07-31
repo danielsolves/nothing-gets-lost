@@ -26,7 +26,7 @@
 import { useState } from 'react';
 import type { ChaosKind, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
 import { activityFor } from './activity';
-import { LEFT, RIGHT, faultsFor, type Mischief, type Node, type NodeId } from './machine';
+import { FOOT, LEFT, RIGHT, faultsFor, type Mischief, type Node, type NodeId } from './machine';
 import { NodeTile } from './NodeTile';
 import { type MenuItem, type MenuSection } from './TileMenu';
 import { useDeliveryPulses } from './useDeliveryPulses';
@@ -181,12 +181,8 @@ export function Diagram(props: {
   };
 
   /** The wire always sits between the tile and the hub, so it swaps sides. */
-  const column = (nodes: Node[], side: 'left' | 'right') => (
-    <ul
-      className="spokes"
-      data-side={side}
-      data-testid={`spokes-${side}`}
-    >
+  const column = (nodes: Node[], side: 'left' | 'right' | 'foot') => (
+    <ul className="spokes" data-side={side} data-testid={`spokes-${side}`}>
       {nodes.map((node) => (
         <li className="spoke" key={node.id}>
           {side === 'left' ? tile(node) : wire(node)}
@@ -201,6 +197,7 @@ export function Diagram(props: {
       {column(LEFT, 'left')}
       {props.hub}
       {column(RIGHT, 'right')}
+      {column(FOOT, 'foot')}
     </div>
   );
 }

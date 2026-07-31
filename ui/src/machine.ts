@@ -10,12 +10,16 @@
 // calls the most common real-world outage. So the menu says which of the two it is,
 // in words, every time.
 //
-// The two columns are not sources on one side and systems on the other. That split
-// was tidy and it made the drawing lopsided: five tiles on the right against two on
-// the left, so the hub was shorter than the column beside it and the outermost lines
-// began in mid-air next to it rather than at it. Four and three balances, and the
-// side a node stands on is now a layout fact rather than a claim about its nature.
-// What it is stays in `kind`.
+// The columns are not sources on one side and systems on the other. That split was
+// tidy and it made the drawing lopsided: five tiles on the right against two on the
+// left, so the hub was shorter than the column beside it and the outermost lines
+// began in mid-air next to it rather than at it. The side a node stands on is now a
+// layout fact rather than a claim about its nature. What it is stays in `kind`.
+//
+// Three sides, not two: what comes in on the left, what the order is written into on
+// the right, and the money underneath. The payment earns its own place because it is
+// the one hop every order makes before any of the others is worth doing, and because
+// there is more than one way to make it.
 //
 // Kept out of the components because copy is the part most likely to drift back into
 // vagueness, and here it can be checked without rendering anything.
@@ -36,7 +40,12 @@ export interface Mischief {
 
 export type SourceId = 'shop' | 'mail';
 export type NodeId = SwitchableTarget | SourceId;
-export type Side = 'left' | 'right';
+/**
+ * Where a node is drawn. The money sits under the hub rather than in a column,
+ * because a payment is the one hop every order makes before anything else is worth
+ * doing, and because there is about to be more than one way to make it.
+ */
+export type Side = 'left' | 'right' | 'foot';
 
 interface Common {
   label: string;
@@ -96,6 +105,10 @@ export function faultsFor(target: SwitchableTarget): Fault[] {
  * The duplicate payment lives on Stripe because that is where a repeated webhook
  * comes from in the first place, and the two malformed orders live on the mail they
  * would arrive as. Read on a tile each one is a question about that node.
+ *
+ * The two payment routes stand side by side under the hub, and exactly one of them
+ * is charged for any given order. The other tile stays quiet rather than going
+ * green, which is the whole reason they are drawn as a pair.
  */
 export const NODES: Node[] = [
   {
@@ -115,11 +128,6 @@ export const NODES: Node[] = [
     label: 'Confirmation mail', note: 'last in the chain', mischief: [],
   },
   {
-    kind: 'system', id: 'stripe', side: 'left',
-    label: 'Stripe', note: 'payment',
-    mischief: [{ kind: 'duplicate_webhook', label: 'Deliver the payment twice' }],
-  },
-  {
     kind: 'system', id: 'hubspot', side: 'right',
     label: 'HubSpot', note: 'CRM', mischief: [],
   },
@@ -131,10 +139,20 @@ export const NODES: Node[] = [
     kind: 'system', id: 'slack', side: 'right',
     label: 'Slack', note: 'notification', mischief: [],
   },
+  {
+    kind: 'system', id: 'stripe', side: 'foot',
+    label: 'Stripe', note: 'payment',
+    mischief: [{ kind: 'duplicate_webhook', label: 'Deliver the payment twice' }],
+  },
+  {
+    kind: 'system', id: 'paypal', side: 'foot',
+    label: 'PayPal', note: 'payment', mischief: [],
+  },
 ];
 
 export const LEFT: Node[] = NODES.filter((node) => node.side === 'left');
 export const RIGHT: Node[] = NODES.filter((node) => node.side === 'right');
+export const FOOT: Node[] = NODES.filter((node) => node.side === 'foot');
 export const SOURCES: SourceNode[] = NODES.filter(
   (node): node is SourceNode => node.kind === 'source',
 );
