@@ -1190,23 +1190,43 @@ body {
    stopped at a height of its own and left the rest of the panel empty, or it grew
    and the whole drawing changed shape every time an order arrived. Out of flow it
    fills the window and never sets its size. */
-.mediator-panel {
+/* The window. It grows while a card is open: fixed, it was a fifth the height of an
+   opened card, so unfolding one put the detail into a scroll box too small to read
+   it in and the card looked as though it had opened somewhere else. The flanking
+   columns start at the top, so a taller hub moves none of them.
+
+   overflow: hidden is what makes the sideways travel a slide rather than two panels
+   briefly side by side in a wider box. */
+.mediator-panels {
   position: relative;
   min-height: 17rem;
-  /* The window grows while a card is open. Fixed, it was a fifth the height of an
-     opened card, so unfolding one put the detail into a scroll box too small to
-     read it in and the card looked as though it had opened somewhere else. The
-     flanking columns start at the top, so a taller hub moves none of them. */
+  overflow: hidden;
   transition: min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.mediator-panel[data-open='true'] { min-height: 31rem; }
-.mediator-panel > * {
+.mediator-panels[data-open='true'] { min-height: 31rem; }
+
+.mediator-panel {
   position: absolute;
   inset: 0;
   max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Off to one side, and out of reach once it gets there. visibility is what takes
+     the parked panel out of the tab order: the queue is a list of buttons, and
+     parked off-screen while still focusable it would swallow a dozen tab stops into
+     content nobody can see. Delayed by the length of the slide on the way out so the
+     panel is still visible while it travels, and undelayed on the way in. */
+  visibility: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0s linear 0.3s;
 }
+.mediator-panel[data-current='true'] {
+  visibility: visible;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
+}
+
+.mediator-panels[data-tab='queue'] #hub-panel-log { transform: translateX(100%); }
+.mediator-panels[data-tab='log'] #hub-panel-queue { transform: translateX(-100%); }
 
 .extractor-note {
   margin: 0;

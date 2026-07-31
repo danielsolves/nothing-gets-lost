@@ -16,6 +16,7 @@ import {
   type DeliveryState, type DeliveryView, type OrderBooking, type OrderView,
   type PaymentRoute, type Target,
 } from '@ngl/contracts';
+import { retryGap } from './order-time';
 
 /**
  * Everything after the payment, always drawn and always in this order, so a card
@@ -98,7 +99,9 @@ function toStep(delivery: DeliveryView): OrderStep {
  * What the card says in one line. Ordered by what a visitor most needs to know:
  * something parked beats something retrying, and both beat quiet progress.
  */
-function headlineFor(steps: OrderStep[], doneCount: number, total: number): string {
+function headlineFor(
+  steps: OrderStep[], doneCount: number, total: number, now: Date,
+): string {
   const dead = steps.find((s) => s.state === 'dead');
   if (dead) {
     return `${dead.label} needs a human after ${dead.attempts} attempts`;
@@ -106,7 +109,12 @@ function headlineFor(steps: OrderStep[], doneCount: number, total: number): stri
 
   const failing = steps.find((s) => s.state === 'pending' && s.attempts > 0);
   if (failing) {
-    return `${failing.label}: attempt ${failing.attempts} failed, trying again`;
+    // The countdown belongs here rather than over the queue as a whole. It is a
+    // promise about this order, and this is the only line on the page that can say
+    // which order it is about without naming one.
+    const gap = retryGap(failing.nextAt, now);
+    const failed = `${failing.label}: attempt ${failing.attempts} failed`;
+    return gap ? `${failed}, next try in ${gap}` : `${failed}, trying again`;
   }
 
   if (steps.some((s) => s.state === 'inflight')) return 'On its way';
@@ -115,7 +123,7 @@ function headlineFor(steps: OrderStep[], doneCount: number, total: number): stri
 }
 
 export function groupIntoOrders(
-  deliveries: DeliveryView[], orders: OrderView[],
+  deliveries: DeliveryView[], orders: OrderView[], now: Date = new Date(),
 ): OrderCard[] {
   const byEvent = new Map<string, DeliveryView[]>();
   for (const delivery of deliveries) {
@@ -156,7 +164,7 @@ export function groupIntoOrders(
       steps,
       doneCount,
       total,
-      headline: headlineFor(steps, doneCount, total),
+      headline: headlineFor(steps, doneCount, total, now),
     });
   }
 

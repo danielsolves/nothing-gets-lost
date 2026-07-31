@@ -136,11 +136,29 @@ describe('Mediator', () => {
   it('switches to the log and back', () => {
     render(<Mediator {...props} />);
     fireEvent.click(screen.getByTestId('hub-tab-log'));
-    expect(screen.getByTestId('hub-panel-log')).toBeInTheDocument();
-    expect(screen.queryByTestId('hub-panel-queue')).not.toBeInTheDocument();
+    expect(screen.getByTestId('hub-panel-log')).toHaveAttribute('data-current', 'true');
+    expect(screen.getByTestId('hub-panel-queue')).toHaveAttribute('data-current', 'false');
 
     fireEvent.click(screen.getByTestId('hub-tab-queue'));
+    expect(screen.getByTestId('hub-panel-queue')).toHaveAttribute('data-current', 'true');
+  });
+
+  it('keeps both panels mounted, so one can slide out as the other slides in', () => {
+    // A panel that is unmounted when its tab loses focus has nowhere to travel from.
+    // Both are laid over each other and moved sideways instead.
+    render(<Mediator {...props} />);
     expect(screen.getByTestId('hub-panel-queue')).toBeInTheDocument();
+    expect(screen.getByTestId('hub-panel-log')).toBeInTheDocument();
+  });
+
+  it('takes the panel that is off to one side out of reach', () => {
+    // The queue is a list of buttons. Parked off-screen and still focusable, it would
+    // swallow a dozen tab stops into content nobody can see. CSS visibility does the
+    // same job for the pointer and the keyboard once the slide has finished; this is
+    // the half of it a screen reader listens to.
+    render(<Mediator {...props} />);
+    expect(screen.getByTestId('hub-panel-log')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('hub-panel-queue')).not.toHaveAttribute('aria-hidden');
   });
 
   it('shows the orders it is holding, not a promise of them', () => {

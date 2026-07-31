@@ -184,12 +184,24 @@ export function Mediator(props: {
         />
       </div>
 
-      {tab === 'queue' ? (
+      {/* Both panels, laid over each other and moved sideways, rather than one of
+          them swapped for the other. A panel that is unmounted when its tab loses
+          focus has nowhere to travel from, and the swap made the two tabs read as
+          two places instead of two views of one thing.
+
+          The window is only as tall as it needs to be for the panel on show, so the
+          height is carried out here and the panels inside it fill whatever it is. */}
+      <div
+        className="mediator-panels"
+        data-tab={tab}
+        data-open={tab === 'queue' && props.openOrder ? 'true' : undefined}
+      >
         <div
           className="mediator-panel"
           id="hub-panel-queue"
           data-testid="hub-panel-queue"
-          data-open={props.openOrder ? 'true' : undefined}
+          data-current={tab === 'queue' ? 'true' : 'false'}
+          aria-hidden={tab === 'queue' ? undefined : 'true'}
           role="tabpanel"
           aria-labelledby="hub-tab-queue"
         >
@@ -200,17 +212,18 @@ export function Mediator(props: {
             onToggle={props.onToggleOrder}
           />
         </div>
-      ) : (
         <div
           className="mediator-panel"
           id="hub-panel-log"
           data-testid="hub-panel-log"
+          data-current={tab === 'log' ? 'true' : 'false'}
+          aria-hidden={tab === 'log' ? undefined : 'true'}
           role="tabpanel"
           aria-labelledby="hub-tab-log"
         >
           <Timeline entries={props.timeline} />
         </div>
-      )}
+      </div>
     </section>
   );
 }

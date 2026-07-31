@@ -16,7 +16,7 @@ import type { DeliveryView, OrderView } from '@ngl/contracts';
 import { groupIntoOrders, type OrderStep } from './order-cards';
 import { OrderCheck } from './OrderCheck';
 import { OrderContents } from './OrderContents';
-import { formatArrival } from './order-time';
+import { formatArrival, retryGap } from './order-time';
 
 export function Queue(props: {
   deliveries: DeliveryView[];
@@ -24,10 +24,11 @@ export function Queue(props: {
   openOrder: string | null;
   onToggle: (eventId: string) => void;
 }) {
-  const orders = groupIntoOrders(props.deliveries, props.orders);
   // Read once for the whole list. Two cards that arrived a second apart must not be
-  // measured against two different answers to "is that today".
+  // measured against two different answers to "is that today", and two countdowns in
+  // one list must not be counting against two different clocks.
   const now = new Date();
+  const orders = groupIntoOrders(props.deliveries, props.orders, now);
 
   if (orders.length === 0) {
     return (
@@ -114,7 +115,7 @@ export function Queue(props: {
                         />
                         <span className="order-step-label">{step.label}</span>
                       </dt>
-                      <dd>{describe(step)}</dd>
+                      <dd>{describe(step, now)}</dd>
                     </div>
                   ))}
                 </dl>
@@ -131,7 +132,7 @@ export function Queue(props: {
  * One line per checkpoint, saying the thing a visitor would otherwise have to open
  * the SQL console to learn: how many attempts, what came back, what went wrong.
  */
-function describe(step: OrderStep): string {
+function describe(step: OrderStep, now: Date): string {
   switch (step.state) {
     case 'waiting':
       return 'not queued yet, it waits for the rest of the chain';
@@ -144,9 +145,12 @@ function describe(step: OrderStep): string {
     case 'dead':
       return `gave up after ${step.attempts} attempts, needs a human` +
         (step.lastError ? ` (${step.lastError})` : '');
-    default:
+    default: {
       if (step.attempts === 0) return 'queued, not tried yet';
-      return `attempt ${step.attempts} failed, waiting to retry` +
+      const gap = retryGap(step.nextAt, now);
+      const waiting = gap ? `retrying in ${gap}` : 'waiting to retry';
+      return `attempt ${step.attempts} failed, ${waiting}` +
         (step.lastError ? ` (${step.lastError})` : '');
+    }
   }
 }

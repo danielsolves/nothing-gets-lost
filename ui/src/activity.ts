@@ -20,6 +20,7 @@
 // The raw error never appears in either. `lastError` is a driver's sentence about
 // a socket, useful in the SQL console and meaningless on a tile.
 import type { DeliveryView, SwitchableTarget, Target } from '@ngl/contracts';
+import { retryGap } from './order-time';
 
 /**
  * Three tones rather than one state per delivery: the line exists to be read at a
@@ -61,31 +62,6 @@ function line(text: string, tone: Tone): Activity {
 
 function attemptsWord(attempts: number): string {
   return attempts === 1 ? '1 attempt' : `${attempts} attempts`;
-}
-
-/**
- * Rounded up, never down. The number is a promise about the future and the retry
- * schedule reaches ten minutes (services/mediator/src/backoff.ts), so a line that
- * counted 600 seconds would be true and unreadable.
- */
-function gapText(seconds: number): string {
-  if (seconds < 60) return seconds === 1 ? '1 second' : `${seconds} seconds`;
-  const minutes = Math.ceil(seconds / 60);
-  return minutes === 1 ? '1 minute' : `${minutes} minutes`;
-}
-
-/**
- * Null when there is no honest number to give: either the row carries no next
- * attempt, or the moment has already passed and the worker has not picked it up
- * yet. Saying "in 0 seconds" of a retry nobody has started would be a claim the
- * data does not make, so in that case the line simply stops before the "when".
- */
-function gapUntil(nextAt: string | null, now: Date): string | null {
-  if (nextAt === null) return null;
-  const due = Date.parse(nextAt);
-  if (Number.isNaN(due)) return null;
-  const seconds = Math.ceil((due - now.getTime()) / 1000);
-  return seconds > 0 ? gapText(seconds) : null;
 }
 
 function isRetrying(delivery: DeliveryView): boolean {
@@ -145,7 +121,7 @@ export function activityFor(
   const retrying = mine.filter(isRetrying);
   const next = soonest(retrying);
   if (next) {
-    const gap = gapUntil(next.nextAt, now);
+    const gap = retryGap(next.nextAt, now);
     if (retrying.length > 1) {
       const rest = `${retrying.length} orders waiting to retry`;
       return line(gap ? `${rest}, next in ${gap}` : rest, 'wait');
@@ -175,10 +151,12 @@ export function activityFor(
  * in-flight rows, exactly as the counter beside it does, so the two never
  * contradict each other; parked rows are counted by the "needs a human" counter
  * and by the line itself as soon as nothing is in flight.
+ *
+ * It takes no clock, unlike the tile line. Every countdown it used to print has
+ * moved onto the card of the order it was about, and a parameter kept for a reading
+ * nothing does any more is a claim that this line still depends on the time.
  */
-export function currentWork(
-  deliveries: DeliveryView[], now: Date = new Date(),
-): Activity {
+export function currentWork(deliveries: DeliveryView[]): Activity {
   if (deliveries.length === 0) return line('nothing has come in yet', 'wait');
 
   const waiting = deliveries.filter(
@@ -202,10 +180,11 @@ export function currentWork(
 
   const next = soonest(deliveries.filter(isRetrying));
   if (next) {
-    const label = LABELS[next.target];
-    const gap = gapUntil(next.nextAt, now);
-    const text = gap ? `retrying ${label} in ${gap}` : `waiting to retry ${label}`;
-    return line(`${text}${rest(1)}`, 'wait');
+    // Named, not counted down to. The countdown is a promise about one delivery, and
+    // printed here it sat above the whole queue: a visitor read "in 4 seconds" over
+    // twelve cards with no way to tell which of them it was about. It is on the card
+    // of the order it belongs to instead.
+    return line(`waiting to retry ${LABELS[next.target]}${rest(1)}`, 'wait');
   }
 
   const queued = oldest(deliveries.filter(isQueued));

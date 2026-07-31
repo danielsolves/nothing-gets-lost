@@ -185,7 +185,7 @@ describe('activityFor', () => {
     const lines = [
       activityFor('hubspot', [d('hubspot', 'pending', { attempts: 3, lastError })], NOW),
       activityFor('hubspot', [d('hubspot', 'dead', { attempts: 6, lastError })], NOW),
-      currentWork([d('hubspot', 'dead', { attempts: 6, lastError })], NOW),
+      currentWork([d('hubspot', 'dead', { attempts: 6, lastError })]),
     ];
     for (const line of lines) {
       expect(line?.text).not.toContain('ECONNREFUSED');
@@ -196,11 +196,11 @@ describe('activityFor', () => {
 
 describe('currentWork', () => {
   it('says nothing has come in rather than inventing work', () => {
-    expect(currentWork([], NOW)).toEqual({ text: 'Nothing has come in yet', tone: 'wait' });
+    expect(currentWork([])).toEqual({ text: 'Nothing has come in yet', tone: 'wait' });
   });
 
   it('says the work is finished rather than claiming to be busy', () => {
-    const work = currentWork([d('stripe', 'done'), d('slack', 'done')], NOW);
+    const work = currentWork([d('stripe', 'done'), d('slack', 'done')]);
     expect(work).toEqual({ text: 'Everything delivered, nothing waiting', tone: 'wait' });
   });
 
@@ -210,12 +210,12 @@ describe('currentWork', () => {
       d('hubspot', 'pending', { attempts: 0 }),
       d('slack', 'pending', { attempts: 2, nextAt: IN_4_SECONDS }),
       d('ledger', 'done'),
-    ], NOW);
+    ]);
     expect(work).toEqual({ text: 'Delivering to Stripe, 2 more waiting', tone: 'work' });
   });
 
   it('leaves the count off when there is nothing else to count', () => {
-    const work = currentWork([d('stripe', 'inflight'), d('slack', 'done')], NOW);
+    const work = currentWork([d('stripe', 'inflight'), d('slack', 'done')]);
     expect(work.text).toBe('Delivering to Stripe');
   });
 
@@ -223,7 +223,7 @@ describe('currentWork', () => {
     const work = currentWork([
       d('slack', 'dead', { attempts: 6 }),
       d('stripe', 'done'),
-    ], NOW);
+    ]);
     expect(work).toEqual({ text: 'Slack needs a human after 6 attempts', tone: 'bad' });
   });
 
@@ -232,22 +232,25 @@ describe('currentWork', () => {
       d('slack', 'dead', { attempts: 6 }),
       d('hubspot', 'dead', { attempts: 6 }),
       d('stripe', 'pending', { attempts: 0 }),
-    ], NOW);
+    ]);
     expect(work).toEqual({ text: '2 orders need a human, 1 more waiting', tone: 'bad' });
   });
 
-  it('says when the next retry is due', () => {
+  it('names what it is waiting to retry, without counting down to it', () => {
+    // The countdown moved onto the card of the order it belongs to. Up here it was
+    // a number about one delivery printed over the whole queue: a visitor read
+    // "4 seconds" above twelve orders and had no way to tell which one it meant.
     const work = currentWork([
       d('hubspot', 'pending', { attempts: 4, nextAt: IN_10_MINUTES }),
       d('slack', 'pending', { attempts: 1, nextAt: IN_4_SECONDS }),
-    ], NOW);
-    expect(work).toEqual({ text: 'Retrying Slack in 4 seconds, 1 more waiting', tone: 'wait' });
+    ]);
+    expect(work).toEqual({ text: 'Waiting to retry Slack, 1 more waiting', tone: 'wait' });
   });
 
-  it('drops the countdown when the next try is overdue', () => {
+  it('says the same thing whether or not the next try is overdue', () => {
     const work = currentWork([
       d('hubspot', 'pending', { attempts: 4, nextAt: OVERDUE }),
-    ], NOW);
+    ]);
     expect(work.text).toBe('Waiting to retry HubSpot');
   });
 
@@ -255,19 +258,19 @@ describe('currentWork', () => {
     const work = currentWork([
       d('stripe', 'pending', { attempts: 0 }),
       d('hubspot', 'pending', { attempts: 0 }),
-    ], NOW);
+    ]);
     expect(work).toEqual({ text: 'Queued for Stripe, 1 more waiting', tone: 'wait' });
   });
 
   it('speaks of the visitor endpoint in their own words', () => {
-    const work = currentWork([d('custom_webhook', 'inflight')], NOW);
+    const work = currentWork([d('custom_webhook', 'inflight')]);
     expect(work.text).toBe('Delivering to your endpoint');
   });
 
   it('starts the line with a capital letter whichever system it names', () => {
-    const work = currentWork([d('custom_webhook', 'pending', { attempts: 0 })], NOW);
+    const work = currentWork([d('custom_webhook', 'pending', { attempts: 0 })]);
     expect(work.text).toBe('Queued for your endpoint');
-    expect(currentWork([d('custom_webhook', 'dead', { attempts: 6 })], NOW).text)
+    expect(currentWork([d('custom_webhook', 'dead', { attempts: 6 })]).text)
       .toBe('Your endpoint needs a human after 6 attempts');
   });
 });

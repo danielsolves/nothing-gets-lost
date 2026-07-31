@@ -38,13 +38,21 @@ function order(eventId: string, number: number, over: Partial<OrderView> = {}): 
  * numbered in the order they first appear. Most tests here are about the chain
  * rather than about the head, and spelling both lists out every time would bury it.
  */
-function group(deliveries: DeliveryView[], orders?: OrderView[]): OrderCard[] {
+function group(
+  deliveries: DeliveryView[], orders?: OrderView[], now: Date = NOW,
+): OrderCard[] {
   const seen = [...new Set(deliveries.map((row) => row.eventId))];
   return groupIntoOrders(
     deliveries,
     orders ?? seen.map((eventId, index) => order(eventId, 1000 + index)),
+    now,
   );
 }
+
+/** Fixed, so the countdown on a card is a value and not whatever the clock said. */
+const NOW = new Date('2026-07-31T12:00:00.000Z');
+const IN_20_SECONDS = '2026-07-31T12:00:20.000Z';
+const OVERDUE = '2026-07-31T11:59:50.000Z';
 
 describe('the payment checkpoint', () => {
   // Exactly one payment is ever charged per order, so a card that drew a box for a
@@ -129,6 +137,25 @@ describe('groupIntoOrders', () => {
     ]);
     expect(card.headline).toContain('HubSpot');
     expect(card.headline).toContain('attempt 3');
+  });
+
+  it('counts down to the next try on the card, where the retry belongs', () => {
+    // The hub used to print this over the whole queue, which made a number about
+    // one delivery read as a fact about all of them. It is a promise about this
+    // order, so it is made on this order.
+    const [card] = group([
+      d('evt-1', 'hubspot', 'pending', { attempts: 3, nextAt: IN_20_SECONDS }),
+    ]);
+    expect(card.headline).toBe('HubSpot: attempt 3 failed, next try in 20 seconds');
+  });
+
+  it('stops at the failure when the next try is already overdue', () => {
+    // The worker has not picked it up yet. "in 0 seconds" would be a promise the
+    // rows do not make, so the sentence ends before the when.
+    const [card] = group([
+      d('evt-1', 'hubspot', 'pending', { attempts: 3, nextAt: OVERDUE }),
+    ]);
+    expect(card.headline).toBe('HubSpot: attempt 3 failed, trying again');
   });
 
   it('leads with the one that needs a human over the one still retrying', () => {

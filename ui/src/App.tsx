@@ -13,7 +13,7 @@
 // running score on screen. The hub then grew a row of the same numbers. Showing
 // "lost 0" in two places does not make it twice as true, so the bar went and the hub
 // kept them: they belong next to the queue they are counting.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
 import { Deeper } from './Deeper';
 import { Diagram } from './Diagram';
@@ -22,6 +22,7 @@ import { ProofPanel } from './ProofPanel';
 import { Mediator } from './Mediator';
 import { SqlConsole } from './SqlConsole';
 import { Stage } from './Stage';
+import { useArrivalHold } from './useArrivalHold';
 import { useStream } from './useStream';
 
 export function App() {
@@ -35,6 +36,15 @@ export function App() {
   // One open card at a time, and open doubles as selected: the order being read is
   // the one marked in the diagram.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
+
+  // The hub reads a board held back until the dot carrying a new order has finished
+  // travelling to it; the diagram reads the live one, because the dot is the thing
+  // being waited for. Memoised because the hold is keyed to this value: rebuilt every
+  // render, it would look like a new board every render and never settle.
+  const board = useMemo(
+    () => ({ counters, deliveries, orders }), [counters, deliveries, orders],
+  );
+  const held = useArrivalHold(board);
 
   return (
     <>
@@ -72,9 +82,9 @@ export function App() {
             }
             hub={
               <Mediator
-                counters={counters}
-                deliveries={deliveries}
-                orders={orders}
+                counters={held.counters}
+                deliveries={held.deliveries}
+                orders={held.orders}
                 timeline={timeline}
                 openOrder={openOrder}
                 onToggleOrder={(eventId) =>
