@@ -14,6 +14,26 @@ export const SWITCHABLE_TARGETS = [
 export type SwitchableTarget = (typeof SWITCHABLE_TARGETS)[number];
 
 /**
+ * Targets whose proof does not rest on our word.
+ *
+ * Stripe serves the receipt as a page on its own domain, the confirmation mail is
+ * stamped by the reader's own provider, and their own endpoint is a server we do not
+ * run. Everything else is read back through our account with our token, so what a
+ * visitor would be shown is a page we rendered about data we hold, and a sceptic is
+ * right that we could render anything.
+ *
+ * It lives here rather than in the service that answers a check, because the tile
+ * that offers the check reads it too. Offering "check it at HubSpot" and then
+ * admitting the answer is worth our word is worse than never offering it: it spends
+ * the credibility of the two checks that are real.
+ */
+export const INDISPUTABLE_TARGETS = ['stripe', 'mailer', 'custom_webhook'] as const;
+
+export function isIndisputable(target: Target): boolean {
+  return (INDISPUTABLE_TARGETS as readonly string[]).includes(target);
+}
+
+/**
  * How an order was paid for. One provider, so this is a list of one.
  *
  * PayPal was the second, and it went: PayPal will not capture a server-made order

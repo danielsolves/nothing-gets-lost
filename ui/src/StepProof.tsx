@@ -25,6 +25,24 @@ type Answer =
   | { kind: 'answered'; verified: VerifyResponse }
   | { kind: 'failed' };
 
+/**
+ * What the button says, which is whatever the surface around it has not said already.
+ *
+ * On a tile the system is printed two rows above, so naming it again is the exact
+ * repetition every other line on a tile avoids, and on a 198px box it costs a second
+ * wrapped row. What the tile has not said is which order, so that is what it says.
+ *
+ * In a queue card it is the other way round: the card is one order and lists every
+ * system it went to, so the system is the point and the order number would be the
+ * repetition.
+ */
+function askLabel(label: string, orderNumber: number | null | undefined, tile: boolean): string {
+  if (tile && orderNumber !== null && orderNumber !== undefined) {
+    return `Check order ${orderNumber}`;
+  }
+  return `Check it at ${label}`;
+}
+
 /** The domain, for the link label. A url we cannot parse is not offered as a link. */
 function hostOf(url: string): string | null {
   try {
@@ -39,6 +57,14 @@ export function StepProof(props: {
   target: Target;
   label: string;
   /**
+   * Which order this is about, when the surface around the button does not already
+   * say. A queue card is the order, so it passes nothing; a system tile is not, and
+   * a bare "Check it at Stripe" there left the reader to assume it meant the one
+   * they had just sent. It does mean that, and the button has to say so rather than
+   * be trusted about it.
+   */
+  orderNumber?: number | null;
+  /**
    * How much room there is to answer in.
    *
    * `card` is the queue, where a step has the width of the panel and the full url
@@ -49,15 +75,6 @@ export function StepProof(props: {
    * on this domain.
    */
   layout?: 'card' | 'tile';
-  /**
-   * Opens the section holding the visitor's own endpoint.
-   *
-   * The caveat used to end at "worth our word", which is true and is a dead end: it
-   * tells somebody the evidence is weak and leaves them there. It used to point at
-   * connecting their own portal; that is gone, and what it points at now is the one
-   * way left to have a delivery land somewhere we do not control.
-   */
-  onOwnEndpoint?: () => void;
 }) {
   const [answer, setAnswer] = useState<Answer>({ kind: 'idle' });
   const id = `${props.eventId}-${props.target}`;
@@ -90,7 +107,7 @@ export function StepProof(props: {
         onClick={ask}
         disabled={answer.kind === 'asking'}
       >
-        {answer.kind === 'asking' ? 'Asking…' : `Check it at ${props.label}`}
+        {answer.kind === 'asking' ? 'Asking…' : askLabel(props.label, props.orderNumber, tile)}
       </button>
 
       {answer.kind === 'failed' && (
@@ -141,27 +158,14 @@ export function StepProof(props: {
             </a>
           )}
 
-          {/* The same sentence for every system that is read back through us, and
-              the same way out. It used to fork: connect your own portal here, and
-              nothing to offer there. Both halves are gone, one because the OAuth is
-              gone and the other because it left the reader at a dead end. */}
+          {/* Kept although the button is now only offered where the answer does not
+              rest on our word, because "only offered where" is a decision made by
+              the caller and this component cannot see it. If a check ever turns up
+              somewhere it should not, the page says so rather than quietly passing
+              our own reading off as a third party's. */}
           {!verified.indisputable && (
             <p className="step-proof-caveat" data-testid={`proof-caveat-${id}`}>
               Read back through us, so it is worth our word.
-              {props.onOwnEndpoint && (
-                <>
-                  {' '}
-                  <button
-                    type="button"
-                    className="step-proof-own"
-                    data-testid={`proof-own-${id}`}
-                    onClick={props.onOwnEndpoint}
-                  >
-                    Point your own endpoint at this
-                  </button>
-                  {' '}and watch the deliveries arrive on your side.
-                </>
-              )}
             </p>
           )}
         </div>

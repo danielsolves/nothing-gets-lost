@@ -17,7 +17,7 @@
 // Stripe S and HubSpot sprocket the tiles wear, so the queue and the drawing are one
 // picture seen twice. A count stood beside them for a while and has gone; five marks
 // that can each be read are already the count.
-import type { DeliveryView, OrderView } from '@ngl/contracts';
+import { isIndisputable, type DeliveryView, type OrderView } from '@ngl/contracts';
 import { groupIntoOrders, type OrderStep } from './order-cards';
 import { OrderCheck } from './OrderCheck';
 import { OrderContents } from './OrderContents';
@@ -137,11 +137,16 @@ export function Queue(props: {
                       </dt>
                       <dd>
                         {describe(step, now)}
-                        {/* Only where something was actually written. A step that
-                            has not been delivered has no record to go and look at,
-                            and offering the check anyway would answer 404 about a
-                            call that was never made. */}
-                        {step.state === 'done' && (
+                        {/* Only where something was actually written, and only where
+                            the answer is not our own. A step that has not been
+                            delivered has no record to go and look at. A step read
+                            back through our own account with our own token has one,
+                            and offering it would be this page vouching for itself:
+                            the same button came off the system tiles for that reason,
+                            and the same target must not get two verdicts on two
+                            surfaces. No order number here, because this is the card
+                            of the order and the button is already about one. */}
+                        {step.state === 'done' && isIndisputable(step.target) && (
                           <StepProof
                             eventId={order.eventId}
                             target={step.target}
