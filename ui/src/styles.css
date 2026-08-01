@@ -308,7 +308,6 @@ body {
 /* A radio group, never checkboxes: one order is paid once. */
 /* Says how the order is paid. It is context, not a warning, so it keeps the quiet
    colour it had while it sat inside the payment fieldset that has gone. */
-.order-note { margin: 0; color: var(--faint); font-size: 12.5px; line-height: 1.45; }
 .order-hint { margin: 0; color: var(--warn); font-size: 13.5px; }
 .order-form .error { margin: 0; font-size: 13px; }
 
@@ -679,6 +678,10 @@ body {
   column-gap: clamp(12px, 1.2vw, 18px);
   row-gap: 34px;
   align-content: start;
+  /* Each tile keeps its own height. Stretched to the row, the one tile showing an
+     answer made the three beside it four hundred pixels tall with their check button
+     floating at the bottom of an empty box. */
+  align-items: start;
 }
 .system { position: relative; display: grid; }
 
@@ -1999,3 +2002,29 @@ body {
 @media (max-width: 48rem) {
   .order-builder { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* The check, sized for a tile ------------------------------------------------
+   Same component as the one in the queue card, in a 198px box. The button is quiet
+   and sits at the foot of the tile; the tile keeps its 127px until somebody presses
+   it, and grows from there, which pushes the row down rather than reflowing the
+   drawing sideways. */
+.step-proof[data-layout='tile'] { margin-top: auto; padding-top: 8px; width: 100%; }
+
+.step-proof[data-layout='tile'] .step-proof-ask {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.step-proof[data-layout='tile'] .step-proof-answer {
+  gap: 6px;
+  padding: 8px 9px;
+}
+.step-proof[data-layout='tile'] dt { font-size: 9.5px; }
+.step-proof[data-layout='tile'] dd { font-size: 10.5px; }
+.step-proof[data-layout='tile'] .step-proof-link { font-size: 10.5px; }
+.step-proof[data-layout='tile'] .step-proof-caveat { font-size: 10.5px; line-height: 1.45; }
+.step-proof[data-layout='tile'] .step-proof-error { font-size: 10.5px; }
+

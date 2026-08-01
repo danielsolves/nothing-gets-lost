@@ -28,9 +28,10 @@
 // delivery goes.
 import { useState } from 'react';
 import type { ChaosKind, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
-import { activityFor } from './activity';
+import { activityFor, lastDeliveredEvent } from './activity';
 import { NODES, ORDER_WAYS, faultsFor, type Node, type NodeId } from './machine';
 import { NodeTile } from './NodeTile';
+import { StepProof } from './StepProof';
 import { TileMenu, type MenuSection } from './TileMenu';
 import { useDeliveryPulses } from './useDeliveryPulses';
 import { useWires } from './useWires';
@@ -141,6 +142,22 @@ export function Diagram(props: {
     })),
   };
 
+  /**
+   * The check sits on the tile because that is what somebody points at when they ask
+   * whether a system is real. It was only in the queue card for a while, two clicks
+   * deep, where the question is never asked.
+   *
+   * Nothing to offer until that system has delivered something: a check against a
+   * call that was never made answers 404 about nothing.
+   */
+  const proofFor = (node: Node) => {
+    const eventId = lastDeliveredEvent(node.id, props.deliveries);
+    if (eventId === null) return undefined;
+    return (
+      <StepProof eventId={eventId} target={node.id} label={node.label} layout="tile" />
+    );
+  };
+
   const tile = (node: Node) => (
     <NodeTile
       node={node}
@@ -151,6 +168,7 @@ export function Diagram(props: {
       said={said[node.id]}
       menu={menuFor(node)}
       menuLabel={`Break ${node.label} on purpose`}
+      extra={proofFor(node)}
     />
   );
 

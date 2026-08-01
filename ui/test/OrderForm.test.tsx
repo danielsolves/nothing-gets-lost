@@ -103,10 +103,15 @@ describe('OrderForm', () => {
 
   it('says both fields are optional, since nothing else on the page says so', async () => {
     // Spec 9.7 makes the address mandatory. It is optional here on the owner's
-    // instruction, and a visitor cannot know that unless it is written down.
+    // instruction, and a visitor cannot know that unless it is written down. It is
+    // written on the fields themselves rather than in a sentence above them, so it
+    // is read by somebody about to type rather than by somebody reading prose.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    expect(screen.getByTestId('order-panel')).toHaveTextContent(/optional/i);
+    for (const field of ['order-name', 'order-email']) {
+      expect(screen.getByTestId(field))
+        .toHaveAttribute('placeholder', expect.stringContaining('(optional)'));
+    }
   });
 
   it('starts from a basket that already has something in it', async () => {
@@ -171,13 +176,13 @@ describe('OrderForm', () => {
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 
-  it('still says where the payment proof comes from', async () => {
-    // The receipt page is the strongest evidence on the page, and the sentence that
-    // sets it up has to survive the control it used to sit under.
+  it('explains nothing about the payment here, and lets the receipt do it', async () => {
+    // A paragraph about the Stripe receipt sat under the address fields, ahead of a
+    // payment that had not happened yet. The receipt turns up on the delivered step
+    // afterwards as a link to stripe.com, which makes the point without being told.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    expect(screen.getByTestId('route-note')).toHaveTextContent(/receipt/i);
-    expect(screen.getByTestId('route-note')).toHaveTextContent(/stripe\.com/i);
+    expect(screen.queryByTestId('route-note')).not.toBeInTheDocument();
   });
 
   it('will not send an empty basket, and says what is missing', async () => {

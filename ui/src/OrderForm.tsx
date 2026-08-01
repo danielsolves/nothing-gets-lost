@@ -178,27 +178,17 @@ export function OrderForm({
           <div className="order-who">
             <p className="order-ph">Who it is for</p>
             <p className="order-why">
-              Both are optional. An address is worth giving: the confirmation mail
-              lands in your inbox with a timestamp written by your own provider, and
-              that is the one thing on this page nobody here can fake.
+              You can enter your email to receive a real confirmation and verify the
+              email integration.
             </p>
 
-            <input placeholder="Your name, if you like" value={name} data-testid="order-name"
+            <input placeholder="Your name (optional)" value={name} data-testid="order-name"
                    aria-label="Your name" autoComplete="name"
                    onChange={(event) => setName(event.target.value)} />
-            <input placeholder="Your email address, if you like" value={email}
+            <input placeholder="Your email address (optional)" value={email}
                    data-testid="order-email" aria-label="Your email address"
                    type="email" autoComplete="email"
                    onChange={(event) => setEmail(event.target.value)} />
-
-            {/* A statement, not a choice. There was a radio group here while a second
-                provider existed; one option in a radio group is a control that asks a
-                question with one answer. The sentence stays because it is what sets up
-                the proof panel further down the page. */}
-            <p className="order-note" data-testid="route-note">
-              Paid through Stripe, in test mode. It ends in a receipt page stripe.com
-              serves itself, which is the one payment proof nobody here can fake.
-            </p>
 
           </div>
 

@@ -149,6 +149,29 @@ export function activityFor(
 }
 
 /**
+ * The order behind the most recent settled delivery to a system, or null when that
+ * system has not delivered anything yet.
+ *
+ * This is what the tile offers to go and check. The most recent rather than any of
+ * them, because a visitor pressing a button on the HubSpot tile means "the thing you
+ * just did", and because the drawing shows the state now.
+ */
+export function lastDeliveredEvent(
+  target: SwitchableTarget, deliveries: DeliveryView[],
+): string | null {
+  let best: { at: number; eventId: string } | null = null;
+
+  for (const delivery of deliveries) {
+    if (delivery.target !== target) continue;
+    if (delivery.state !== 'done') continue;
+    const at = delivery.answeredAt === null ? 0 : Date.parse(delivery.answeredAt);
+    if (best === null || at > best.at) best = { at, eventId: delivery.eventId };
+  }
+
+  return best?.eventId ?? null;
+}
+
+/**
  * How long the most recent settled delivery took, or null when none of them carries
  * both timestamps. Rows written before the timings existed say nothing rather than
  * guessing, because a made-up duration on this page costs more than a blank tile.

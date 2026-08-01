@@ -34,7 +34,22 @@ function hostOf(url: string): string | null {
   }
 }
 
-export function StepProof(props: { eventId: string; target: Target; label: string }) {
+export function StepProof(props: {
+  eventId: string;
+  target: Target;
+  label: string;
+  /**
+   * How much room there is to answer in.
+   *
+   * `card` is the queue, where a step has the width of the panel and the full url
+   * is worth printing: seeing exactly which endpoint answered is the evidence.
+   * `tile` is a 198px box in the drawing, where the same url would be six wrapped
+   * lines and would push the systems around it down the page. There it prints the
+   * host, which is the part of the url that carries the claim: the record is not
+   * on this domain.
+   */
+  layout?: 'card' | 'tile';
+}) {
   const [answer, setAnswer] = useState<Answer>({ kind: 'idle' });
   const id = `${props.eventId}-${props.target}`;
 
@@ -55,9 +70,10 @@ export function StepProof(props: { eventId: string; target: Target; label: strin
   // record behind it is not.
   const openable = verified !== null && verified.indisputable && verified.httpStatus === 200;
   const host = openable ? hostOf(verified.requestUrl) : null;
+  const tile = props.layout === 'tile';
 
   return (
-    <div className="step-proof">
+    <div className="step-proof" data-layout={props.layout ?? 'card'}>
       <button
         type="button"
         className="step-proof-ask"
@@ -80,7 +96,11 @@ export function StepProof(props: { eventId: string; target: Target; label: strin
           <dl>
             <div>
               <dt>asked</dt>
-              <dd>{verified.requestUrl || 'nothing to ask for'}</dd>
+              <dd>
+                {tile
+                  ? hostOf(verified.requestUrl) ?? 'nothing to ask for'
+                  : verified.requestUrl || 'nothing to ask for'}
+              </dd>
             </div>
             <div>
               <dt>answered</dt>
@@ -114,9 +134,11 @@ export function StepProof(props: { eventId: string; target: Target; label: strin
 
           {!verified.indisputable && (
             <p className="step-proof-caveat" data-testid={`proof-caveat-${id}`}>
-              Read back through us, from our own portal. We render this answer, so it
-              is worth exactly as much as our word. The Stripe receipt is not: that
-              page is served by stripe.com.
+              {tile
+                ? 'Read back through us. We render this answer, so it is worth our word.'
+                : 'Read back through us, from our own portal. We render this answer, so it '
+                  + 'is worth exactly as much as our word. The Stripe receipt is not: that '
+                  + 'page is served by stripe.com.'}
             </p>
           )}
         </div>
