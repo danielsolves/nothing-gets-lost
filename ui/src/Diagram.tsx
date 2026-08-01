@@ -27,7 +27,11 @@
 // dots now run along, so the drawing and the motion cannot disagree about where a
 // delivery goes.
 import { useState } from 'react';
-import type { ChaosKind, DeliveryView, SwitchState, SwitchableTarget } from '@ngl/contracts';
+import {
+  isIndisputable,
+  type ChaosKind, type DeliveryView, type OrderView,
+  type SwitchState, type SwitchableTarget,
+} from '@ngl/contracts';
 import { activityFor, lastDeliveredEvent } from './activity';
 import { NODES, ORDER_WAYS, faultsFor, type Node, type NodeId } from './machine';
 import { NodeTile } from './NodeTile';
@@ -43,6 +47,13 @@ const TARGETS: readonly string[] = NODES.map((node) => node.id);
 export function Diagram(props: {
   switches: Record<SwitchableTarget, SwitchState>;
   deliveries: DeliveryView[];
+  /**
+   * The orders behind those deliveries, for their numbers alone. A check offered on
+   * a tile has to say which order it is about: the tile shows the state of a system,
+   * and a button under it that said only "Check it at Stripe" left the visitor to
+   * assume it meant the one they just sent, which it does, unprovably.
+   */
+  orders?: OrderView[];
   /** The order opened in the queue, if any. Its path is marked here. */
   openOrder?: string | null;
   /** The hub itself, passed in so this file stays layout and wiring. */
@@ -63,12 +74,6 @@ export function Diagram(props: {
    * It is on the two menu entries that are read by the model, and nowhere else.
    */
   extractorMode?: 'live' | 'recorded';
-  /**
-   * Sends a visitor to the section holding their own endpoint. The tiles offer it as
-   * the way out of "you only have our word for this", so the drawing has to be able
-   * to open it.
-   */
-  onOwnEndpoint?: () => void;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
   const layer = useWires(TARGETS);
@@ -153,19 +158,32 @@ export function Diagram(props: {
    * whether a system is real. It was only in the queue card for a while, two clicks
    * deep, where the question is never asked.
    *
-   * Nothing to offer until that system has delivered something: a check against a
-   * call that was never made answers 404 about nothing.
+   * Offered on two of the five tiles, and the test is not whether a check is possible
+   * but whether its answer is worth anything. Stripe serves the receipt itself and
+   * the confirmation mail lands in the reader's own inbox. HubSpot, Slack and the
+   * ledger are read back through our own account with our own token, so the button
+   * there promised a check and delivered a page we rendered about data we hold. It
+   * ended in a printed apology, and a button that has to apologise for its own answer
+   * takes more credibility from the two real checks than it adds anywhere.
+   *
+   * What replaces it is not on the tile: it is their own endpoint and the MCP server,
+   * both of which put the record somewhere we do not run.
+   *
+   * Nothing to offer until that system has delivered something either: a check
+   * against a call that was never made answers 404 about nothing.
    */
   const proofFor = (node: Node) => {
+    if (!isIndisputable(node.id)) return undefined;
     const eventId = lastDeliveredEvent(node.id, props.deliveries);
     if (eventId === null) return undefined;
+    const order = props.orders?.find((row) => row.eventId === eventId);
     return (
       <StepProof
         eventId={eventId}
+        orderNumber={order?.number ?? null}
         target={node.id}
         label={node.label}
         layout="tile"
-        onOwnEndpoint={props.onOwnEndpoint}
       />
     );
   };

@@ -22,25 +22,22 @@
 // server.
 import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
-import { Deeper, type DeeperTab } from './Deeper';
 import { Diagram } from './Diagram';
+import { McpServer } from './McpServer';
 import { OrderForm } from './OrderForm';
 import { Mediator } from './Mediator';
+import { Outside } from './Outside';
 import { Stage } from './Stage';
 import { useArrivalHold } from './useArrivalHold';
 import { useStream } from './useStream';
 
 export function App() {
   const {
-    counters, switches, deliveries, orders, timeline, extractorMode, connected, viewers,
+    counters, switches, deliveries, orders, timeline, extractorMode, viewers,
   } = useStream();
   // One open card at a time, and open doubles as selected: the order being read is
   // the one marked in the diagram.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
-  // Which of the further tools is open. Held here rather than inside Deeper because
-  // a tile can send the visitor to it: the check on a system we read back ourselves
-  // offers their own endpoint as the way out of taking our word.
-  const [deeper, setDeeper] = useState<DeeperTab | null>(null);
 
   // The hub reads a board held back until the dot carrying a new order has finished
   // travelling to it; the diagram reads the live one, because the dot is the thing
@@ -66,9 +63,9 @@ export function App() {
         <section className="board">
           <Diagram
             extractorMode={extractorMode}
-            onOwnEndpoint={() => setDeeper('connect')}
             switches={switches}
             deliveries={deliveries}
+            orders={orders}
             openOrder={openOrder}
             orderForm={
               // Nothing listens any more. The panel that did fed on it is gone, and
@@ -81,7 +78,6 @@ export function App() {
                 deliveries={held.deliveries}
                 orders={held.orders}
                 timeline={timeline}
-                connected={connected}
                 viewers={viewers}
                 openOrder={openOrder}
                 onToggleOrder={(eventId) =>
@@ -91,7 +87,7 @@ export function App() {
           />
         </section>
 
-        <Deeper connect={<Connections />} open={deeper} onOpen={setDeeper} />
+        <Outside endpoint={<Connections />} mcp={<McpServer />} />
       </main>
     </>
   );

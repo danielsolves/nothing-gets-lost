@@ -827,9 +827,17 @@ body {
 }
 .wires { overflow: visible; }
 
+/* Every line is drawn in an opaque colour mixed down against the page, never in a
+   translucent one. The five outgoing wires all leave the mediator at the same point
+   and share their first leg and part of the vertical run before they fork. Drawn
+   with alpha, that shared stretch carried five strokes on top of each other and
+   composited into something visibly darker and fatter than the same line further
+   along, so the drawing appeared to have a thick trunk and thin branches when every
+   segment is in fact one wire at one weight. Mixed rather than hand-picked so both
+   themes stay derived from their own tokens. */
 .wire {
   fill: none;
-  stroke: oklch(from var(--accent) l c h / 0.45);
+  stroke: color-mix(in oklab, var(--accent) 45%, var(--bg));
   stroke-width: 2;
   stroke-linejoin: round;
   transition: stroke 0.25s ease;
@@ -844,9 +852,9 @@ body {
    Derived from a token rather than written as a colour, because the page has a light
    theme: a fixed near-white grey is a line on the dark background and nothing at all
    on the light one. */
-.wire[data-state='up'] { stroke: oklch(from var(--faint) l c h / 0.55); }
-.wire[data-state='slow'] { stroke: oklch(from var(--warn) l c h / 0.6); }
-.wire[data-state='error'] { stroke: oklch(from var(--bad) l c h / 0.6); }
+.wire[data-state='up'] { stroke: color-mix(in oklab, var(--faint) 55%, var(--bg)); }
+.wire[data-state='slow'] { stroke: color-mix(in oklab, var(--warn) 60%, var(--bg)); }
+.wire[data-state='error'] { stroke: color-mix(in oklab, var(--bad) 60%, var(--bg)); }
 /* A cut line is drawn broken, so an unreachable system reads as a severed
    connection and not only as a differently coloured tile. */
 .wire[data-state='cut'] { stroke: var(--bad); stroke-dasharray: 5 6; }
@@ -936,7 +944,6 @@ body {
   animation-fill-mode: both;
 }
 .packet-delivered { --quantum: var(--good); animation-name: packet-through; }
-.packet-held { --quantum: var(--warn); animation-name: packet-back; }
 .packet-parked { --quantum: var(--bad); animation-name: packet-short; }
 /* An order arriving wears the wire's own colour. Delivered green would say that an
    order coming in is a delivery going out, and the two would then be one restyling
@@ -949,16 +956,6 @@ body {
   14%  { opacity: 1; transform: scale(1); }
   82%  { offset-distance: 100%; opacity: 1; transform: scale(1); }
   to   { offset-distance: 100%; opacity: 0; transform: scale(2.1); }
-}
-
-/* A failed attempt: goes out, does not get in, comes back to the queue. */
-@keyframes packet-back {
-  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
-  14%  { opacity: 1; transform: scale(1); }
-  46%  { offset-distance: 100%; opacity: 1; }
-  54%  { offset-distance: 94%; opacity: 1; }
-  88%  { offset-distance: 0%; opacity: 1; }
-  to   { offset-distance: 0%; opacity: 0; transform: scale(0.5); }
 }
 
 /* Parked: gets partway, gives up, fades where it stopped. */
@@ -1265,45 +1262,6 @@ body {
 }
 .mediator-titles { display: grid; gap: 3px; margin-right: auto; }
 
-/* The connection, in the corner of the panel whose numbers depend on it. Quiet
-   while it holds and impossible to miss once it does not: a dead stream leaves a
-   page that looks calm and is entirely stale, which is the one failure mode this
-   page cannot afford. */
-.mediator-live {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  align-self: center;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.mediator-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--good);
-  box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0.5);
-}
-/* The pulse is the one animation on this page that is not driven by an event, and
-   it earns that: it is the difference between "connected" and "the last frame of a
-   page that stopped updating an hour ago". */
-@media (prefers-reduced-motion: no-preference) {
-  .mediator-live[data-tone='live'] .mediator-live-dot {
-    animation: live-pulse 2.4s ease-out infinite;
-  }
-}
-@keyframes live-pulse {
-  0% { box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0.5); }
-  70% { box-shadow: 0 0 0 6px oklch(from var(--good) l c h / 0); }
-  100% { box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0); }
-}
-.mediator-live[data-tone='lost'] { color: var(--bad); }
-.mediator-live[data-tone='lost'] .mediator-live-dot { background: var(--bad); }
-
 /* Quiet on purpose. It is the one control here that throws work away, so it must
    be findable and must not be the thing a visitor reaches for first. */
 .mediator-reset {
@@ -1601,20 +1559,21 @@ body {
 
 /* Sections ------------------------------------------------------------------ */
 
-.log, .connections {
+.outside-panel {
   display: grid;
   gap: 14px;
+  align-content: start;
   padding: clamp(18px, 2.4vw, 28px);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-shell);
 }
 
-.log h2, .connections h2 {
+.outside-panel h3 {
   margin: 0;
-  font-size: var(--fs-section);
+  font-size: clamp(17px, 1.7vw, 20px);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
 }
 
 .connections > p {
@@ -1806,8 +1765,11 @@ body {
   align-items: center;
   gap: 10px;
 }
+/* A small basis, not the width the field wants. It sits in half a row now rather
+   than across a whole panel, and a basis wide enough to be comfortable there pushed
+   the button onto a line of its own, which read as two controls instead of one. */
 .endpoint-form input {
-  flex: 1 1 26rem;
+  flex: 1 1 12rem;
   min-width: 0;
   max-width: 38rem;
 }
@@ -1985,46 +1947,100 @@ body {
   .dot { left: calc(100% - 8px); opacity: 1; transform: none; }
 }
 
-/* Further tools --------------------------------------------------------------
-   Closed by default. Opening one closes the others, so the page never returns to
-   showing everything at once. */
+/* Check it without us --------------------------------------------------------
+   Both panels open, side by side. They were behind tabs and closed by default,
+   which was right while five of them competed for one strip and wrong the moment
+   only these two were left: a closed tab in front of a single panel charges a click
+   for nothing, and these two carry what is left of the page's whole argument. */
 
-.deeper { display: grid; gap: 14px; }
-.deeper h2 {
+.outside { display: grid; gap: 18px; }
+.outside-head { display: grid; gap: 8px; }
+.outside-head h2 {
   margin: 0;
   font-size: var(--fs-section);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+.outside-head p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
 
-.deeper-tabs {
+/* Equal columns and equal height, so the pair reads as one offer with two halves
+   rather than as a panel and an afterthought. They stack below the breakpoint,
+   where two 26rem columns no longer fit without squeezing the url in the right one
+   into three wrapped lines. */
+.outside-panels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* The url is the whole point of the panel, so it is set to be copied by eye as well
+   as by button: mono, on its own surface, and allowed to break rather than to push
+   the panel wider than its column. */
+.mcp-url {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
 }
-
-.deeper-tabs button {
-  display: grid;
-  gap: 3px;
-  padding: 16px 18px;
-  text-align: left;
+.mcp-url code {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 14px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-card);
-  background: var(--surface);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  font-family: var(--mono);
+  font-size: 13px;
   color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
 }
-.deeper-tabs button:hover { border-color: var(--accent); }
-.deeper-tabs button.open {
+.mcp-url button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.mcp-url button:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
+  color: var(--accent);
 }
-.deeper-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mcp-url button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.deeper-label { font-weight: 600; }
-.deeper-hint { color: var(--faint); font-size: 13px; }
+.mcp-tools { display: grid; gap: 10px; margin: 0; }
+.mcp-tools div { display: grid; gap: 2px; }
+.mcp-tools dt {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+.mcp-tools dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mcp-note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
 
 @media (max-width: 52rem) {
 }
