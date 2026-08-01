@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   TARGETS, SWITCHABLE_TARGETS, DELIVERY_STATES, SWITCH_STATES, CHAOS_KINDS,
   PAYMENT_ROUTES, DEFAULT_PAYMENT_ROUTE,
-  EGRESS_BASE_URLS, isTarget, isPaymentRoute,
+  EGRESS_BASE_URLS, upstreamUrl, isTarget, isPaymentRoute,
 } from '../src/index';
 
 describe('frozen contracts', () => {
@@ -62,5 +62,37 @@ describe('frozen contracts', () => {
   it('defaults to a route it can actually charge', () => {
     expect(isPaymentRoute(DEFAULT_PAYMENT_ROUTE)).toBe(true);
     expect(isPaymentRoute('bitcoin')).toBe(false);
+  });
+});
+
+describe('upstreamUrl', () => {
+  it('names the system that answered, not the gate the call went through', () => {
+    // The verify endpoint reports this url as evidence. Left as the gate saw it, it
+    // named a container on our own network, which proves the opposite of the point.
+    expect(upstreamUrl('http://egress-gate:3003/proxy/hubspot/crm/v3/objects/contacts/42'))
+      .toBe('https://api.hubapi.com/crm/v3/objects/contacts/42');
+  });
+
+  it('keeps the query string, which is part of what was asked', () => {
+    expect(upstreamUrl('http://egress-gate:3003/proxy/stripe/v1/payment_intents?limit=1'))
+      .toBe('https://api.stripe.com/v1/payment_intents?limit=1');
+  });
+
+  it('translates every target the gate can forward to', () => {
+    for (const target of SWITCHABLE_TARGETS) {
+      expect(upstreamUrl(`http://egress-gate:3003/proxy/${target}/x`))
+        .toBe(`${EGRESS_BASE_URLS[target]}/x`);
+    }
+  });
+
+  it('rewrites nothing it does not recognise, rather than guessing', () => {
+    expect(upstreamUrl('https://pay.stripe.com/receipts/xyz')).toBeNull();
+    expect(upstreamUrl('http://egress-gate:3003/proxy/nonsense/x')).toBeNull();
+    expect(upstreamUrl('')).toBeNull();
+  });
+
+  it('handles a call to the root of a target', () => {
+    expect(upstreamUrl('http://egress-gate:3003/proxy/slack'))
+      .toBe('https://slack.com');
   });
 });

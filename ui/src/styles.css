@@ -531,14 +531,17 @@ body {
 .order-total .order-line { color: var(--text); }
 .order-money { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-.order-steps { margin: 0; display: grid; gap: 7px; }
-.order-steps > div {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 10px;
-}
+/* The step name above what happened to it, rather than beside it. Two columns fitted
+   while a step said "delivered"; it stopped fitting when the step gained a foreign
+   id and a check with the answer under it, and a 150px label column against a 27rem
+   panel left the id to overflow the panel sideways. */
+.order-steps { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.order-steps > div { display: grid; gap: 3px; min-width: 0; }
 .order-steps dt { display: flex; align-items: center; gap: 7px; font-weight: 600; }
-.order-steps dd { margin: 0; color: var(--muted); }
+/* A foreign id is one unbroken token longer than any column here. Broken anywhere
+   rather than pushed past the edge: a proof that has scrolled out of sight proves
+   nothing. */
+.order-steps dd { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .order-steps > div[data-state='done'] dd { color: var(--good); }
 .order-steps > div[data-state='dead'] dd { color: var(--bad); }
 .order-steps > div[data-state='pending'] dd { color: var(--warn); }
@@ -1736,4 +1739,80 @@ body {
 .deeper-hint { color: var(--faint); font-size: 13px; }
 
 @media (max-width: 52rem) {
+}
+
+
+/* Going and looking, on the step it is about ---------------------------------
+   The check reads back from the real system, so what it renders is an answer and
+   has to look like one: monospace, because every value in it was written by
+   somebody else. The button above it is quiet until it is wanted. A loud button on
+   every delivered step of every card would be forty loud buttons. */
+.step-proof { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
+
+.step-proof-ask {
+  padding: 6px 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.step-proof-ask:hover { border-color: var(--accent); color: var(--text); }
+.step-proof-ask:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.step-proof-ask:disabled { opacity: 0.5; cursor: progress; }
+
+.step-proof-answer {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken, transparent);
+}
+/* Label above value, not beside it. The queue lives in a 27rem column, so a label
+   column wide enough to read left about 50px for the value, and a receipt url wrapped
+   at one character per line. Stacked, the value gets the whole width at every size
+   this panel is ever given. */
+.step-proof-answer dl { display: grid; gap: 7px; margin: 0; min-width: 0; }
+.step-proof-answer dl > div { display: grid; gap: 1px; min-width: 0; }
+.step-proof-answer dt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+/* The values wrap rather than being cut: a receipt url is longer than any column
+   this panel can offer, and a truncated proof is not one. */
+.step-proof-answer dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.step-proof-link {
+  justify-self: start;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+  overflow-wrap: anywhere;
+}
+
+/* Not styled as a warning. It is the sentence that makes the Stripe receipt worth
+   something, so it reads as a note rather than as an apology for a fault. */
+.step-proof-caveat {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+  max-width: 56ch;
 }

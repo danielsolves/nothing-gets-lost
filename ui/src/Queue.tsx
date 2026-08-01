@@ -17,6 +17,7 @@ import { groupIntoOrders, type OrderStep } from './order-cards';
 import { OrderCheck } from './OrderCheck';
 import { OrderContents } from './OrderContents';
 import { formatArrival, retryGap } from './order-time';
+import { StepProof } from './StepProof';
 
 export function Queue(props: {
   deliveries: DeliveryView[];
@@ -127,7 +128,20 @@ export function Queue(props: {
                         />
                         <span className="order-step-label">{step.label}</span>
                       </dt>
-                      <dd>{describe(step, now)}</dd>
+                      <dd>
+                        {describe(step, now)}
+                        {/* Only where something was actually written. A step that
+                            has not been delivered has no record to go and look at,
+                            and offering the check anyway would answer 404 about a
+                            call that was never made. */}
+                        {step.state === 'done' && (
+                          <StepProof
+                            eventId={order.eventId}
+                            target={step.target}
+                            label={step.label}
+                          />
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

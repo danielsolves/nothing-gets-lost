@@ -12,7 +12,7 @@
 // nothing that reads a channel. Pointing them at their own Slack is the honest
 // answer, and it happens to be the stronger one.
 import type { Pool } from 'pg';
-import type { Target, VerifyResponse } from '@ngl/contracts';
+import { upstreamUrl, type Target, type VerifyResponse } from '@ngl/contracts';
 import type { HubSpotClient } from '../../mediator/src/targets/hubspot.target';
 import type { SlackClient } from '../../mediator/src/targets/slack.target';
 import type { CredentialResolver } from '../../mediator/src/credentials';
@@ -73,7 +73,10 @@ export class VerifyService {
       const body = result.body as { properties?: { createdate?: string } };
       return {
         target, indisputable,
-        requestUrl: result.requestUrl,
+        // The url the record actually lives on, not the gate the call went through.
+        // The gate is how we cut the line; naming it here would answer "which
+        // foreign system holds this?" with a container on our own network.
+        requestUrl: upstreamUrl(result.requestUrl) ?? result.requestUrl,
         httpStatus: result.status,
         remoteRef: id,
         remoteAt: body.properties?.createdate ?? null,
