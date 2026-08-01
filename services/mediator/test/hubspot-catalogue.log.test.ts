@@ -47,7 +47,12 @@ describe('PgCatalogueLog', () => {
 
     expect(again.status).toBe('unknown');
     if (again.status !== 'unknown') throw new Error('expected an unknown claim');
-    expect(again.claimedAt.getTime()).toBeLessThanOrEqual(Date.now());
+    // Against the database clock, not this process's. The timestamp was written by
+    // now() inside the container, and a container whose clock sits a few
+    // milliseconds ahead of the host made this fail for a reason that has nothing
+    // to do with the code under test.
+    const { rows } = await pool.query<{ at: Date }>('SELECT now() AS at');
+    expect(again.claimedAt.getTime()).toBeLessThanOrEqual(rows[0].at.getTime());
   });
 
   it('lets a cleanly failed attempt try again', async () => {

@@ -38,17 +38,14 @@ export function Stage(props: { connected: boolean; viewers: number }) {
       <p className="sub" data-testid="stage-intro">
         Today, many businesses rely on different systems to handle payments, customer
         relationships, invoicing, and communication. Each system can work perfectly
-        well on its own. Problems begin when information needs to move between them:
-        if a handoff fails, orders stall, updates go missing, and nobody knows where
-        the process stopped.
+        well on its own. Problems begin when information needs to move between them.
       </p>
 
       <p className="sub">
         In this live demonstration, I connect five real systems: Stripe, HubSpot, an
         invoicing service, Slack, and email through one reliable workflow. Every
         handoff is tracked, failed steps retry automatically, and anything unresolved
-        is sent to a person. Optional AI can review incoming data, flag problems, and
-        suggest the next action.
+        is sent to a person.
       </p>
 
       <p className="status">

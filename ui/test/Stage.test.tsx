@@ -58,12 +58,12 @@ describe('Stage', () => {
 
   it('names the problem before naming what was built for it', () => {
     // It opened on five systems and a queue, which answers a question a visitor
-    // arriving from a case list has not been asked yet. The failed handoff comes
-    // first now, and the machine second.
+    // arriving from a case list has not been asked yet. The gap between systems
+    // comes first now, and the machine second.
     render(<Stage {...props} />);
     const intro = screen.getByTestId('stage-intro');
-    expect(intro).toHaveTextContent(/handoff fails/i);
-    expect(intro).toHaveTextContent(/nobody knows where the process stopped/i);
+    expect(intro).toHaveTextContent(/work perfectly well on its own/i);
+    expect(intro).toHaveTextContent(/move between them/i);
   });
 
   it('says the systems are real and running, not illustrated', () => {
