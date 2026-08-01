@@ -164,12 +164,99 @@ describe('schema guarantees', () => {
     expect(rows[0].message_ts).toBeNull();
   });
 
-  it('exposes the four read-only views', async () => {
+  it('exposes the five read-only views', async () => {
     const { rows } = await pool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.views WHERE table_schema = 'public'`,
     );
     expect(rows.map((r) => r.table_name).sort())
-      .toEqual(['v_dead_letters', 'v_deliveries', 'v_events', 'v_orders']);
+      .toEqual(['v_backlog', 'v_dead_letters', 'v_deliveries', 'v_events', 'v_orders']);
+  });
+
+  it('puts a parked delivery in the backlog with the order around it', async () => {
+    const eventId = await newEvent('evt_backlog_full');
+    await pool.query(
+      `INSERT INTO orders (event_id, customer_name, customer_email, items,
+                           total_cents, source)
+       VALUES ($1, 'R. Vogel', 'rita@example.com', '[]'::jsonb, 8400, 'form')`,
+      [eventId],
+    );
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target, state, attempts, last_error)
+       VALUES ($1, 'hubspot', 'dead', 6, 'ECONNRESET')`,
+      [eventId],
+    );
+
+    const { rows } = await pool.query<{
+      order_number: string; target: string; attempts: number;
+      last_error: string; customer_name: string; customer_email: string;
+      total_cents: number; parked_at: Date;
+    }>('SELECT * FROM v_backlog WHERE event_id = $1', [eventId]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].target).toBe('hubspot');
+    expect(rows[0].attempts).toBe(6);
+    expect(rows[0].last_error).toBe('ECONNRESET');
+    expect(rows[0].customer_name).toBe('R. Vogel');
+    expect(rows[0].total_cents).toBe(8400);
+    expect(Number(rows[0].order_number)).toBeGreaterThanOrEqual(1000);
+    expect(rows[0].parked_at).toBeInstanceOf(Date);
+  });
+
+  // The one column a stranger should never be able to read whole. It is masked in
+  // v_orders and the backlog inherits that rather than restating it.
+  it('masks the address in the backlog the way v_orders does', async () => {
+    const eventId = await newEvent('evt_backlog_mask');
+    await pool.query(
+      `INSERT INTO orders (event_id, customer_name, customer_email, items,
+                           total_cents, source)
+       VALUES ($1, 'K. Adler', 'katrin@example.com', '[]'::jsonb, 1200, 'form')`,
+      [eventId],
+    );
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target, state, attempts)
+       VALUES ($1, 'mailer', 'dead', 6)`,
+      [eventId],
+    );
+
+    const { rows } = await pool.query<{ customer_email: string }>(
+      'SELECT customer_email FROM v_backlog WHERE event_id = $1', [eventId],
+    );
+    expect(rows[0].customer_email).toBe('k***@example.com');
+  });
+
+  // A payment webhook reaches the queue without an orders row, and its delivery can
+  // be parked like any other. The join must not drop it.
+  it('keeps a parked delivery that has no order behind it', async () => {
+    const { rows: created } = await pool.query<{ id: string }>(
+      `INSERT INTO events (external_id, kind, payload)
+       VALUES ('evt_backlog_no_order', 'payment.succeeded', '{}'::jsonb) RETURNING id`,
+    );
+    const eventId = created[0].id;
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target, state, attempts)
+       VALUES ($1, 'stripe', 'dead', 6)`,
+      [eventId],
+    );
+
+    const { rows } = await pool.query<{ customer_name: string | null }>(
+      'SELECT customer_name FROM v_backlog WHERE event_id = $1', [eventId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].customer_name).toBeNull();
+  });
+
+  it('leaves a delivery that is still retrying out of the backlog', async () => {
+    const eventId = await newEvent('evt_backlog_pending');
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target, state, attempts)
+       VALUES ($1, 'slack', 'pending', 3)`,
+      [eventId],
+    );
+
+    const { rows } = await pool.query(
+      'SELECT id FROM v_backlog WHERE event_id = $1', [eventId],
+    );
+    expect(rows).toHaveLength(0);
   });
 
   it('hands every event a number without being asked for one', async () => {
