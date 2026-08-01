@@ -12,11 +12,11 @@ Counted from the working tree, the queue is four files:
 
 | File | Lines | Without comments and blank lines |
 |---|---|---|
-| `services/mediator/src/queue.repository.ts` | 118 | 94 |
-| `services/mediator/src/worker.service.ts` | 81 | 66 |
-| `services/mediator/src/completion.service.ts` | 30 | 18 |
+| `services/mediator/src/queue.repository.ts` | 150 | 107 |
+| `services/mediator/src/worker.service.ts` | 108 | 82 |
+| `services/mediator/src/completion.service.ts` | 43 | 22 |
 | `services/mediator/src/backoff.ts` | 22 | 11 |
-| **Total** | **251** | **189** |
+| **Total** | **323** | **222** |
 
 Add `intake.service.ts` (63 lines, 46 without comments) if you count deduplication at the door as part of the queue, which is fair.
 
@@ -56,7 +56,7 @@ The honest rule of thumb: write your own queue when the queue is the thing you a
 
 Which is idempotency at the target. That is worth separating out, because it is the most common misreading of this whole argument.
 
-A queue library gives you at least once delivery. It does not, and cannot, stop a second call from having a second effect on someone else's system. The hard case from `how-it-works.md` (the call went out, the target processed it, the worker died before recording success) looks identical whether the queue is 189 lines of Postgres or a Kafka cluster. Someone still has to decide that Stripe gets an idempotency key, HubSpot gets its natural key, the invoice gets a unique constraint, and Slack gets a history check with a documented race.
+A queue library gives you at least once delivery. It does not, and cannot, stop a second call from having a second effect on someone else's system. The hard case from `how-it-works.md` (the call went out, the target processed it, the worker died before recording success) looks identical whether the queue is 222 lines of Postgres or a Kafka cluster. Someone still has to decide that Stripe gets an idempotency key, HubSpot gets its natural key, the invoice gets a unique constraint, and Slack gets a history check with a documented race.
 
 So if you replace this queue with BullMQ tomorrow, `services/mediator/src/target.interface.ts` and everything under `targets/` stay exactly as they are:
 

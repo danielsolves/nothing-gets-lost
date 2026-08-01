@@ -59,7 +59,7 @@ describe('setReadonlyPassword', () => {
 
   it('keeps the role read only whatever password it carries', async () => {
     // The password is a lock on the door. The role being unable to write is the
-    // reason the public SQL console is safe at all, and moving one must not move
+    // reason an open MCP port is safe at all, and moving one must not move
     // the other.
     await setReadonlyPassword(pool, 'Zq4mTp8sVnCk2wXdR6yB');
 

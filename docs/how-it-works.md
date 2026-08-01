@@ -5,7 +5,7 @@ This page follows one order from the moment it arrives to the moment the confirm
 ## The path of one order
 
 1. An order reaches `services/api/src/orders.service.ts` through one of two doors. `POST /api/demo-order` carries nothing at all: it is the button in the opening, and it uses the `DEFAULT_BASKET` from `@ngl/contracts`. `POST /api/orders` carries the basket a visitor chose, and their name and email address if they typed them. Either way the total is computed from the `products` table, never from the request body: a visitor who posts a zero cent order would otherwise produce a Stripe receipt that proves nothing. An address that is there is validated, a blank one is not a mistake to be told about, and the payload keeps the two cases apart in two fields rather than one. `customerEmail` is the identity the order is booked under, always set, falling back to a house address, because Stripe wants one for the receipt and HubSpot uses it as the natural key below. `confirmTo` is the promise of a mail, and rule 6.7 is the only rule that reads it.
-2. The api does not write the queue. It hands the event to the mediator over `POST /internal/enqueue` (`services/api/src/mediator.intake.ts`), so the exactly once rules live in exactly one process. `EnqueueController` rejects anything that is not `{ externalId, kind, payload, targets[] }` with a known kind and known targets: a bad target would sit in the queue forever with no worker registered for it.
+2. The api does not write the queue. It hands the event to the mediator over `POST /internal/enqueue` (`services/api/src/mediator.intake.ts`), so the exactly once rules live in exactly one process. The page calls this service the **Integration hub**, because a visitor should not have to be told what a mediator is before the panel means anything; the code keeps `mediator` everywhere, because that is what the pattern is called. Below, the service is the mediator and the thing on screen is the hub. `EnqueueController` rejects anything that is not `{ externalId, kind, payload, targets[] }` with a known kind and known targets: a bad target would sit in the queue forever with no worker registered for it.
 3. `IntakeService` inserts the event and one delivery row per target. An order asks for four: `stripe`, `hubspot`, `ledger`, `slack`. The confirmation mail is missing on purpose (see rule 6.7 below).
 4. The worker loop claims due rows, calls the matching target through the egress gate, and records the outcome.
 5. After every successful non mailer delivery the worker asks whether the rest of the chain is finished. When it is, and when the event carries a `confirmTo`, the `mailer` delivery is created, claimed on the next tick, and the mail goes out.
@@ -55,7 +55,7 @@ VALUES ($1, $2)
 ON CONFLICT (event_id, target) DO NOTHING
 ```
 
-The important part is where the constraint lives. It is in the database, not in application code, so it holds when two workers run at once, when a retry races a replay, and when a future contributor forgets the rule. `remote_ref` and `remote_at` hold what the remote system assigned. We never stamp those ourselves; the proof panel shows the foreign system's id and the foreign system's timestamp.
+The important part is where the constraint lives. It is in the database, not in application code, so it holds when two workers run at once, when a retry races a replay, and when a future contributor forgets the rule. `remote_ref` and `remote_at` hold what the remote system assigned. We never stamp those ourselves; the check button on a delivered step shows the foreign system's id and the foreign system's timestamp, and where that system serves a page of its own the button offers the link rather than the identifier.
 
 ## Claiming work
 
@@ -110,16 +110,13 @@ The schedule is deliberately compressed. In production the first delay would be 
 
 ## The backlog
 
-After the sixth failed attempt `nextDelaySeconds` returns `null` and the row goes to `dead` with `last_error` intact. That is the backlog: it appears in the panel under the systems and on the order card, both saying that it was written there and that a person has to review it, and the "needs a human" counter counts it.
+After the sixth failed attempt `nextDelaySeconds` returns `null` and the row goes to `dead` with `last_error` intact. That is the backlog. It is the third thing the hub holds, beside the queue and the log, and the order card names it too: both say that the delivery was written there and that a person has to review it, and the "needs a human" counter counts it.
 
 The counter named `lost` is not computed. In `services/api/src/counters.service.ts` it is the constant `0`, and that is the entire product. A parked delivery is not lost, it is visibly stuck. Conflating the two would give away the one distinction this demo exists to make.
 
-Two ways to read the backlog without going through the page, both against `v_backlog` (migration `014`), which is built on `v_events` and `v_orders` so the email masking is written once:
+The backlog can be read without going through the page at all, against `v_backlog` (migration `014`), which is built on `v_events` and `v_orders` so the email masking is written once. `services/mcp/` serves it as two tools, `backlog_list` and `backlog_entry`, over the streamable HTTP transport on `POST /mcp`, port 3007. Nothing about the transport is stateful: a fresh server and transport per request, no session id, because every call is a question about the database at that moment. It is not routed on the public host yet, so today that means a copy you are running yourself, where `SELECT * FROM v_backlog` is the shorter route to the same rows.
 
-- `SELECT * FROM v_backlog` in the public SQL console.
-- The MCP server (`services/mcp/`), tools `backlog_list` and `backlog_entry`, on `POST /mcp`.
-
-Both read as `ngl_ro`, the role from migration `005`: read only at the role level, five views, no table. The MCP process is given that url and no other credential, not even the writing one, so an open MCP port cannot become a way in.
+The MCP process reads as `ngl_ro`, the role from migration `005`: read only at the role level, five views, no table, two second statement timeout. It is given that url and no other credential, and it is the only service running our code that gets no `env_file` in `docker-compose.yml`, so the strongest thing to say about the open port is not that the server exposes no write tools but that it holds nothing that could write.
 
 `retryDead` in the queue repository is the way back. It resets `attempts` to `0` rather than squeezing one more try out of an exhausted row, so a revived delivery gets the whole schedule again. Nothing on the public surface calls it: putting other people's work back in the queue is not something an anonymous visitor should be able to do, and the MCP server is read only for the same reason.
 
@@ -146,7 +143,7 @@ The worker calls this after every successful delivery that is not the mailer, so
 
 The first of those two conditions is the younger one, and leaving it out cost the demo its own headline number. The email address is optional, so an order without one is booked under a house address that nothing can deliver to. Rule 6.7 queued a confirmation mail to it anyway: every untouched demo order failed six times, parked a dead letter, and made the page's own **needs a human** counter climb while nothing at all was wrong. No addressee, no delivery. `customerEmail` is deliberately not the field asked about here, because that one is always set and would let the bug straight back in.
 
-The second condition is not cosmetics either. The arrival timestamp of that mail is the second witness of the proof chain for the visitor who asked for one: it is stamped by their own mail provider, in a mailbox we do not control, and it can be read out of the `Received:` header. If the mail went out alongside the other deliveries it would arrive while HubSpot is still cut, and the gap between the Stripe timestamp and the mail timestamp would measure nothing. Integration test 7 asserts both halves: no mailer row exists while a target is cut, and the mailer row reaches `done` after recovery.
+The second condition is not cosmetics either. The arrival timestamp of that mail is the second of the two witnesses that are not us, for the visitor who asked for one: it is stamped by their own mail provider, in a mailbox we do not control, and it can be read out of the `Received:` header. If the mail went out alongside the other deliveries it would arrive while HubSpot is still cut, and the gap between the Stripe timestamp and the mail timestamp would measure nothing. Integration test 7 asserts both halves: no mailer row exists while a target is cut, and the mailer row reaches `done` after recovery.
 
 It is also just correct. You confirm to a customer once everything is booked.
 
@@ -166,23 +163,14 @@ export function idempotencyKey(eventId: string, target: Target): string {
 | HubSpot, the buyer | Natural key. Search contacts by email, then `PATCH` the existing id or `POST` a new contact. A `409` or a missing id triggers a read back, because another worker may have won the race. | `targets/hubspot.target.ts` |
 | HubSpot, the order | The deal is named after the event id, and a retry searches for that name before creating one. Its basket is read back before it is written, so a retry adds only the lines a crash left missing. | `targets/hubspot.order.ts` |
 | HubSpot, the catalogue | A sku is claimed in `hubspot_products` before the product is created and its id written after. Search cannot carry this: HubSpot indexes a new product about seven seconds after creating it, and the first two retry gaps are two and eight. An interrupted claim is settled by age. | `hubspot-catalogue.log.ts` |
-| Slack, my workspace | No key and no natural key. The delivery embeds `idempotencyKey` as a marker in the message text and reads `conversations.history` back before posting. My own app holds `channels:history`, so this is available here and only here. | `targets/slack.target.ts` |
-| Slack, your workspace | Same marker, no read. Connecting asks for `chat:write` and `incoming-webhook` only, so a row in `slack_visitor_sends` is written before the call and completed after it. | `slack-send.log.ts` |
+| Slack | No key and no natural key. The delivery embeds `idempotencyKey` as a marker in the message text and reads `conversations.history` back before posting, which is why the app holds `channels:history` as well as `chat:write`: without the read scope every Slack delivery fails with `missing_scope`. | `targets/slack.target.ts` |
 | ledger | `UNIQUE (event_id)` on `invoices`, plus `ON CONFLICT (event_id) DO NOTHING` and a read back, so a repeat returns the original invoice number rather than an error. | `services/ledger/src/invoice.service.ts` |
 | mailer | `UNIQUE (event_id)` on `sent_mail`. The claim row is inserted before the send inside a transaction and rolled back if the send throws. | `services/mailer/src/mail.service.ts` |
 | custom_webhook | We send `idempotency-key` and an HMAC in `x-demo-signature`. Honouring it is the receiver's business, and that is documented rather than glossed over. | `targets/webhook.target.ts` |
 
 The Slack technique is the weakest of the set and is labelled as such in its own file: a narrow window remains between the history check and the post. For a notification that is the right trade. For the invoice it would not be, which is why that one uses a database constraint.
 
-### Why your workspace is handled differently
-
-`conversations.history` requires `channels:history`. Asking a visitor for that would mean this demo could read the messages in their channel, in exchange for saving itself one database row. For a project whose entire subject is being worth trusting, that is the wrong trade, so the scope list stops at `chat:write` and `incoming-webhook`.
-
-`incoming-webhook` is in the list on purpose and not for the webhook url. Without it `oauth.v2.access` returns no channel id at all, `target_ref` stays null and the delivery has nowhere to post. With it, Slack shows a channel picker during install and adds the app to the channel that is chosen, which also removes the `not_in_channel` error a hand-typed channel id would run into.
-
-What that costs is one case. If the worker dies in the window between calling Slack and recording the outcome, the send log holds a row with no `message_ts` and nobody alive can say whether the message landed. Posting again might duplicate a message in someone else's Slack; giving up would lose it. So that delivery is written to the **backlog** with the reason in plain text, and `lost` stays at 0 because parked is not lost (spec 6.6). It is the only failure in the system that skips the retry schedule, since five more attempts would each hit the same wall.
-
-Everything the worker itself lives through, including a cut connection, clears the row and retries normally. That is what keeps the demo healing for a visitor who connected their own Slack, and it is integration test 6 in `test/integration/own-connection.test.ts`.
+There used to be a second Slack row in that table. A visitor could connect their own workspace, and a delivery then went there instead of into the house channel, with `chat:write` and no read scope: no history to check, so a row in `slack_visitor_sends` stood in for the answer the channel could not give. That path is gone with the visitor OAuth, and so are the table and the log it needed. The reasoning is in [what I deliberately did not build](what-we-deliberately-did-not-build.md); what belongs here is that taking one branch out of the delivery path took a whole idempotency technique with it.
 
 ## The hard case: the call went out and then the worker died
 
@@ -226,4 +214,4 @@ The mediator does not know a switch exists. It sees a failed HTTP call and does 
 ## Checking it
 
 - Unit tests sit next to the code in `services/*/test/`. Nine integration tests run against a real Postgres via Testcontainers in `test/integration/pipeline.test.ts`, and `test/load/soak.test.ts` pushes 10,000 events through randomly failing targets and writes its result file.
-- Or ignore all of that and query the database yourself through the read only SQL console. Four views, `SELECT` only, two second statement timeout.
+- Or ignore all of that and read the database. `DATABASE_URL_READONLY` in `.env.example` is the `ngl_ro` url, which is `SELECT` on five views and nothing else, and it works from `psql` exactly as it works from the MCP server. There was a SQL console on the page for a while and there is not any more, for a reason worth reading before rebuilding it: [what I deliberately did not build](what-we-deliberately-did-not-build.md).

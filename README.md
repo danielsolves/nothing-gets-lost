@@ -20,21 +20,24 @@ You do not have to take my word for any of it:
 |---|---|
 | **Stripe receipt** | a page served by stripe.com, not by this demo |
 | **Confirmation mail** | lands in your inbox; the `Received` header is stamped by your provider |
-| **The proof chain** | the gap between those two timestamps is the outage you caused |
-| **SQL console** | query the database yourself, read-only |
-| **The backlog** | `SELECT * FROM v_backlog`, or ask the MCP server — the same rows the page shows |
-| **Your own endpoint** | give it a url and see the retries arrive on your server |
-| **Your own Slack** | connect a workspace and the notification appears in the channel you pick |
-| **Your own HubSpot** | connect a portal and the contact appears in your CRM, with HubSpot's own `createdate` |
+| **Your own endpoint** | give it a url and every delivery is posted there too, retries and all |
+| **The backlog** | your own MCP client reads the parked deliveries out of the database |
 
-Connecting is optional and lasts 24 hours. Slack is asked for `chat:write` and
-`incoming-webhook`, HubSpot for `crm.objects.contacts.read` and `.write`, and nothing
-else. There is a **Disconnect** button, and the token is deleted rather than merely
-ignored.
+The first three put the evidence somewhere I do not control, which is the only
+property that makes a claim worth anything. The fourth does not pretend to: the backlog is my
+database, and what the MCP server buys you is that you read the rows with your own
+client instead of reading my rendering of them. That server answers on a copy you
+run yourself, because the public host does not route `/mcp` yet.
 
-The read-back against **my** HubSpot portal is an indication, not proof. I render that
-answer, so you would be right not to trust it. It is labelled as such in the interface.
-Everything in the table above is not.
+The read-back buttons against **my** HubSpot portal and **my** Slack workspace are in
+neither class. I render those answers, so you would be right not to trust them, and
+they are labelled as an indication rather than as proof in the interface.
+
+A visitor could once connect their own Slack workspace and their own HubSpot portal
+and have the deliveries land there instead. That is gone, and the reasoning is in
+[what I deliberately did not build](docs/what-we-deliberately-did-not-build.md). The
+url field above does the same job with no login, no scopes and no token of yours in
+my database.
 
 ## Run it
 
@@ -82,17 +85,12 @@ what it would do in production.
 
 Six attempts, growing gaps, and then what? A delivery that cannot be made is not
 dropped and it is not retried forever. It is written to a **backlog**, and it stays
-there until a person deals with it. The panel under the systems lists what is in it,
-and the page says so on the order card too.
+there until a person deals with it. The hub keeps it beside the queue and the log,
+and the order card says where the delivery went too.
 
-That is a claim, so here are two ways to check it that do not involve believing the
-page:
-
-```sql
-SELECT * FROM v_backlog;
-```
-
-and the MCP server, which answers out of the same view:
+That is a claim, so here is a way to check it that does not involve believing the
+page. The MCP server answers out of `v_backlog`, which selects the same parked rows
+the panel lists, straight from the database:
 
 | Tool | What it answers |
 |---|---|
@@ -103,12 +101,18 @@ and the MCP server, which answers out of the same view:
 claude mcp add --transport http ngl http://localhost:3007/mcp
 ```
 
-It is **read only**, and not merely by convention: the process is given the same
-`ngl_ro` role as the public SQL console and no other credential at all. That role
-cannot write anything and can see five views and no table, so the guarantee holds
-even if the server had a hole in it. Putting a delivery back in the queue is a real
-button and it belongs to whoever runs this demo; if it ever arrives here it arrives
-behind a key.
+That is the local url, because the public host does not route `/mcp` yet. Running
+the demo yourself also gets you the shorter route, `SELECT * FROM v_backlog`, which
+is where both tools read from.
+
+The server is **read only**, and not merely by convention. It is handed the `ngl_ro`
+url and no other credential at all, not even the writing one, and it is the only
+service of mine that gets no `env_file` in the compose file. So the strongest
+sentence about the open port is not that it has no write tools, it is that it holds
+nothing that could write. The role itself sees five views and no table, which means
+the guarantee survives a hole in the server. Putting a delivery back in the queue is
+a real action and it belongs to whoever runs this demo: `retryDead` in the mediator
+does it, nothing public calls it, and if it ever arrives here it arrives behind a key.
 
 ## The numbers on the box
 
@@ -134,22 +138,16 @@ zero through arbitrary chaos.
   optional here anyway, because somebody should be able to watch a real order run all
   the way through before handing anything over: the order the big button sends asks
   you for nothing. What you give up by leaving the address out is the confirmation
-  mail, and with it the second witness of the proof chain, a timestamp stamped by your
-  own provider rather than by me. The chain then rests on one foreign witness, the
-  Stripe receipt, instead of two. Give an address and you get both.
+  mail, and with it a timestamp stamped by your own provider rather than by me. The
+  evidence then rests on one witness who is not me, the Stripe receipt, instead of
+  two. Give an address and you get both.
 - **There is one world, not one per visitor.** If somebody else is experimenting you
   will see their traffic, and the page says so. Per-visitor sandboxes would mean the
   switches were not really switching anything.
-- **Slack deduplication is weaker than the rest.** In my workspace it reads the channel
-  back before posting, which leaves a narrow race. For a notification that is the right
-  trade; for the invoice it would not be, which is why that one uses a database
-  constraint. In your workspace it cannot read at all, which is the next point.
-- **In your Slack, an interrupted send is parked rather than repeated.** Connecting
-  asks for `chat:write` and `incoming-webhook`, and for nothing that reads your
-  messages. So if this demo dies in the moment between calling Slack and recording the
-  result, nobody can establish whether the message arrived. Rather than push a possible
-  duplicate into your workspace, that delivery goes to the **backlog** with the
-  reason written out. `lost` still reads 0, because parked is not lost.
+- **Slack deduplication is weaker than the rest.** The delivery reads the channel back
+  before posting to recognise its own marker, which leaves a narrow race between the
+  read and the post. For a notification that is the right trade; for the invoice it
+  would not be, which is why that one uses a database constraint.
 - **The queue is hand-built on purpose**, and that is not general advice. See
   [why no queue library](docs/why-no-queue-library.md).
 

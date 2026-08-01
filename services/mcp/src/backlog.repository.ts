@@ -2,11 +2,11 @@
 // Reads the backlog, and reads nothing else.
 //
 // The pool handed in here connects as ngl_ro: read only at the role level, with a
-// two second statement timeout, and able to see five views and no table. That is the
-// same role behind the public SQL console, and it is deliberate that the guarantee
-// lives there rather than in this file. Anyone reading this service to decide
-// whether it can be trusted with an open port should not have to believe a comment;
-// they can read migration 005 instead.
+// two second statement timeout, and able to see five views and no table. It is the
+// only role in this project that can read the database without being able to change
+// it, and it is deliberate that the guarantee lives there rather than in this file.
+// Anyone reading this service to decide whether it can be trusted with an open port
+// should not have to believe a comment; they can read migration 005 instead.
 import type { Pool } from 'pg';
 import type { Target } from '@ngl/contracts';
 

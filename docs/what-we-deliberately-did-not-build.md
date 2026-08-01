@@ -2,7 +2,7 @@
 
 This page lists the things that are missing from this demo on purpose, each with the reason, and it is for the visitor who noticed a gap and wants to know whether it was a decision or an oversight.
 
-Every item below was considered and refused. Where a refusal cost something, that cost is stated rather than argued away.
+Every item below was considered and refused. Two of them were built first and taken out again, and they are on this page rather than in a history file because the decision is the part worth reading: somebody about to build the same thing needs the reason, not the date. Where a refusal cost something, that cost is stated rather than argued away.
 
 ## Connecting your own database
 
@@ -10,15 +10,35 @@ This is the feature that demos best and is the worst idea in the set.
 
 It would mean asking a stranger to type credentials for their production database into a public form on a site they found in a proposal. No serious client does that, and the one who did would be a liability: I would be holding live database credentials for a company I have no contract with, in a container on a server I run for demos.
 
-The read only SQL console does the same job from the other direction. The visitor queries **my** database instead of me querying theirs, and it is locked down accordingly: a separate role with `default_transaction_read_only = on` and a two second `statement_timeout`, `GRANT SELECT` on exactly four views and nothing else, a single statement that must begin with `SELECT`, an enforced row limit, and a per IP cap. See `packages/db/migrations/005_readonly_role.sql`.
+The point of the original idea was "see your own data move". What delivers that without anybody handing over a secret is the visitor's own endpoint: a url they paste, every delivery posted to it on the same retry schedule the five systems get, watched from their side. A record landing in a system I do not control is the whole of what the connected database was for, and it costs a url instead of a credential.
 
-The point of the original idea was "see your own data move". The console delivers "check my claims against the actual rows" instead, which is the part that was ever worth anything.
+For a while the counter-offer was the other direction as well, a read only SQL console against my database. That is the next section.
+
+## A public SQL console
+
+There was a console on the page, under the heading "Do not trust my screen. Ask the database yourself", and it let a visitor run one guarded `SELECT` against a read only role. It was careful work: `default_transaction_read_only = on`, a two second `statement_timeout`, `GRANT SELECT` on views and no table, a single statement that had to begin with `SELECT`, an enforced row limit and a per IP cap.
+
+The heading is what took it out. What the console then handed over was my database, through my views, with my masking, which invites a reader to check my screen against my own data and calls the answer independent. It is the same class of evidence as the MCP server, just a different door, and the difference between the two is what the door claims. The MCP server is a way to read the backlog without going through the page, which is a convenience and is offered as one. The console was sold as the end of having to trust me, and no query it could run was ever that.
+
+The role stays and did not need changing. `ngl_ro` from migration `005` is exactly as it was and now has exactly one user, the MCP server, which is handed that url and no other credential at all. What is checkable without me is what always was: the receipt on stripe.com, the confirmation mail with a `Received` header stamped by the visitor's own provider, and every delivery arriving at an endpoint of theirs.
 
 ## Real WhatsApp
 
-WhatsApp Business needs Meta business verification and template approval before you can send anything to anyone. A visitor cannot do that in passing, which removes the entire reason to build it: the value of a messaging channel here is that the message lands on the visitor's own phone, in their own account.
+WhatsApp Business needs Meta business verification and template approval before you can send anything to anyone. A visitor cannot do that in passing, which removes the reason it was attractive: a message landing on their own phone, in their own account.
 
-The Twilio sandbox would work technically. It is a lot of setup and moving parts for the weakest of the three notification channels, and Slack already provides the same proof with an OAuth flow the visitor completes in about fifteen seconds. So Slack it is.
+The Twilio sandbox would work technically. It is a lot of setup and moving parts for the weakest of the three notification channels, and the demo already has one of those, into the workspace this project owns, which is enough to show a notification being retried and delivered exactly once. Where something has to arrive somewhere I do not control, the confirmation mail and the visitor's own endpoint do it without a verification queue in front of them.
+
+## Connecting your own Slack or your own HubSpot
+
+This one was built, sat on the page for a while, and came out.
+
+A visitor could connect their own Slack workspace and their own HubSpot portal through OAuth, and deliveries then went there instead of into the house accounts. It reads well in a feature list and it was the wrong thing to have built. A stranger does not hand a portfolio page OAuth with write access to their CRM, and none did. On the other side of that nobody stood an encrypted store of other people's access tokens, a data protection surface, an abuse surface, and a branch between house and visitor at three points in the delivery path.
+
+It was also broken, which is worth writing down rather than tidying away. The app asked for `crm.objects.contacts.read` and `crm.objects.contacts.write`, because the sentence in my head was "create a contact". The delivery goes on to create a deal, associate it with the contact and write line items, so a visitor's token was refused at the deal step with a 403, retried six times and parked. The scope list was wrong about my own code, and nobody was connecting, so it stayed quiet.
+
+What does the same job at a fraction of the hurdle is the visitor's own endpoint: a url, no login, no scopes, every delivery posted to it with the same retry schedule and the retries visible from their side. The property that made connecting worth building is that a record lands in a system I do not control, and that survives intact. What does not survive is me holding a credential of theirs.
+
+`services/api/src/oauth/`, the `TokenStore`, the visitor branch in the mediator and the Slack send log behind it are gone from the tree, and migration `015_drop_visitor_oauth.sql` drops the two tables. Dropped rather than emptied: a table shaped to hold other people's access tokens, standing in a database with nothing left to write to it, is a thing somebody fills in again one day without reading any of this.
 
 ## A shared demo login to my HubSpot portal
 
@@ -26,18 +46,15 @@ The obvious way to let a visitor see the HubSpot side is to put a demo account a
 
 Credentials in a README read like a leaked secret. Anybody skimming the repository sees a username and a password sitting in a file and forms an opinion in a second, and on a project whose entire subject is care with other people's systems that is the most expensive possible first impression. It does not matter that the account would be a throwaway in a sandbox portal. The reader does not stop to check.
 
-Instead there are two things:
+Instead there is a read back button against **my** portal, which asks HubSpot for the record now and shows what came back. It is labelled in the interface as an indication and not as proof, because I render that answer and a skeptic is right not to trust it.
 
-- A **Connect your own HubSpot** button. OAuth, scoped to `crm.objects.contacts.read` and `crm.objects.contacts.write` and nothing else, token encrypted at rest with a 24 hour lifetime and a disconnect button. The contact is created in the visitor's portal, and they check it with their own login. A test portal is recommended under the button; a production portal is not needed.
-- A read back button against **my** portal, which is labelled in the interface as an indication and not as proof, because I render that answer and a skeptic is right not to trust it.
-
-Nobody has to connect anything. The proof chain, the Stripe receipt, the confirmation mail in your own inbox, your own webhook endpoint and the downloadable proof log all work with no connection at all.
+That leaves the CRM as the one step in the chain a visitor cannot verify, and the honest answer is to say so and put the weight elsewhere. The Stripe receipt is served by stripe.com, the confirmation mail carries a `Received` header their own provider stamped, and every delivery reaches an endpoint of theirs if they give one. Letting a visitor into a portal of mine was never going to be worth more than those three, and connecting a portal of theirs turned out to be worth less, which is the section above.
 
 ## No login
 
 There is no account, no sign up and no password on this demo. Adding one would put a form between a visitor and the thing they came to see, and the success criterion for this project is that somebody understands the page in twenty five seconds and breaks something on purpose within sixty.
 
-The cost is real and it is accepted: the demo is open to the internet, so it is rate limited instead. Model calls are capped per hour and per IP with recorded answers taking over afterwards, order placement is capped per hour and per IP, and SQL queries are capped the same way. Rate limits are the right tool here. A login is not.
+The cost is real and it is accepted: the demo is open to the internet, so it is rate limited instead. Order placement is capped per hour and per visitor, and the address that identifies a visitor is hashed rather than kept, because a demo that lectures about care with other people's data while keeping a list of IPs would be arguing against itself. Rate limits are the right tool here. A login is not.
 
 ## No settings page
 
@@ -65,6 +82,6 @@ Kubernetes manifests are absent for a duller reason. This is seven services and 
 
 ## Not production ready, and not claiming to be
 
-Stripe runs in test mode only, and the mediator refuses to start on a key that does not begin with `sk_test_`. Retry delays are compressed to fit a visitor's attention span (2s, 8s, 30s, 2min, 10min) where production would start at 30 seconds and stretch over hours. Email addresses and OAuth tokens are deleted after 24 hours. There is no HA setup, no backup story, no alerting.
+Stripe runs in test mode only, and the mediator refuses to start on a key that does not begin with `sk_test_`. Retry delays are compressed to fit a visitor's attention span (2s, 8s, 30s, 2min, 10min) where production would start at 30 seconds and stretch over hours. Email addresses are deleted after 24 hours, in all three places they are written. There is no HA setup, no backup story, no alerting.
 
 None of that is what the demo is trying to prove. It is trying to prove one specific thing, and the things it does not do are listed here rather than left for you to find.

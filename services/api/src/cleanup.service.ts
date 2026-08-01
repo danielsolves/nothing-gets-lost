@@ -16,8 +16,7 @@
 // The mailer owns that third table and the sweep still lives here, because one
 // promise gets one sweeper. The mailer answers requests and holds no schedule of its
 // own, so giving it a nightly timer would put two clocks in charge of when 24 hours
-// is up, and they would drift apart. Traffic already runs in this direction anyway:
-// proof.service.ts reads sent_mail from here for the proof chain.
+// is up, and they would drift apart.
 import type { Pool } from 'pg';
 
 /** What is left in place of an address, in all three copies, so they agree. */

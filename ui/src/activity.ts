@@ -18,7 +18,7 @@
 // is the point of the sentence.
 //
 // The raw error never appears in either. `lastError` is a driver's sentence about
-// a socket, useful in the SQL console and meaningless on a tile.
+// a socket, worth having in the backlog entry and meaningless on a tile.
 import type { DeliveryView, SwitchableTarget, Target } from '@ngl/contracts';
 import { retryGap } from './order-time';
 

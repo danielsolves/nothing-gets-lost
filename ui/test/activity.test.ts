@@ -7,7 +7,7 @@
 // admitted what it was doing to a visitor who clicked into the Log tab. Wording is
 // the whole deliverable, so it is the thing under test: what is said, in which
 // order of urgency, and what is never said at all. The raw error string is the
-// last of those. It belongs in the SQL console, not on a tile.
+// last of those. It belongs in the backlog entry, not on a tile.
 //
 // Two of these tests are about length rather than meaning. A tile is a 150 pixel
 // square whose first two rows are already the system name and a one word note, so
