@@ -61,7 +61,7 @@ This is the refusal that costs the most and it is still the right one. A per vis
 
 The queue is written by hand against Postgres, with `SELECT ... FOR UPDATE SKIP LOCKED`, because the queue is the part a visitor is supposed to be able to read. That argument, including the case for **not** doing it this way in a real project under real load, has its own page: [why no queue library](why-no-queue-library.md).
 
-Kubernetes manifests are absent for a duller reason. This is six services and one `docker compose up`. Anything more would be scaffolding for an audience that is not reading this repository.
+Kubernetes manifests are absent for a duller reason. This is seven services and one `docker compose up`. Anything more would be scaffolding for an audience that is not reading this repository.
 
 ## Not production ready, and not claiming to be
 

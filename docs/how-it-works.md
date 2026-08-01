@@ -108,13 +108,20 @@ The schedule is deliberately compressed. In production the first delay would be 
 
 `markFailed` re-reads `attempts` from the row rather than trusting the value it was handed, computes the next delay, and either reschedules with `next_at = now() + make_interval(secs => $3)` or writes `state = 'dead'`.
 
-## The dead letter box
+## The backlog
 
-After the sixth failed attempt `nextDelaySeconds` returns `null` and the row goes to `dead` with `last_error` intact. It then appears in the interface under "needs a human", with the raw error text and a retry button behind `POST /api/dead/:id/retry`.
+After the sixth failed attempt `nextDelaySeconds` returns `null` and the row goes to `dead` with `last_error` intact. That is the backlog: it appears in the panel under the systems and on the order card, both saying that it was written there and that a person has to review it, and the "needs a human" counter counts it.
 
-The counter named `lost` is not computed. In `services/api/src/counters.service.ts` it is the constant `0`, and that is the entire product. A dead letter is not lost, it is visibly stuck. Conflating the two would give away the one distinction this demo exists to make.
+The counter named `lost` is not computed. In `services/api/src/counters.service.ts` it is the constant `0`, and that is the entire product. A parked delivery is not lost, it is visibly stuck. Conflating the two would give away the one distinction this demo exists to make.
 
-`retryDead` resets `attempts` to `0` rather than squeezing one more try out of an exhausted row, so a visitor who presses the button watches the full schedule run again.
+Two ways to read the backlog without going through the page, both against `v_backlog` (migration `014`), which is built on `v_events` and `v_orders` so the email masking is written once:
+
+- `SELECT * FROM v_backlog` in the public SQL console.
+- The MCP server (`services/mcp/`), tools `backlog_list` and `backlog_entry`, on `POST /mcp`.
+
+Both read as `ngl_ro`, the role from migration `005`: read only at the role level, five views, no table. The MCP process is given that url and no other credential, not even the writing one, so an open MCP port cannot become a way in.
+
+`retryDead` in the queue repository is the way back. It resets `attempts` to `0` rather than squeezing one more try out of an exhausted row, so a revived delivery gets the whole schedule again. Nothing on the public surface calls it: putting other people's work back in the queue is not something an anonymous visitor should be able to do, and the MCP server is read only for the same reason.
 
 ## Rule 6.7: the mail waits for the rest of the chain
 
@@ -173,7 +180,7 @@ The Slack technique is the weakest of the set and is labelled as such in its own
 
 `incoming-webhook` is in the list on purpose and not for the webhook url. Without it `oauth.v2.access` returns no channel id at all, `target_ref` stays null and the delivery has nowhere to post. With it, Slack shows a channel picker during install and adds the app to the channel that is chosen, which also removes the `not_in_channel` error a hand-typed channel id would run into.
 
-What that costs is one case. If the worker dies in the window between calling Slack and recording the outcome, the send log holds a row with no `message_ts` and nobody alive can say whether the message landed. Posting again might duplicate a message in someone else's Slack; giving up would lose it. So that delivery is parked in **needs a human** with the reason in plain text and the retry button beside it, and `lost` stays at 0 because parked is not lost (spec 6.6). It is the only failure in the system that skips the retry schedule, since five more attempts would each hit the same wall.
+What that costs is one case. If the worker dies in the window between calling Slack and recording the outcome, the send log holds a row with no `message_ts` and nobody alive can say whether the message landed. Posting again might duplicate a message in someone else's Slack; giving up would lose it. So that delivery is written to the **backlog** with the reason in plain text, and `lost` stays at 0 because parked is not lost (spec 6.6). It is the only failure in the system that skips the retry schedule, since five more attempts would each hit the same wall.
 
 Everything the worker itself lives through, including a cut connection, clears the row and retries normally. That is what keeps the demo healing for a visitor who connected their own Slack, and it is integration test 6 in `test/integration/own-connection.test.ts`.
 

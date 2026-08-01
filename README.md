@@ -22,6 +22,7 @@ You do not have to take my word for any of it:
 | **Confirmation mail** | lands in your inbox; the `Received` header is stamped by your provider |
 | **The proof chain** | the gap between those two timestamps is the outage you caused |
 | **SQL console** | query the database yourself, read-only |
+| **The backlog** | `SELECT * FROM v_backlog`, or ask the MCP server — the same rows the page shows |
 | **Your own endpoint** | give it a url and see the retries arrive on your server |
 | **Your own Slack** | connect a workspace and the notification appears in the channel you pick |
 | **Your own HubSpot** | connect a portal and the contact appears in your CRM, with HubSpot's own `createdate` |
@@ -77,6 +78,38 @@ mail they would arrive as.
 The mediator does not know any of this happened. It sees a failed HTTP call and does
 what it would do in production.
 
+## The backlog
+
+Six attempts, growing gaps, and then what? A delivery that cannot be made is not
+dropped and it is not retried forever. It is written to a **backlog**, and it stays
+there until a person deals with it. The panel under the systems lists what is in it,
+and the page says so on the order card too.
+
+That is a claim, so here are two ways to check it that do not involve believing the
+page:
+
+```sql
+SELECT * FROM v_backlog;
+```
+
+and the MCP server, which answers out of the same view:
+
+| Tool | What it answers |
+|---|---|
+| `backlog_list` | what is waiting, oldest first, with how many there are |
+| `backlog_entry` | one of them in full, with the order and the basket behind it |
+
+```bash
+claude mcp add --transport http ngl http://localhost:3007/mcp
+```
+
+It is **read only**, and not merely by convention: the process is given the same
+`ngl_ro` role as the public SQL console and no other credential at all. That role
+cannot write anything and can see five views and no table, so the guarantee holds
+even if the server had a hole in it. Putting a delivery back in the queue is a real
+button and it belongs to whoever runs this demo; if it ever arrives here it arrives
+behind a key.
+
 ## The numbers on the box
 
 `10,000 events · 0 lost · 0 duplicated`, produced by
@@ -115,7 +148,7 @@ zero through arbitrary chaos.
   asks for `chat:write` and `incoming-webhook`, and for nothing that reads your
   messages. So if this demo dies in the moment between calling Slack and recording the
   result, nobody can establish whether the message arrived. Rather than push a possible
-  duplicate into your workspace, that delivery goes to **needs a human** with the
+  duplicate into your workspace, that delivery goes to the **backlog** with the
   reason written out. `lost` still reads 0, because parked is not lost.
 - **The queue is hand-built on purpose**, and that is not general advice. See
   [why no queue library](docs/why-no-queue-library.md).
