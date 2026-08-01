@@ -15,14 +15,19 @@
 // What it is doing right now sits outside the tabs, because a visitor who never
 // opens the Log reads four numbers with no verb among them and cannot tell a busy
 // machine from a stopped one. Counters say how much; this says what.
+//
+// A badge in the corner of the head used to say whether the event stream was up. It
+// is gone: for the whole of every visit it read "Live" in green, which is one more
+// claim the reader has to take our word for, next to numbers that already move by
+// themselves when the stream is alive.
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
 import { Backlog } from './Backlog';
 import { backlogOf } from './backlog-rows';
-import { liveState } from './live';
 import { Queue } from './Queue';
 import { Timeline } from './Timeline';
+import { othersHere } from './viewers';
 
 type Tab = 'queue' | 'log' | 'backlog';
 
@@ -33,15 +38,13 @@ export function Mediator(props: {
   timeline: TimelineEntry[];
   openOrder: string | null;
   onToggleOrder: (eventId: string) => void;
-  /** Whether the event stream is up. See live.ts for why this lives here. */
-  connected: boolean;
   /** Everyone on the page, this reader included. */
   viewers: number;
 }) {
   const [tab, setTab] = useState<Tab>('queue');
   const [help, setHelp] = useState(false);
   const doing = currentWork(props.deliveries);
-  const live = liveState(props.connected, props.viewers);
+  const others = othersHere(props.viewers);
   // Counted here rather than inside the panel: the tab has to say how many are
   // waiting while the panel is shut, which is the state it is in nearly always.
   const parked = backlogOf(props.deliveries, props.orders).length;
@@ -79,25 +82,6 @@ export function Mediator(props: {
         <span className="mediator-titles">
           <span className="mediator-title">Integration hub</span>
           <span className="mediator-sub">tracks, retries, and recovers</span>
-        </span>
-
-        {/* The connection, said out loud. A page whose stream has died goes quiet
-            rather than visibly wrong, and quiet is the one failure this page cannot
-            afford: every number on it would be stale and still look current.
-            role=status so a reader who is not watching this corner is told once.
-
-            Two words at most. The head already holds a title, a subtitle, the reset
-            and the help, and a badge that also carried the visitor count pushed the
-            subtitle onto a second line. The count moved to the line below, which is
-            where it is about something. */}
-        <span
-          className="mediator-live"
-          data-testid="hub-live"
-          data-tone={live.tone}
-          role="status"
-        >
-          <i className="mediator-live-dot" aria-hidden="true" />
-          {live.text}
         </span>
 
         {/* The reset came up from the drawer at the bottom of the page along with
@@ -184,9 +168,9 @@ export function Mediator(props: {
           there is another person on the page. */}
       <p className="mediator-doing" data-testid="hub-doing" data-tone={doing.tone}>
         <span>{doing.text}</span>
-        {live.others && (
+        {others && (
           <em className="mediator-doing-others" data-testid="hub-viewers">
-            {live.others}
+            {others}
           </em>
         )}
       </p>
