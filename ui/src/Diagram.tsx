@@ -157,7 +157,11 @@ export function Diagram(props: {
   return (
     <div className="machine" data-testid="diagram">
       <header className="machine-head" data-testid="machine-head">
-        <h2 className="machine-title">One order, five real systems</h2>
+        {/* An invitation rather than a label. "One order, five real systems" named
+            what is below, which the drawing already does; this says what the
+            visitor is meant to do about it, and it is the answer to the heading at
+            the top of the page: that one asks to be trusted, this one does not. */}
+        <h2 className="machine-title">See it work for yourself.</h2>
         <p className="machine-lede">
           Build an order and send it. The mediator takes it, calls each system in turn
           and writes down what came back. Open any system to break it, then send
