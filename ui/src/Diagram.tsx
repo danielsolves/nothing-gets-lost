@@ -162,10 +162,15 @@ export function Diagram(props: {
             visitor is meant to do about it, and it is the answer to the heading at
             the top of the page: that one asks to be trusted, this one does not. */}
         <h2 className="machine-title">See it work for yourself.</h2>
+        {/* The whole sixty seconds in three sentences: send one, break something,
+            send another. Specification section 1 wants a stranger to break something
+            on purpose inside a minute, and this is the only place on the page that
+            tells them they are allowed to. */}
         <p className="machine-lede">
-          Build an order and send it. The mediator takes it, calls each system in turn
-          and writes down what came back. Open any system to break it, then send
-          another and watch where that one waits instead of disappearing.
+          Create a test order and watch it move through every system. Then use any
+          system’s menu to take its connection offline and send another order. Watch
+          the workflow hold it safely, retry automatically, and continue when the
+          connection returns.
         </p>
 
         <div className="machine-entry">
