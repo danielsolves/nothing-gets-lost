@@ -14,6 +14,7 @@
 // "lost 0" in two places does not make it twice as true, so the bar went and the hub
 // kept them: they belong next to the queue they are counting.
 import { useMemo, useState } from 'react';
+import { Backlog } from './Backlog';
 import { Connections } from './Connections';
 import { Deeper, type DeeperTab } from './Deeper';
 import { Diagram } from './Diagram';
@@ -27,7 +28,7 @@ import { useStream } from './useStream';
 
 export function App() {
   const {
-    counters, switches, deliveries, orders, timeline, extractorMode,
+    counters, switches, deliveries, orders, timeline, extractorMode, connected, viewers,
   } = useStream();
   // The order the visitor just sent, and whether a confirmation mail is coming for
   // it. Without an address there is no second witness, and the proof panel has to
@@ -74,12 +75,17 @@ export function App() {
                 onPlaced={(eventId, expectMail) => setPlaced({ eventId, expectMail })}
               />
             }
+            backlog={
+              <Backlog deliveries={held.deliveries} orders={held.orders} />
+            }
             hub={
               <Mediator
                 counters={held.counters}
                 deliveries={held.deliveries}
                 orders={held.orders}
                 timeline={timeline}
+                connected={connected}
+                viewers={viewers}
                 openOrder={openOrder}
                 onToggleOrder={(eventId) =>
                   setOpenOrder((current) => (current === eventId ? null : eventId))}

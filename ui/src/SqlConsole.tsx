@@ -64,7 +64,9 @@ export function SqlConsole() {
       )}
 
       <p className="fine-print">
-        Read-only account, four views, two second limit. SELECT only.
+        Read-only account, five views, two second limit. SELECT only. The one worth
+        trying is <code>v_backlog</code>: it is what the page says is waiting for a
+        person, and the MCP server answers out of the same view.
       </p>
     </section>
   );

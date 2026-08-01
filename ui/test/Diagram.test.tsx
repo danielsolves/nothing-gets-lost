@@ -292,4 +292,27 @@ describe('Diagram', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={waiting} openOrder="evt-other" />);
     expect(screen.getByTestId('box-hubspot')).not.toHaveAttribute('data-tracked');
   });
+
+  // The backlog goes in the column with the tiles, not under the whole machine. The
+  // hub is about twice their height, so that column ended halfway down with nothing
+  // under it, and what belongs in that space is what the systems would not take.
+  it('puts the backlog under the systems rather than beside the mediator', () => {
+    render(
+      <Diagram
+        {...base}
+        switches={ALL_UP}
+        deliveries={waiting}
+        backlog={<div data-testid="backlog">parked</div>}
+      />,
+    );
+    const side = screen.getByTestId('backlog').parentElement;
+    expect(side).toHaveClass('machine-side');
+    expect(within(side ?? document.body).getByTestId('box-hubspot')).toBeInTheDocument();
+  });
+
+  it('draws the machine without a backlog at all', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={waiting} />);
+    expect(screen.queryByTestId('backlog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('box-hubspot')).toBeInTheDocument();
+  });
 });

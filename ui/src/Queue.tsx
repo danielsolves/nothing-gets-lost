@@ -168,9 +168,14 @@ function describe(step: OrderStep, now: Date): string {
         : 'delivered';
     case 'inflight':
       return `attempt ${step.attempts} going out now`;
+    // Where it went, not only that it stopped. "Gave up" was true and was also the
+    // end of the sentence, so a reader was left to guess whether anything had
+    // happened to the order afterwards. It is in the backlog, the backlog has a
+    // name, and the panel beside the systems lists it.
     case 'dead':
-      return `gave up after ${step.attempts} attempts, needs a human` +
-        (step.lastError ? ` (${step.lastError})` : '');
+      return `written to the backlog after ${step.attempts} attempts, `
+        + 'a person has to review it'
+        + (step.lastError ? ` (${step.lastError})` : '');
     default: {
       if (step.attempts === 0) return 'queued, not tried yet';
       const gap = retryGap(step.nextAt, now);

@@ -44,11 +44,16 @@ export function Stage() {
         well on its own. Problems begin when one of those systems cannot be reached.
       </p>
 
+      {/* The last clause read "anything unresolved is sent to a person", and nothing
+          was sent anywhere: the delivery stopped where it was and the page counted
+          it. A backlog is a place, it is named on the machine below, and it can be
+          read without this page at all. A claim that can be checked is worth more
+          than one that sounds kinder. */}
       <p className="sub">
         In this live demonstration, I connect five real systems: Stripe, HubSpot, an
         invoicing service, Slack, and email through one reliable workflow. Every
         handoff is tracked, failed steps retry automatically, and anything unresolved
-        is sent to a person.
+        is written to a backlog for a person to review.
       </p>
 
     </header>
