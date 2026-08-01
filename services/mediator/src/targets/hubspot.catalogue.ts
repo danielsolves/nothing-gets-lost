@@ -54,18 +54,26 @@ export class HubSpotCatalogue {
     const claim = await this.log.claim(line.sku);
     if (claim.status === 'mirrored') return claim.productId;
 
-    if (claim.status === 'unknown') {
-      const orphan = await this.findBySku(creds, line.sku);
-      if (orphan) {
-        await this.log.record(line.sku, orphan);
-        return orphan;
-      }
-      if (Date.now() - claim.claimedAt.getTime() < SEARCH_SETTLES_MS) {
-        throw new Error(
-          `HubSpot may already hold a product for ${line.sku}; its search index is `
-          + 'still behind the attempt that was interrupted',
-        );
-      }
+    // A fresh claim says this database has never mirrored the sku. It does not say
+    // the portal has never seen it, and those are different things: the claim book
+    // is ours and the products are not. A new deployment against the portal that
+    // has been carrying the demo all along is the normal case, and treating fresh
+    // as proof of absence made HubSpot refuse every product on the first one.
+    const existing = await this.findBySku(creds, line.sku);
+    if (existing) {
+      await this.log.record(line.sku, existing);
+      return existing;
+    }
+
+    // Nothing found, and an interrupted attempt may have created it seconds ago
+    // where search cannot see it yet. Retrying costs a delivery attempt. Creating
+    // costs a duplicate, and the create below would be refused anyway.
+    if (claim.status === 'unknown'
+      && Date.now() - claim.claimedAt.getTime() < SEARCH_SETTLES_MS) {
+      throw new Error(
+        `HubSpot may already hold a product for ${line.sku}; its search index is `
+        + 'still behind the attempt that was interrupted',
+      );
     }
 
     return this.create(creds, line);
@@ -90,15 +98,26 @@ export class HubSpotCatalogue {
     });
 
     const id = (created.body as Created).id;
-    if (!id) {
-      // HubSpot answered and refused. Nothing was created, so hand the claim back
-      // rather than leave the sku looking permanently unresolved.
-      await this.log.release(line.sku);
-      throw new Error(`HubSpot refused the product for ${line.sku} with ${created.status}`);
+    if (id) {
+      await this.log.record(line.sku, id);
+      return id;
     }
 
-    await this.log.record(line.sku, id);
-    return id;
+    // HubSpot answered and refused. hs_sku is unique on a product and HubSpot says
+    // so in as many words, so by far the likeliest refusal is that the sku is
+    // already on one that search had not caught up with. Asking again settles it
+    // without reading the error message: a product that turns up now is the one
+    // that caused the refusal. Anything else is a genuine refusal.
+    const held = await this.findBySku(creds, line.sku);
+    if (held) {
+      await this.log.record(line.sku, held);
+      return held;
+    }
+
+    // Nothing was created and nothing is there. Hand the claim back rather than
+    // leave the sku looking permanently unresolved.
+    await this.log.release(line.sku);
+    throw new Error(`HubSpot refused the product for ${line.sku} with ${created.status}`);
   }
 
   private async findBySku(

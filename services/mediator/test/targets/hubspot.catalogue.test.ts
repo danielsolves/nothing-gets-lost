@@ -42,7 +42,12 @@ interface Call { method: string; path: string; body: Record<string, unknown> | n
  * created here are findable only once `settled` is called, which is the whole reason
  * the claim book exists.
  */
-function portal(options: { indexed?: Array<{ sku: string; id: string }>; failCreate?: boolean } = {}) {
+function portal(options: {
+  indexed?: Array<{ sku: string; id: string }>;
+  failCreate?: boolean;
+  /** A sku the portal holds but has not indexed yet: create refuses, search misses. */
+  heldButUnindexed?: string;
+} = {}) {
   const calls: Call[] = [];
   const bySku = new Map<string, string>();
   let nextId = 400;
@@ -58,11 +63,28 @@ function portal(options: { indexed?: Array<{ sku: string; id: string }>; failCre
 
     if (path === '/crm/v3/objects/products/search') {
       const filters = body as { filterGroups: Array<{ filters: Array<{ value: string }> }> };
-      const id = bySku.get(filters.filterGroups[0].filters[0].value);
+      const wanted = filters.filterGroups[0].filters[0].value;
+      // The second search finds it: a create that was refused proves the product is
+      // there, and by the time we ask again the index has caught up.
+      if (wanted === options.heldButUnindexed && calls.filter(
+        (c) => c.path === '/crm/v3/objects/products/search',
+      ).length > 1) {
+        return json({ total: 1, results: [{ id: 'prod-held' }] });
+      }
+      const id = bySku.get(wanted);
       return json({ total: id ? 1 : 0, results: id ? [{ id }] : [] });
     }
     if (path === '/crm/v3/objects/products' && method === 'POST') {
       if (options.failCreate) return json({ message: 'Property values were not valid' }, 400);
+      const props = (body as { properties: { hs_sku: string } }).properties;
+      if (props.hs_sku === options.heldButUnindexed) {
+        // HubSpot's own words, near enough: hs_sku is unique on a product.
+        return json({
+          status: 'error',
+          category: 'VALIDATION_ERROR',
+          message: `Cannot set hs_sku value ${props.hs_sku} on 999. prod-held already has that value.`,
+        }, 400);
+      }
       return json({ id: `prod-${nextId++}` }, 201);
     }
     return json({}, 404);
@@ -99,6 +121,32 @@ describe('HubSpotCatalogue', () => {
     expect(hubspot.createdBodies()).toEqual([
       { name: 'Blue mug', price: '12.00', hs_sku: 'MUG-BLUE' },
     ]);
+  });
+
+  it('adopts a product the portal already holds', async () => {
+    // The claim book is ours and the portal is not. A fresh database against a
+    // portal that has been used before is the normal case, not the odd one: it
+    // happens on every deployment, and it happened on the first one. Treating a
+    // fresh claim as proof the product does not exist made HubSpot refuse all
+    // eight, because hs_sku is unique on a product and it says so.
+    const hubspot = portal({ indexed: [{ sku: 'TEAPOT', id: 'prod-already-there' }] });
+    const log = book();
+
+    expect(await hubspot.make(log).idFor(CREDS, TEAPOT)).toBe('prod-already-there');
+    expect(hubspot.createdBodies()).toEqual([]);
+    expect(log.recorded.get('TEAPOT')).toBe('prod-already-there');
+  });
+
+  it('adopts the product HubSpot names when it refuses the sku as a duplicate', async () => {
+    // The belt to the braces above. The portal holds the sku but has not indexed
+    // it, so the search misses and the create is refused. A refusal for that
+    // reason is itself proof the product is there, and asking again finds it.
+    const hubspot = portal({ heldButUnindexed: 'TEAPOT' });
+    const log = book();
+
+    expect(await hubspot.make(log).idFor(CREDS, TEAPOT)).toBe('prod-held');
+    expect(log.recorded.get('TEAPOT')).toBe('prod-held');
+    expect(log.released).toEqual([]);
   });
 
   it('reuses the product it already made instead of making a second one', async () => {
