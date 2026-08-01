@@ -10,29 +10,62 @@ import { describe, it, expect } from 'vitest';
 import type { DeliveryView } from '@ngl/contracts';
 import { pulsesFrom } from '../src/pulses';
 
+const SENT = '2026-08-02T10:00:00.000Z';
+
+/**
+ * `sentAt` follows the state the way the mediator writes it: a row is stamped as the
+ * call goes out, so anything that has been picked up carries one and a row still
+ * queued does not. The dots are timed by that stamp, so a fixture leaving it null on
+ * an in-flight row would be describing a board that cannot occur.
+ */
 const delivery = (
   id: number, target: DeliveryView['target'], state: DeliveryView['state'], attempts = 1,
 ): DeliveryView => ({
   id, target, state, attempts,
   eventId: `evt-${id}`, nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
-  sentAt: null, answeredAt: null,
+  sentAt: state === 'pending' && attempts === 0 ? null : SENT,
+  answeredAt: null,
 });
 
 describe('pulsesFrom', () => {
-  it('sends a dot when a delivery is confirmed', () => {
+  it('sends a dot when the call goes out, not when it comes back', () => {
     const pulses = pulsesFrom(
-      [delivery(1, 'hubspot', 'inflight')],
-      [delivery(1, 'hubspot', 'done')],
+      [delivery(1, 'hubspot', 'pending', 0)],
+      [delivery(1, 'hubspot', 'inflight', 1)],
     );
     expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
   });
 
-  it('sends the dot back when an attempt failed and will be retried', () => {
+  it('does not send a second dot when that call is confirmed', () => {
+    // The dot for this attempt has already travelled. Drawing another one on the
+    // answer would say the hub called twice, and it would put the movement a round
+    // trip after the thing it stands for.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'inflight')],
+      [delivery(1, 'hubspot', 'done')],
+    );
+    expect(pulses).toEqual([]);
+  });
+
+  it('says nothing when an attempt fails, because no call is going out', () => {
+    // The failure is news, and the tile, the wire and the queue all carry it in
+    // words. What this layer draws is a call leaving, and none is.
     const pulses = pulsesFrom(
       [delivery(1, 'hubspot', 'inflight', 1)],
       [delivery(1, 'hubspot', 'pending', 1)],
     );
-    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'held' }]);
+    expect(pulses).toEqual([]);
+  });
+
+  it('draws a delivery that answers within one snapshot exactly once', () => {
+    // The board arrives once a second, so a system that answers in 300 ms is never
+    // seen in flight. The send stamp survives into the settled row, so the dot still
+    // fires on the frame that learns the call went out.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'pending', 0)],
+      [delivery(1, 'hubspot', 'done', 1)],
+    );
+    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
   });
 
   it('stops the dot short when a delivery is parked for a human', () => {
@@ -64,7 +97,7 @@ describe('pulsesFrom', () => {
     const first = [delivery(1, 'hubspot', 'pending', 0)];
     expect(pulsesFrom([], first)).toEqual([]);
 
-    const moved = [{ ...first[0], state: 'done' as const, attempts: 1 }];
+    const moved = [{ ...first[0], state: 'done' as const, attempts: 1, sentAt: SENT }];
     expect(pulsesFrom(first, moved)).toEqual([
       { id: first[0].id, target: 'hubspot', kind: 'delivered' },
     ]);
@@ -83,25 +116,30 @@ describe('pulsesFrom', () => {
     expect(pulses).toEqual([]);
   });
 
-  it('fires once per delivery when several move at the same time', () => {
-    const a = delivery(1, 'hubspot', 'inflight');
-    const b = delivery(2, 'stripe', 'inflight');
+  it('fires once per delivery when several go out at the same time', () => {
+    // The everyday case now that the worker fans a batch out rather than working it
+    // one row at a time: four calls leave together and four dots leave together.
+    const a = delivery(1, 'hubspot', 'pending', 0);
+    const b = delivery(2, 'stripe', 'pending', 0);
     const pulses = pulsesFrom(
       [a, b],
-      [{ ...a, state: 'done' }, { ...b, state: 'done' }],
+      [
+        { ...a, state: 'inflight', attempts: 1, sentAt: SENT },
+        { ...b, state: 'inflight', attempts: 1, sentAt: SENT },
+      ],
     );
     expect(pulses).toHaveLength(2);
     expect(pulses.map((p) => p.target).sort()).toEqual(['hubspot', 'stripe']);
   });
 
-  it('fires again when the same delivery fails a second time', () => {
+  it('fires again when the same delivery is tried a second time', () => {
     // Same row, same state name, one more attempt. The visitor watching a cut line
-    // needs to see each retry, not one dot for the whole outage.
+    // needs to see each retry go out, not one dot for the whole outage.
     const pulses = pulsesFrom(
       [delivery(1, 'hubspot', 'pending', 1)],
       [delivery(1, 'hubspot', 'pending', 2)],
     );
-    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'held' }]);
+    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
   });
 
   it('says nothing about a delivery that vanished', () => {
@@ -174,15 +212,18 @@ describe('pulsesFrom, when an order arrives', () => {
   it('says nothing about an order that was already on the board', () => {
     // Its deliveries moving is not the order arriving a second time.
     const before = order('evt-1', 1, ['hubspot']);
-    const after = [{ ...before[0], state: 'done' as const, attempts: 1 }];
+    const after = [{ ...before[0], state: 'done' as const, attempts: 1, sentAt: SENT }];
     expect(pulsesFrom(before, after)).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
   });
 
-  it('reports the arrival alongside a delivery that moved in the same snapshot', () => {
-    const inflight = delivery(1, 'hubspot', 'inflight');
+  it('reports the arrival alongside a delivery that went out in the same snapshot', () => {
+    const queued = delivery(1, 'hubspot', 'pending', 0);
     const pulses = pulsesFrom(
-      [inflight],
-      [{ ...inflight, state: 'done' as const }, ...order('evt-new', 10, ['stripe'])],
+      [queued],
+      [
+        { ...queued, state: 'inflight' as const, attempts: 1, sentAt: SENT },
+        ...order('evt-new', 10, ['stripe']),
+      ],
     );
     expect(pulses).toEqual([
       { id: 10, target: 'shop', kind: 'arrival' },

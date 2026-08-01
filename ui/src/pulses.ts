@@ -19,9 +19,21 @@
 // an answer is as real as the call. It is, and the tile still prints how long it
 // took, but two dots per delivery on five wires is a great deal of movement to say
 // one thing. What the drawing shows is the mediator sending to a system.
+//
+// Which fixes when a dot may fire: at the send. One consequence is worth stating
+// plainly rather than discovering later. A dot drawn as the call goes out cannot be
+// coloured by how the call turned out, because nothing knows yet. The failed attempt
+// no longer bounces back in amber; what a reader learns about the outcome, they
+// learn from the tile, the wire and the queue, all of which say it in words.
 import { SWITCHABLE_TARGETS, type DeliveryView, type SwitchableTarget } from '@ngl/contracts';
 
-export type PulseKind = 'delivered' | 'held' | 'parked' | 'arrival';
+/**
+ * `held` used to be here: an amber dot that ran out and came back, drawn when an
+ * attempt failed. It went with the retiming. A dot fires as the call leaves, and at
+ * that moment nothing knows whether it will be answered, so no dot can be coloured
+ * by the outcome without waiting for it, which is the thing being fixed.
+ */
+export type PulseKind = 'delivered' | 'parked' | 'arrival';
 
 /**
  * An arrival travels the wire into the mediator rather than one of the outgoing
@@ -47,16 +59,39 @@ function drawn(delivery: DeliveryView): delivery is DeliveryView & { target: Swi
   return DRAWN.has(delivery.target);
 }
 
+/**
+ * A dot stands for a call leaving the mediator, so it is timed by the send and not
+ * by the answer. The drawing says "the hub is talking to that system now"; timed by
+ * the reply it said "the hub finished talking to that system a moment ago", which is
+ * the same picture drawn one round trip late and is wrong about the one thing the
+ * animation is for.
+ *
+ * `sentAt` and not the state, because the board arrives once a second and a delivery
+ * that answers in 300 ms is never seen in flight at all. The stamp survives into the
+ * settled row, so the dot fires on the frame where the page learns the call went
+ * out, whether or not it also learns the outcome in the same frame.
+ */
 function kindOf(delivery: DeliveryView): PulseKind | null {
-  if (delivery.state === 'done') return 'delivered';
+  // Given up on. Not a call at all but a decision, and worth its own dot: this is
+  // the moment a delivery stops moving by itself.
   if (delivery.state === 'dead') return 'parked';
-  // A queued row has not been anywhere yet, so nothing has travelled.
-  if (delivery.attempts === 0) return null;
-  return 'held';
+  // Queued and never picked up. Nothing has travelled.
+  if (delivery.sentAt === null) return null;
+  return 'delivered';
 }
 
+/**
+ * What makes one dot different from the next.
+ *
+ * The attempt counter, because a cut line produces attempt after attempt and the
+ * visitor watching an outage needs to see each retry go out. Then whether that
+ * attempt has left, so that learning the outcome of a call already drawn does not
+ * draw it a second time: `inflight` and `done` at the same attempt are one send.
+ * `dead` is kept apart because it is the one transition that is not a send.
+ */
 function signature(delivery: DeliveryView): string {
-  return `${delivery.state}:${delivery.attempts}`;
+  if (delivery.state === 'dead') return `${delivery.attempts}:dead`;
+  return `${delivery.attempts}:${delivery.sentAt === null ? 'waiting' : 'sent'}`;
 }
 
 /**
