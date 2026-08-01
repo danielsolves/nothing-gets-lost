@@ -144,10 +144,19 @@ function headlineFor(steps: OrderStep[], now: Date): string {
   }
 
   if (steps.some((s) => s.state === 'inflight')) return 'On its way';
+
+  // Counted over the steps the machine actually took on, not over the five marks the
+  // card draws. A `waiting` step has no delivery row at all, and in practice that is
+  // only ever the confirmation mail: rule 6.7 queues it once everything else is done
+  // and only for an order that carried an address, so on an order without one the row
+  // never appears. Counted as outstanding, it left every card on the page reading
+  // "Queued" underneath four green marks, for good.
+  //
   // Counted here rather than carried on the card. This line is the only thing left
   // that wants the number, and it wants it as a word.
-  if (steps.every((s) => s.state === 'done')) {
-    const all = steps.length;
+  const taken = steps.filter((s) => s.state !== 'waiting');
+  if (taken.length > 0 && taken.every((s) => s.state === 'done')) {
+    const all = taken.length;
     return `All ${COUNT_WORDS[all] ?? all} delivered`;
   }
   return 'Queued';

@@ -178,6 +178,26 @@ describe('groupIntoOrders', () => {
     expect(orders[0].headline).toMatch(/all five/i);
   });
 
+  it('calls an order delivered when the mail was never asked for', () => {
+    // The confirmation mail is queued once everything else is done and only for an
+    // order that carried an address (rule 6.7), so on an order without one the row
+    // is never created and its step stays `waiting`. Counted as outstanding, it left
+    // the card reading "Queued" under four green marks for good, and the demo's
+    // ordinary order gives no address, so that was every card on the page.
+    const [card] = group(
+      CHECKPOINTS.filter((target) => target !== 'mailer').map((t) => d('evt-1', t, 'done')),
+    );
+    expect(card.headline).toMatch(/all four delivered/i);
+  });
+
+  it('still says queued while something has genuinely not been tried', () => {
+    const [card] = group([
+      d('evt-1', 'stripe', 'done'),
+      d('evt-1', 'hubspot', 'pending', { attempts: 0 }),
+    ]);
+    expect(card.headline).toBe('Queued');
+  });
+
   it('reports an order that is mid-flight as on its way', () => {
     const [card] = group([d('evt-1', 'stripe', 'inflight', { attempts: 1 })]);
     expect(card.headline).toMatch(/on its way|going out/i);
