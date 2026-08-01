@@ -12,6 +12,11 @@
 // The head carries the order number and the moment the order arrived. It used to
 // carry the first block of the event uuid, which no visitor could say out loud, put
 // in a mail, or tell from the one above it.
+//
+// Under that, one mark per checkpoint, and each mark is that system's own: the same
+// Stripe S and HubSpot sprocket the tiles wear, so the queue and the drawing are one
+// picture seen twice. A count stood beside them for a while and has gone; five marks
+// that can each be read are already the count.
 import type { DeliveryView, OrderView } from '@ngl/contracts';
 import { groupIntoOrders, type OrderStep } from './order-cards';
 import { OrderCheck } from './OrderCheck';
@@ -66,7 +71,10 @@ export function Queue(props: {
               onClick={() => props.onToggle(order.eventId)}
             >
               <span className="order-head">
-                <span className="order-id">#{order.number}</span>
+                {/* "Order #1042" and not "#1042". The number on its own does not
+                    say what it numbers, and this is the handle a visitor reads out
+                    loud, puts in a mail, or asks the database for. */}
+                <span className="order-id">Order #{order.number}</span>
                 {/* The machine-readable instant stays in the markup whatever the
                     card decided to print, so nothing is lost by shortening it. */}
                 <time
@@ -78,23 +86,20 @@ export function Queue(props: {
                 </time>
               </span>
 
-              <span className="order-marks">
-                <span className="order-checks">
-                  {order.steps.map((step) => (
-                    <OrderCheck
-                      key={step.target}
-                      label={step.label}
-                      state={step.state}
-                      testId={`order-check-${order.eventId}-${step.target}`}
-                    />
-                  ))}
-                </span>
-                <span
-                  className="order-progress"
-                  data-testid={`order-progress-${order.eventId}`}
-                >
-                  {order.doneCount} of {order.total}
-                </span>
+              {/* No "2 of 5" beside these any more. It stood next to five marks
+                  that already said it, and a second copy of a count can only ever
+                  agree with the first one or be a bug. */}
+              <span className="order-checks">
+                {order.steps.map((step) => (
+                  <OrderCheck
+                    key={step.target}
+                    target={step.target}
+                    label={step.label}
+                    state={step.state}
+                    attempts={step.attempts}
+                    testId={`order-check-${order.eventId}-${step.target}`}
+                  />
+                ))}
               </span>
 
               <span className="order-headline" data-testid={`order-headline-${order.eventId}`}>
@@ -122,8 +127,10 @@ export function Queue(props: {
                     <div key={step.target} data-state={step.state}>
                       <dt>
                         <OrderCheck
+                          target={step.target}
                           label={step.label}
                           state={step.state}
+                          attempts={step.attempts}
                           testId={`order-step-check-${order.eventId}-${step.target}`}
                         />
                         <span className="order-step-label">{step.label}</span>
@@ -155,8 +162,8 @@ export function Queue(props: {
 }
 
 /**
- * One line per checkpoint, saying the thing a visitor would otherwise have to open
- * the SQL console to learn: how many attempts, what came back, what went wrong.
+ * One line per checkpoint, saying the thing that is otherwise only in the delivery
+ * row itself: how many attempts, what came back, what went wrong.
  */
 function describe(step: OrderStep, now: Date): string {
   switch (step.state) {

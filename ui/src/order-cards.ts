@@ -53,6 +53,30 @@ const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
 /** 'waiting' means the queue has not created the row yet, which is not a failure. */
 export type StepState = DeliveryState | 'waiting';
 
+/**
+ * What a checkpoint's mark shows, which is not quite what its row says.
+ *
+ * Five states go in and six come out, because 'pending' covers two pieces of news
+ * that a visitor would never call the same thing: a row that has been queued and not
+ * tried, and a row whose third attempt came back 503 and is sitting out its backoff.
+ * The mark is the only place that difference has ever been visible at a glance.
+ *
+ * Split off from the component so it can be checked without a browser, and so the
+ * component has one table to look up rather than a chain of ifs per state.
+ */
+export type CheckLook =
+  'waiting' | 'queued' | 'sending' | 'retrying' | 'delivered' | 'parked';
+
+export function checkLook(state: StepState, attempts: number): CheckLook {
+  switch (state) {
+    case 'waiting': return 'waiting';
+    case 'inflight': return 'sending';
+    case 'done': return 'delivered';
+    case 'dead': return 'parked';
+    default: return attempts > 0 ? 'retrying' : 'queued';
+  }
+}
+
 export interface OrderStep {
   target: Target;
   label: string;
@@ -71,8 +95,12 @@ export interface OrderCard {
   /** Null for an order that was never booked as a basket, a payment webhook being one. */
   booking: OrderBooking | null;
   steps: OrderStep[];
-  doneCount: number;
-  total: number;
+  /**
+   * There is no `doneCount` beside this, and there was. The card printed "2 of 5"
+   * next to five marks that already said it, and the owner's answer to that was
+   * "you can see it on the marks". A count nobody draws is a field that can only
+   * ever agree with the steps or be wrong about them.
+   */
   headline: string;
 }
 
@@ -99,9 +127,7 @@ function toStep(delivery: DeliveryView): OrderStep {
  * What the card says in one line. Ordered by what a visitor most needs to know:
  * something parked beats something retrying, and both beat quiet progress.
  */
-function headlineFor(
-  steps: OrderStep[], doneCount: number, total: number, now: Date,
-): string {
+function headlineFor(steps: OrderStep[], now: Date): string {
   const dead = steps.find((s) => s.state === 'dead');
   if (dead) {
     return `${dead.label} needs a human after ${dead.attempts} attempts`;
@@ -118,7 +144,12 @@ function headlineFor(
   }
 
   if (steps.some((s) => s.state === 'inflight')) return 'On its way';
-  if (doneCount === total) return `All ${COUNT_WORDS[total] ?? total} delivered`;
+  // Counted here rather than carried on the card. This line is the only thing left
+  // that wants the number, and it wants it as a word.
+  if (steps.every((s) => s.state === 'done')) {
+    const all = steps.length;
+    return `All ${COUNT_WORDS[all] ?? all} delivered`;
+  }
   return 'Queued';
 }
 
@@ -153,18 +184,13 @@ export function groupIntoOrders(
     const own = found.get('custom_webhook');
     if (own) steps.push(toStep(own));
 
-    const doneCount = steps.filter((s) => s.state === 'done').length;
-    const total = steps.length;
-
     cards.push({
       eventId: view.eventId,
       number: view.number,
       receivedAt: view.receivedAt,
       booking: view.booking,
       steps,
-      doneCount,
-      total,
-      headline: headlineFor(steps, doneCount, total, now),
+      headline: headlineFor(steps, now),
     });
   }
 

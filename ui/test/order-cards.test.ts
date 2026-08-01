@@ -13,7 +13,9 @@
 // which a delivery row knows.
 import { describe, it, expect } from 'vitest';
 import type { DeliveryView, OrderView, Target } from '@ngl/contracts';
-import { groupIntoOrders, CHECKPOINTS, type OrderCard } from '../src/order-cards';
+import {
+  checkLook, groupIntoOrders, CHECKPOINTS, type OrderCard,
+} from '../src/order-cards';
 
 let nextId = 1;
 
@@ -68,7 +70,7 @@ describe('the payment checkpoint', () => {
 
   it('draws five checkpoints and not one more', () => {
     const [card] = group([d('evt-1', 'stripe', 'done')]);
-    expect(card.total).toBe(5);
+    expect(card.steps).toHaveLength(5);
   });
 
   it('names it, so the card and the tile under the hub agree', () => {
@@ -115,17 +117,21 @@ describe('groupIntoOrders', () => {
     const [card] = group([d('evt-1', 'stripe', 'done')]);
     const mailer = card.steps.find((s) => s.target === 'mailer');
     expect(mailer?.state).toBe('waiting');
-    expect(card.total).toBe(5);
+    expect(card.steps).toHaveLength(5);
   });
 
-  it('counts how many checkpoints are through', () => {
+  it('carries no tally of its own, because the row of marks already is one', () => {
+    // "2 of 5" was printed beside five marks that said the same thing, and a second
+    // copy of a number can only ever agree with the first or be a bug. The card
+    // stopped drawing it, so the card has no reason to carry it.
     const [card] = group([
       d('evt-1', 'stripe', 'done'),
       d('evt-1', 'hubspot', 'done'),
       d('evt-1', 'slack', 'pending'),
     ]);
-    expect(card.doneCount).toBe(2);
-    expect(card.total).toBe(5);
+    expect(card).not.toHaveProperty('doneCount');
+    expect(card).not.toHaveProperty('total');
+    expect(card.steps.filter((s) => s.state === 'done')).toHaveLength(2);
   });
 
   it('says which system is holding things up and when it tries again', () => {
@@ -169,7 +175,6 @@ describe('groupIntoOrders', () => {
 
   it('says so plainly when everything is through', () => {
     const orders = group(CHECKPOINTS.map((t) => d('evt-1', t, 'done')));
-    expect(orders[0].doneCount).toBe(5);
     expect(orders[0].headline).toMatch(/all five/i);
   });
 
@@ -202,7 +207,7 @@ describe('groupIntoOrders', () => {
       d('evt-2', 'custom_webhook', 'pending'),
     ]);
     expect(with_[0].steps.map((s) => s.target)).toContain('custom_webhook');
-    expect(with_[0].total).toBe(6);
+    expect(with_[0].steps).toHaveLength(6);
   });
 
   it('heads every card with the order number, which the database can be asked for', () => {
@@ -263,5 +268,32 @@ describe('groupIntoOrders', () => {
 
   it('says nothing at all when nothing has happened', () => {
     expect(groupIntoOrders([], [])).toEqual([]);
+  });
+});
+
+describe('checkLook', () => {
+  // The mark a checkpoint wears cannot be read off the delivery state alone. A row
+  // that is pending and untried, and a row that is pending because the third attempt
+  // came back 503, are the same state and are not the same news, and the mark is the
+  // only place a visitor sees the difference at a glance.
+  const CASES = [
+    ['waiting', 0, 'waiting'],
+    ['pending', 0, 'queued'],
+    ['pending', 3, 'retrying'],
+    ['inflight', 1, 'sending'],
+    ['done', 2, 'delivered'],
+    ['dead', 6, 'parked'],
+  ] as const;
+
+  for (const [state, attempts, look] of CASES) {
+    it(`calls ${state} after ${attempts} attempts "${look}"`, () => {
+      expect(checkLook(state, attempts)).toBe(look);
+    });
+  }
+
+  it('gives the five states six looks and no two of them the same', () => {
+    // Five in, six out, because retrying is worth its own mark. None of them may
+    // collapse into another or the card loses something it used to be able to say.
+    expect(new Set(CASES.map(([s, a]) => checkLook(s, a))).size).toBe(6);
   });
 });

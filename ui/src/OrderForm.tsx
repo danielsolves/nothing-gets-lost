@@ -7,6 +7,11 @@
 // in the picture had to scroll past the entire demo to find the form, and then hand
 // over an address before anything happened at all.
 //
+// The builder unfolds rather than appearing, which is why it is in the markup whether
+// it is open or not: a block added to the page on the click has no height to grow
+// from. It uses the queue card's fold, class and all, so the page has one way of
+// opening something rather than two that drift apart.
+//
 // Both are optional now. Specification section 9.7 makes the address mandatory and
 // calls it the strongest proof, which it still is: the arrival timestamp on the
 // confirmation mail is stamped by the visitor's own provider and is the second
@@ -139,22 +144,38 @@ export function OrderForm({
     <div className="order-form">
       {/* Closed, this is the way in and carries the wire. Open, the wire moves to
           the send button inside, because that is then the thing that puts an order
-          into the machine. Whichever of the two is live wears the anchor. */}
-      {!open && (
+          into the machine. Whichever of the two is live wears the anchor.
+
+          Folded away rather than taken off the page, for the same reason the panel
+          is: closing has to run opening backwards, and a button that is put back the
+          instant the click lands is on screen while the panel is still collapsing
+          under it. Its row shuts at once when the panel opens and reopens only once
+          the panel has finished shutting, on the panel's own timing. */}
+      <div className="order-way" data-testid="order-way" data-open={open ? 'true' : 'false'}>
         <button
           type="button"
           className="stage-cta"
-          data-wire-anchor=""
+          data-wire-anchor={open ? undefined : ''}
           data-testid="create-order"
-          aria-expanded={false}
+          aria-expanded={open}
           aria-controls="order-panel"
           onClick={() => setOpen(true)}
         >
           Create order
         </button>
-      )}
+      </div>
 
-      {open && (
+      {/* Always rendered, folded shut by a grid row of 0fr, which is the same trick
+          and the same class as the queue cards: a block that is added to the page
+          when it opens has no height to grow from, so it can only appear. Shut, the
+          sheet also hides it, which is what keeps its buttons and fields out of the
+          tab order; a control clipped to no height is still tabbable. */}
+      <div
+        className="order-fold"
+        data-testid="order-fold"
+        data-open={open ? 'true' : 'false'}
+        aria-hidden={open ? undefined : 'true'}
+      >
         <div className="order-builder" id="order-panel" data-testid="order-panel">
           {/* Closing is not a decision about the order, so it does not stand next to
               the button that sends one. It sits in the corner, where leaving a panel
@@ -244,13 +265,16 @@ export function OrderForm({
           </div>
 
           {/* The send button ends the panel, bottom left. It is what the wire into
-              the mediator hangs on, and the mediator is on the left, so the order
+              the integration hub hangs on, and the hub is on the left, so the order
               leaves the drawing on the side it is going to. */}
           <div className="order-foot">
+            {/* The anchor only while the panel is open. The button is in the markup
+                the whole time so the panel has something to unfold, and a wire
+                running to a control folded out of sight would point at nothing. */}
             <button
               type="button"
               className="stage-cta"
-              data-wire-anchor=""
+              data-wire-anchor={open ? '' : undefined}
               data-testid="send-order"
               disabled={busy || emptyBasket}
               onClick={() => void send()}
@@ -265,7 +289,7 @@ export function OrderForm({
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {error && <p className="error" data-testid="order-error">{error}</p>}
     </div>

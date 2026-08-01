@@ -5,17 +5,13 @@
 // It used to be a section at the very bottom of the page called "Place your own
 // order" with a mandatory email field, so a visitor who wanted their own order in
 // the picture scrolled past the whole demo to find it and then handed over an
-// address before anything would happen at all. The form came up to the button and
-// both fields became optional. Spec 9.7 makes the address mandatory and calls it
-// the strongest proof. It still is, and the panel says so; it is no longer the
-// toll gate.
+// address before anything would happen. Spec 9.7 makes the address mandatory and
+// calls it the strongest proof. It still is, and the panel says so; it is no longer
+// the toll gate.
 //
-// Then the button sent a fixed basket on one press, with a quiet link beside it
-// that opened the detail. Two controls, and the quiet one was the interesting one:
-// a visitor pressed the loud button and never saw what they had just sent. So it is
-// two steps now. "Create order" opens the builder, the basket is on the left, who
-// it is for on the right, and the send button is inside it. Nothing leaves without
-// having been on screen first.
+// Then the button sent a fixed basket on one press, with a quiet link beside it that
+// opened the detail, and the quiet one was the interesting one: a visitor pressed the
+// loud button and never saw what went out. It is two steps now, send button last.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -68,15 +64,34 @@ describe('OrderForm', () => {
     expect(sent).toEqual([]);
   });
 
-  it('keeps the detail out of the way until it is wanted', () => {
+  it('unfolds and folds back, which is why both halves are always there', () => {
+    // Neither half is added on the click: a block added to the page then has no
+    // height to grow from and can only appear. Both stay in the markup and each has
+    // a row that folds, which is also what lets closing run opening backwards, the
+    // button's row waiting out the fold rather than coming back under a live panel.
     render(<OrderForm onPlaced={() => {}} />);
-    expect(screen.queryByTestId('order-email')).not.toBeInTheDocument();
+    const fold = screen.getByTestId('order-fold');
+    const way = screen.getByTestId('order-way');
+    expect(screen.getByTestId('order-panel')).toBeInTheDocument();
+    expect(fold).toHaveAttribute('data-open', 'false');
+    expect(fold).toHaveAttribute('aria-hidden', 'true');
+    expect(way).toHaveAttribute('data-open', 'false');
     expect(screen.getByTestId('create-order')).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByTestId('create-order'));
+    expect(fold).toHaveAttribute('data-open', 'true');
+    expect(fold).not.toHaveAttribute('aria-hidden');
+    expect(way).toHaveAttribute('data-open', 'true');
+    expect(screen.getByTestId('create-order')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('close-order'));
+    expect(fold).toHaveAttribute('data-open', 'false');
+    expect(way).toHaveAttribute('data-open', 'false');
   });
 
   it('puts the send button where the order is, not where the page begins', async () => {
     // It is the control that puts something into the machine, so it lives with the
-    // thing it is about to send and it is what the wire into the mediator hangs on.
+    // thing it is about to send and it is what the wire into the hub hangs on.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
     expect(screen.getByTestId('order-panel'))
@@ -84,13 +99,15 @@ describe('OrderForm', () => {
   });
 
   it('marks whichever control is live as the one the wire hangs on', async () => {
-    // Closed, that is the create button. Open, it is the send button. Exactly one
-    // of the two is on screen, so the drawing always has something to point at.
+    // Closed, that is the create button. Open, it is the send button. Both stay in
+    // the markup so each can fold rather than appear, so whichever is folded away
+    // gives the anchor up: a wire to a control nobody can see points at nothing.
     render(<OrderForm onPlaced={() => {}} />);
     expect(screen.getByTestId('create-order')).toHaveAttribute('data-wire-anchor');
+    expect(screen.getByTestId('send-order')).not.toHaveAttribute('data-wire-anchor');
     await openPanel();
     expect(screen.getByTestId('send-order')).toHaveAttribute('data-wire-anchor');
-    expect(screen.queryByTestId('create-order')).not.toBeInTheDocument();
+    expect(screen.getByTestId('create-order')).not.toHaveAttribute('data-wire-anchor');
   });
 
   it('can be closed again without sending anything', async () => {
@@ -274,7 +291,8 @@ describe('OrderForm', () => {
   });
 
   it('fetches the catalogue only when somebody asks to see it', () => {
-    // A visitor who never presses Create order never needs eight products.
+    // The folded panel stays empty until then: a visitor who never presses Create
+    // order never needs eight products.
     render(<OrderForm onPlaced={() => {}} />);
     expect(screen.queryByTestId('qty-TEAPOT')).not.toBeInTheDocument();
   });

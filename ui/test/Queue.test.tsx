@@ -8,9 +8,10 @@
 // what selects it, so there is one interaction rather than two competing ones and
 // the card you are reading is the one lit up in the diagram.
 //
-// The head used to be a fragment of the event uuid. It is the order number now, with
-// the moment the order arrived on the right, and the five state dots have become
-// small checkboxes that repeat in front of each system once the card is open.
+// The head used to be a fragment of the event uuid. It is the order number now, said
+// as "Order #1042" rather than as a bare number, with the moment the order arrived on
+// the right, and the five state dots have become each system's own mark, repeated in
+// front of that system once the card is open.
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
@@ -87,8 +88,10 @@ describe('Queue', () => {
   });
 
   it('heads the card with the order number rather than a piece of a uuid', () => {
+    // "Order #1042" and not "#1042". A number on its own does not say what it
+    // numbers, and this is the handle a visitor reads out loud or puts in a mail.
     render(<Queue {...props} />);
-    expect(screen.getByTestId(`order-card-${EVENT}`)).toHaveTextContent('#1042');
+    expect(screen.getByTestId(`order-card-${EVENT}`)).toHaveTextContent('Order #1042');
     expect(screen.getByTestId(`order-card-${EVENT}`)).not.toHaveTextContent('3f8a1c2d');
   });
 
@@ -103,9 +106,12 @@ describe('Queue', () => {
       .toHaveAttribute('datetime', ARRIVED.toISOString());
   });
 
-  it('counts the checkpoints that are through', () => {
+  it('prints no tally beside the marks, because the marks are the tally', () => {
+    // "2 of 5" stood next to five marks that already said it. A second copy of a
+    // count can only ever agree with the first one or be a bug.
     render(<Queue {...props} />);
-    expect(screen.getByTestId(`order-progress-${EVENT}`)).toHaveTextContent('2 of 5');
+    expect(screen.queryByTestId(`order-progress-${EVENT}`)).not.toBeInTheDocument();
+    expect(screen.getByTestId(`order-summary-${EVENT}`)).not.toHaveTextContent(/\d of \d/);
   });
 
   it('says in one line what is holding the order up', () => {
@@ -113,17 +119,29 @@ describe('Queue', () => {
     expect(screen.getByTestId(`order-headline-${EVENT}`)).toHaveTextContent(/HubSpot/);
   });
 
-  it('draws a checkbox per checkpoint, carrying its state', () => {
+  it('draws a mark per checkpoint, carrying what has happened to it', () => {
     render(<Queue {...props} />);
     const checks = screen.getAllByTestId(/^order-check-/);
     expect(checks).toHaveLength(5);
     expect(screen.getByTestId(`order-check-${EVENT}-stripe`))
-      .toHaveAttribute('data-state', 'done');
+      .toHaveAttribute('data-look', 'delivered');
+    // Three attempts in, so it is retrying and not merely queued. The card would
+    // have said the same word for both before the mark could tell them apart.
     expect(screen.getByTestId(`order-check-${EVENT}-hubspot`))
-      .toHaveAttribute('data-state', 'pending');
+      .toHaveAttribute('data-look', 'retrying');
     // Never enqueued yet, which is not the same as failed (spec 6.7).
     expect(screen.getByTestId(`order-check-${EVENT}-mailer`))
-      .toHaveAttribute('data-state', 'waiting');
+      .toHaveAttribute('data-look', 'waiting');
+  });
+
+  it('wears each system own mark, the one its tile in the drawing wears', () => {
+    // The card and the diagram are the same five systems. Anonymous boxes made a
+    // visitor open the card to learn which checkpoint was which.
+    render(<Queue {...props} />);
+    const head = screen.getByTestId(`order-summary-${EVENT}`);
+    for (const target of ['stripe', 'hubspot', 'ledger', 'slack', 'mailer']) {
+      expect(within(head).getByTestId(`mark-${target}`)).toBeInTheDocument();
+    }
   });
 
   it('never lists order mail among the systems an order is delivered to', () => {
@@ -162,10 +180,10 @@ describe('Queue', () => {
     expect(within(detail).getByText(/attempt 3/i)).toBeInTheDocument();
   });
 
-  it('repeats the same checkbox in front of each system in the detail', () => {
+  it('repeats the same mark in front of each system in the detail', () => {
     render(<Queue {...props} openOrder={EVENT} />);
     expect(screen.getByTestId(`order-step-check-${EVENT}-stripe`))
-      .toHaveAttribute('data-state', 'done');
+      .toHaveAttribute('data-look', 'delivered');
     expect(screen.getAllByTestId(/^order-step-check-/)).toHaveLength(5);
   });
 
