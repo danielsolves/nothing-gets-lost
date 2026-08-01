@@ -29,8 +29,8 @@ describe('migrations', () => {
     const names = rows.map((r) => r.table_name).sort();
     expect(names).toEqual([
       'custom_webhook', 'deliveries', 'dropped_duplicates', 'events', 'hubspot_products',
-      'invoices', 'oauth_tokens', 'orders', 'products', 'rate_limits',
-      'schema_migrations', 'sent_mail', 'slack_visitor_sends', 'switches',
+      'invoices', 'orders', 'products', 'rate_limits',
+      'schema_migrations', 'sent_mail', 'switches',
     ]);
   });
 

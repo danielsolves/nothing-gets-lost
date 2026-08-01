@@ -180,6 +180,6 @@ describe('BacklogRepository', () => {
 
   it('cannot read the tables behind the views', async () => {
     await expect(readonly.query('SELECT * FROM deliveries')).rejects.toThrow(/permission denied/i);
-    await expect(readonly.query('SELECT * FROM oauth_tokens')).rejects.toThrow(/permission denied/i);
+    await expect(readonly.query('SELECT * FROM orders')).rejects.toThrow(/permission denied/i);
   });
 });

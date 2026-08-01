@@ -6,9 +6,10 @@
 // ordinary HTTP call and experiences an ordinary failure, and it never learns
 // that somebody flipped a switch (spec 7).
 //
-// Slack and HubSpot take a resolver rather than a token, because whose account an
-// entry lands in is decided per delivery and can change while items are queued
-// (spec 9.4, 10.1).
+// Slack and HubSpot take a resolver rather than a token. It has one source now that
+// the visitor OAuth is gone, but it stays the one place the house configuration is
+// read, so the mediator and the check button on the api cannot disagree about which
+// account an entry went to.
 import { HubSpotClient, HubSpotTarget } from './hubspot.target';
 import { HubSpotOrders } from './hubspot.order';
 import { HubSpotCatalogue } from './hubspot.catalogue';
@@ -18,7 +19,6 @@ import { LedgerClient, LedgerTarget } from './ledger.target';
 import { MailerClient, MailerTarget } from './mailer.target';
 import { WebhookTarget } from './webhook.target';
 import type { CredentialResolver } from '../credentials';
-import type { SlackSendLog } from '../slack-send.log';
 import type { CatalogueLog } from '../hubspot-catalogue.log';
 import type { DeliveryTarget } from '../target.interface';
 
@@ -30,7 +30,6 @@ function via(target: string): string {
 
 export function buildTargets(
   credentials: CredentialResolver,
-  slackSendLog: SlackSendLog,
   catalogueLog: CatalogueLog,
   env: NodeJS.ProcessEnv = process.env,
   webhookUrl: () => Promise<string | null> = () => Promise.resolve(null),
@@ -41,9 +40,7 @@ export function buildTargets(
       new HubSpotOrders(via('hubspot'), new HubSpotCatalogue(via('hubspot'), catalogueLog)),
     ),
     new StripeTarget(new StripeClient(via('stripe'), env.STRIPE_SECRET_KEY ?? '')),
-    new SlackTarget(
-      new SlackClient(via('slack')), () => credentials.slack(), slackSendLog,
-    ),
+    new SlackTarget(new SlackClient(via('slack')), () => credentials.slack()),
     new LedgerTarget(new LedgerClient(via('ledger'))),
     new MailerTarget(new MailerClient(via('mailer'))),
     // The visitor's own endpoint is reached directly, not through the gate: the

@@ -64,35 +64,17 @@ export interface VerifyResponse {
   indisputable: boolean;
 }
 
-/** The two foreign timestamps that prove outage and recovery (spec 9.1). */
-export interface ProofResponse {
-  eventId: string;
-  paidAt: string | null;
-  /**
-   * Which provider stamped `paidAt`, read off the delivery that took the money
-   * rather than off what the order asked for. Null when the event has no payment
-   * leg at all, which a Stripe webhook does not: it arrives already paid.
-   */
-  paidAtSource: PaymentRoute | null;
-  /** Stripe serves one on its own domain, and anybody can open it (spec 9.2). */
-  receiptUrl: string | null;
-  mailReceivedAt: string | null;
-  mailReceivedAtSource: 'recipient mail server';
-  hubspotCreatedAt: string | null;
-  gapSeconds: number | null;
-}
-
-export interface SqlRequest { query: string }
-export interface SqlResponse {
-  columns: string[];
-  rows: unknown[][];
-  rowCount: number;
-  truncated: boolean;
-}
-
+/**
+ * Three things used to live here and all three are gone, which is worth writing
+ * down because each was a whole surface rather than a field.
+ *
+ * `ProofResponse` fed the proof chain panel, the two foreign timestamps of spec 9.1
+ * with the measured gap between them. `SqlRequest` and `SqlResponse` fed the public
+ * SQL console. `ConnectionsResponse` said whether a visitor had connected their own
+ * Slack or HubSpot. The OAuth went first, and the console and the panel followed for
+ * the same reason: what a stranger can actually check is the Stripe receipt on
+ * stripe.com, the confirmation mail in their own inbox, the deliveries arriving at
+ * their own endpoint, and the backlog through the MCP server. Everything else was a
+ * screen of ours asking to be believed.
+ */
 export interface WebhookTargetRequest { url: string }
-export interface ConnectionsResponse {
-  slack: { connected: boolean; expiresAt: string | null };
-  hubspot: { connected: boolean; expiresAt: string | null };
-  customWebhook: { url: string | null };
-}

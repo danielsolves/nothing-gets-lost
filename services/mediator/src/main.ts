@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { getPool, TokenStore, tokenKeyFromEnv } from '@ngl/db';
+import { getPool } from '@ngl/db';
 import { EnqueueController, INTAKE_SERVICE } from './enqueue.controller';
 import { IntakeService } from './intake.service';
 import { QueueRepository } from './queue.repository';
@@ -17,7 +17,6 @@ import { WorkerService } from './worker.service';
 import { buildTargets } from './targets';
 import { assertTestMode } from './stripe.webhook';
 import { CredentialResolver } from './credentials';
-import { PgSlackSendLog } from './slack-send.log';
 import { PgCatalogueLog } from './hubspot-catalogue.log';
 
 const PORT = 3002;
@@ -54,23 +53,19 @@ async function bootstrap(): Promise<void> {
     return rows[0]?.url ?? null;
   };
 
-  // Whose Slack and whose HubSpot an entry lands in is read from the database on
-  // every delivery, so connecting or disconnecting in the api takes effect on the
-  // next attempt without restarting this process.
-  const credentials = new CredentialResolver(
-    {
-      slackToken: process.env.SLACK_BOT_TOKEN ?? '',
-      slackChannel: process.env.SLACK_CHANNEL_ID ?? '',
-      hubspotToken: process.env.HUBSPOT_TOKEN ?? '',
-    },
-    new TokenStore(pool, tokenKeyFromEnv()),
-  );
+  // One account per system, the house one. A visitor used to be able to point Slack
+  // and HubSpot at their own, which is why this used to read the database on every
+  // delivery; that is gone and what replaced it is the endpoint above, which is
+  // still read fresh every time.
+  const credentials = new CredentialResolver({
+    slackToken: process.env.SLACK_BOT_TOKEN ?? '',
+    slackChannel: process.env.SLACK_CHANNEL_ID ?? '',
+    hubspotToken: process.env.HUBSPOT_TOKEN ?? '',
+  });
 
   const worker = new WorkerService(
     queue,
-    buildTargets(
-      credentials, new PgSlackSendLog(pool), new PgCatalogueLog(pool), process.env, webhookUrl,
-    ),
+    buildTargets(credentials, new PgCatalogueLog(pool), process.env, webhookUrl),
     pool,
     new CompletionService(pool),
   );

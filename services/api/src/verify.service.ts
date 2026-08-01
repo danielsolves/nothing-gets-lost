@@ -5,12 +5,11 @@
 // a sceptic is right that we could render anything. Saying that on the page costs
 // nothing and buys the credibility of everything we DO claim is unfalsifiable.
 //
-// Once the visitor connects their own workspace that reverses: the entry sits in a
-// system they control, so it becomes a proof (spec 9.2). For HubSpot we can still
-// read it back, with their token, because their portal granted contacts.read. For
-// Slack we cannot and should not: we asked for chat:write and incoming-webhook, and
-// nothing that reads a channel. Pointing them at their own Slack is the honest
-// answer, and it happens to be the stronger one.
+// It used to reverse for a visitor who had connected their own workspace, because
+// the entry then sat in a system they control. That path is gone with the OAuth, so
+// HubSpot and Slack are read back through our own accounts and are labelled as our
+// own claim, always. What a visitor can still have in a system we do not control is
+// their own endpoint, which is in the set below.
 import type { Pool } from 'pg';
 import { upstreamUrl, type Target, type VerifyResponse } from '@ngl/contracts';
 import type { HubSpotClient } from '../../mediator/src/targets/hubspot.target';
@@ -44,7 +43,10 @@ export class VerifyService {
 
   async verify(target: Target, eventId: string): Promise<VerifyResponse> {
     const delivery = await this.deliveries.find(eventId, target);
-    let indisputable = INDISPUTABLE.has(target);
+    // Decided once, from the set alone. It used to be reassigned further down: a
+    // read-back on a portal the visitor had connected became indisputable, because
+    // the record was then in a system they controlled. Nothing flips it any more.
+    const indisputable = INDISPUTABLE.has(target);
 
     if (target === 'stripe') {
       return {
@@ -59,8 +61,6 @@ export class VerifyService {
 
     if (target === 'hubspot') {
       const creds = await this.credentials.hubspot();
-      // Their portal, their login, their record. That is a proof, not an indication.
-      indisputable = creds.visitor;
       const id = delivery?.remoteRef;
       if (!id) {
         return {
@@ -86,23 +86,6 @@ export class VerifyService {
 
     if (target === 'slack') {
       const creds = await this.credentials.slack();
-      if (creds.visitor) {
-        // No read scope in their workspace, by choice. The message is already where
-        // they can see it, which is more than a rendered read-back would prove.
-        return {
-          target, indisputable: true,
-          requestUrl: '', httpStatus: delivery ? 200 : 404,
-          remoteRef: delivery?.remoteRef ?? null,
-          remoteAt: delivery?.remoteAt?.toISOString() ?? null,
-          rawBody: {
-            note: 'Delivered into your own Slack workspace. This demo asked for ' +
-              'permission to post and none to read, so it cannot show you the ' +
-              'message here. Open the channel you picked while connecting: the ' +
-              'message carries the delivery id below.',
-            deliveryId: `${eventId}:slack`,
-          },
-        };
-      }
       const history = await this.clients.slack.history(creds, `${eventId}:slack`);
       return {
         target, indisputable,

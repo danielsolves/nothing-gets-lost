@@ -150,15 +150,16 @@ services:
     env_file: *env-file
     environment:
       <<: *db-env
-      # A second role for the public SQL console: read-only, four views, nothing
-      # else. Created by migration 005, so it exists by the time this starts.
-      DATABASE_URL_READONLY: postgres://ngl_ro:${DATABASE_READONLY_PASSWORD:-ngl_ro}@db:5432/ngl
+      # The read-only url is not passed here any more. It belonged to the public SQL
+      # console, and the console has gone: the read-only role now has exactly one
+      # user, the mcp service below.
+      #
       # The model key is passed straight through. The page derives what it says
       # about the extraction from whether this is set, so there is no second
       # label to keep in sync and no way for the two to disagree.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # Where the OAuth callbacks and the Stripe webhook come back to. Behind a
-      # domain this is the public https url, not localhost.
+      # Where the Stripe webhook comes back to. Behind a domain this is the public
+      # https url, not localhost.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
     # Published so a reverse proxy, or a curl, can reach the api without the page.
     # The host side is a variable because a shared machine has its own idea of what

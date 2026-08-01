@@ -140,29 +140,10 @@ describe('schema guarantees', () => {
     expect(rows[0].payment_route).toBe('stripe');
   });
 
-  it('allows only one slack send marker per event', async () => {
-    const eventId = await newEvent('evt_one_marker');
-    await pool.query(
-      `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)`,
-      [eventId, `${eventId}:slack`],
-    );
-    await expect(
-      pool.query(
-        `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)`,
-        [eventId, `${eventId}:slack`],
-      ),
-    ).rejects.toThrow(/duplicate key/);
-  });
-
-  it('starts a slack send marker with no message timestamp', async () => {
-    const eventId = await newEvent('evt_marker_open');
-    const { rows } = await pool.query<{ message_ts: string | null }>(
-      `INSERT INTO slack_visitor_sends (event_id, marker) VALUES ($1, $2)
-       RETURNING message_ts`,
-      [eventId, `${eventId}:slack`],
-    );
-    expect(rows[0].message_ts).toBeNull();
-  });
+  // Two tests stood here, pinning the UNIQUE and the open message timestamp on
+  // slack_visitor_sends. That table remembered a send into a visitor's own Slack,
+  // because we held permission to post there and none to read. The visitor OAuth is
+  // gone and migration 015 drops the table, so both claims are about nothing.
 
   it('exposes the five read-only views', async () => {
     const { rows } = await pool.query<{ table_name: string }>(

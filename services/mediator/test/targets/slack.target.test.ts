@@ -1,18 +1,17 @@
 // services/mediator/test/targets/slack.target.test.ts
-// Two paths, because they hold different scopes (spec 6.5, 10.1).
+// One path now, into the workspace this demo owns (spec 6.5): our own app, with
+// channels:history granted, so the delivery reads the channel back and recognises
+// its own marker before posting.
 //
-// House workspace: our own app, channels:history granted, so the delivery reads the
-// channel back and recognises its own marker.
-//
-// Visitor workspace: chat:write and incoming-webhook only. No history to read, so the
-// send log does the remembering. The case worth staring at is the last one: a worker
-// that died mid-call leaves nobody who can say whether the message landed, and the
-// answer there is a dead letter, not a second post into a stranger's Slack.
+// There was a second path and a second describe block here, for a visitor who had
+// connected their own workspace. It held chat:write and no read scope, so a send log
+// did the remembering, and its most interesting case was a worker that died mid-call
+// leaving nobody able to say whether the message landed: that delivery was parked
+// rather than posted twice into a stranger's Slack. The visitor OAuth is gone, so
+// both the path and the send log went with it.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SlackTarget, SlackClient } from '../../src/targets/slack.target';
 import type { SlackCredentials } from '../../src/credentials';
-import type { BeginResult, SlackSendLog } from '../../src/slack-send.log';
-import { isTerminal } from '../../src/target.interface';
 
 class FakeSlack {
   posted: Array<{ text: string; ts: string; channel: string; token: string }> = [];
@@ -35,59 +34,24 @@ class FakeSlack {
   };
 }
 
-/** Stands in for the table. The durable version is pinned in slack-send.log.test.ts. */
-class FakeSendLog implements SlackSendLog {
-  rows = new Map<string, { messageTs: string | null }>();
-  markers: string[] = [];
-
-  async begin(eventId: string, marker: string): Promise<BeginResult> {
-    this.markers.push(marker);
-    const existing = this.rows.get(eventId);
-    if (!existing) {
-      this.rows.set(eventId, { messageTs: null });
-      return { status: 'fresh' };
-    }
-    if (existing.messageTs) return { status: 'sent', messageTs: existing.messageTs };
-    return { status: 'unknown' };
-  }
-
-  async complete(eventId: string, messageTs: string): Promise<void> {
-    this.rows.set(eventId, { messageTs });
-  }
-
-  async abandon(eventId: string): Promise<void> {
-    if (!this.rows.get(eventId)?.messageTs) this.rows.delete(eventId);
-  }
-}
-
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status, headers: { 'content-type': 'application/json' },
   });
 }
 
-const HOUSE: SlackCredentials = {
-  token: 'xoxb-house', channel: 'C-HOUSE', visitor: false,
-};
-const THEIRS: SlackCredentials = {
-  token: 'xoxb-theirs', channel: 'C-THEIRS', visitor: true,
-};
+const HOUSE: SlackCredentials = { token: 'xoxb-house', channel: 'C-HOUSE' };
 
 let api: FakeSlack;
-let log: FakeSendLog;
 
-function targetFor(creds: SlackCredentials, fetcher = api.fetch): SlackTarget {
+function targetFor(fetcher = api.fetch): SlackTarget {
   return new SlackTarget(
     new SlackClient('http://gate/proxy/slack', fetcher),
-    async () => creds,
-    log,
+    async () => HOUSE,
   );
 }
 
-beforeEach(() => {
-  api = new FakeSlack();
-  log = new FakeSendLog();
-});
+beforeEach(() => { api = new FakeSlack(); });
 
 const ctx = {
   eventId: 'evt-7',
@@ -95,20 +59,25 @@ const ctx = {
   payload: { customerName: 'M. Berger', totalCents: 4900 },
 };
 
-describe('SlackTarget, house workspace', () => {
+describe('SlackTarget', () => {
   it('posts a message and returns the slack timestamp', async () => {
-    const outcome = await targetFor(HOUSE).deliver(ctx);
+    const outcome = await targetFor().deliver(ctx);
     expect(outcome.remoteRef).toMatch(/^\d+\.\d+$/);
     expect(api.posted).toHaveLength(1);
   });
 
   it('embeds the delivery marker so a retry can recognise its own message', async () => {
-    await targetFor(HOUSE).deliver(ctx);
+    await targetFor().deliver(ctx);
     expect(api.posted[0].text).toContain('evt-7:slack');
   });
 
+  it('reads the channel back before posting', async () => {
+    await targetFor().deliver(ctx);
+    expect(api.historyCalls).toBe(1);
+  });
+
   it('does not post twice when the delivery is retried', async () => {
-    const target = targetFor(HOUSE);
+    const target = targetFor();
     const first = await target.deliver(ctx);
     const second = await target.deliver(ctx);
     expect(api.posted).toHaveLength(1);
@@ -116,57 +85,33 @@ describe('SlackTarget, house workspace', () => {
   });
 
   it('throws when slack answers not ok', async () => {
-    const target = targetFor(HOUSE, async () => json({ ok: false, error: 'channel_not_found' }));
+    const target = targetFor(async () => json({ ok: false, error: 'channel_not_found' }));
     await expect(target.deliver(ctx)).rejects.toThrow(/channel_not_found/);
   });
 
   it('throws when slack is unreachable', async () => {
-    const target = targetFor(HOUSE, async () => { throw new TypeError('fetch failed'); });
+    const target = targetFor(async () => { throw new TypeError('fetch failed'); });
     await expect(target.deliver(ctx)).rejects.toThrow(/fetch failed/);
   });
 
   it('posts with the house token into the house channel', async () => {
-    await targetFor(HOUSE).deliver(ctx);
+    await targetFor().deliver(ctx);
     expect(api.posted[0].channel).toBe('C-HOUSE');
     expect(api.posted[0].token).toBe('Bearer xoxb-house');
   });
-});
 
-describe('SlackTarget, visitor workspace', () => {
-  it('posts with the visitor token into the channel they picked', async () => {
-    await targetFor(THEIRS).deliver(ctx);
-    expect(api.posted[0].channel).toBe('C-THEIRS');
-    expect(api.posted[0].token).toBe('Bearer xoxb-theirs');
-  });
-
-  it('never reads their channel history, which we hold no scope for', async () => {
-    await targetFor(THEIRS).deliver(ctx);
-    expect(api.historyCalls).toBe(0);
-  });
-
-  it('remembers the send under the same key every retry carries', async () => {
-    await targetFor(THEIRS).deliver(ctx);
-    expect(log.markers).toEqual(['evt-7:slack']);
-  });
-
-  it('says the connection ends by itself', async () => {
-    await targetFor(THEIRS).deliver(ctx);
-    expect(api.posted[0].text).toMatch(/24 hours/);
-  });
-
-  it('does not post twice when the delivery is retried', async () => {
-    const target = targetFor(THEIRS);
-    const first = await target.deliver(ctx);
-    const second = await target.deliver(ctx);
-    expect(api.posted).toHaveLength(1);
-    expect(second.remoteRef).toBe(first.remoteRef);
+  // The message no longer explains that a connection removes itself after 24 hours,
+  // because there is no connection to remove. Pinned so the sentence cannot come
+  // back with nothing behind it.
+  it('says nothing about a connection the visitor has to end', async () => {
+    await targetFor().deliver(ctx);
+    expect(api.posted[0].text).not.toMatch(/24 hours/);
+    expect(api.posted[0].text).not.toMatch(/disconnect/i);
   });
 
   it('lets a cut line heal instead of stranding the delivery', async () => {
-    // The control panel demo, with their own Slack connected: the gate destroys the
-    // socket, the attempt fails, and the next one must be free to post.
     let cut = true;
-    const target = targetFor(THEIRS, async (url, init) => {
+    const target = targetFor(async (url, init) => {
       if (cut) throw new TypeError('fetch failed');
       return api.fetch(url, init);
     });
@@ -175,16 +120,5 @@ describe('SlackTarget, visitor workspace', () => {
     cut = false;
     await expect(target.deliver(ctx)).resolves.toBeDefined();
     expect(api.posted).toHaveLength(1);
-  });
-
-  it('parks the delivery when a dead worker left the outcome unknown', async () => {
-    // begin() ran, the call went out, and the worker died before either complete()
-    // or abandon(). Nobody alive knows whether the message landed.
-    await log.begin(ctx.eventId, ctx.idempotencyKey);
-
-    const error = await targetFor(THEIRS).deliver(ctx).catch((e: unknown) => e);
-    expect(isTerminal(error)).toBe(true);
-    expect((error as Error).message).toMatch(/could not be confirmed/i);
-    expect(api.posted).toHaveLength(0);
   });
 });

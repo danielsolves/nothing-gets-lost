@@ -7,18 +7,11 @@ import { describe, it, expect } from 'vitest';
 import { TARGETS } from '@ngl/contracts';
 import { buildTargets } from '../../src/targets/index';
 import { CredentialResolver } from '../../src/credentials';
-import type { SlackSendLog } from '../../src/slack-send.log';
 import type { CatalogueLog } from '../../src/hubspot-catalogue.log';
 
 const credentials = new CredentialResolver({
   slackToken: '', slackChannel: '', hubspotToken: '',
 });
-
-const sendLog: SlackSendLog = {
-  async begin() { return { status: 'fresh' }; },
-  async complete() { /* nothing to record in this test */ },
-  async abandon() { /* nothing to record in this test */ },
-};
 
 const catalogueLog: CatalogueLog = {
   async claim() { return { status: 'fresh' }; },
@@ -30,7 +23,7 @@ describe('buildTargets', () => {
   it('wires one target for every name the contract knows', () => {
     // A queued delivery whose target is not in this list is marked failed by the
     // worker and retries its way into the dead letter box for no reason at all.
-    const built = buildTargets(credentials, sendLog, catalogueLog, {});
+    const built = buildTargets(credentials, catalogueLog, {});
     expect(built.map((target) => target.target).sort()).toEqual([...TARGETS].sort());
   });
 
@@ -38,6 +31,6 @@ describe('buildTargets', () => {
     // Not the same claim as the one above, which counts names. This one is about
     // credentials: an unset key has to fail the delivery that needs it, where a
     // visitor can read the reason, and not the process that carries the other five.
-    expect(() => buildTargets(credentials, sendLog, catalogueLog, {})).not.toThrow();
+    expect(() => buildTargets(credentials, catalogueLog, {})).not.toThrow();
   });
 });

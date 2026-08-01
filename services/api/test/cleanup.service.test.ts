@@ -1,7 +1,10 @@
 // services/api/test/cleanup.service.test.ts
-// Pins the nightly tidy-up of spec 14: a visitor's address is gone a day later,
-// a fresh one is untouched, the order row itself survives, and lapsed OAuth
-// tokens leave the disk rather than merely being ignored.
+// Pins the nightly tidy-up of spec 14: a visitor's address is gone a day later, a
+// fresh one is untouched, and the order row itself survives.
+//
+// It swept lapsed OAuth tokens as well, so that "deleted after 24 hours" was true of
+// the disk and not only of the answer. The visitor OAuth is gone and migration 015
+// drops the table, so there is nothing left of that half to pin.
 //
 // The address is written three times: in orders, in the event payload the deliveries
 // read from, and in the mailer's own send record. The promise under the order form is
@@ -27,7 +30,7 @@ beforeAll(async () => {
 afterAll(async () => { await pool.end(); await container.stop(); });
 // sent_mail carries no foreign key to events, so the cascade does not reach it.
 beforeEach(async () => {
-  await pool.query('TRUNCATE events CASCADE; TRUNCATE oauth_tokens; TRUNCATE sent_mail;');
+  await pool.query('TRUNCATE events CASCADE; TRUNCATE sent_mail;');
 });
 
 async function seedOrder(ageHours: number): Promise<void> {
@@ -210,13 +213,4 @@ describe('CleanupService', () => {
     expect(await cleanup.run()).toBe(0);
   });
 
-  it('purges expired oauth tokens', async () => {
-    await pool.query(
-      `INSERT INTO oauth_tokens (provider, encrypted, iv, auth_tag, expires_at)
-       VALUES ('slack', '\\x00', '\\x00', '\\x00', now() - interval '1 hour')`,
-    );
-    await cleanup.run();
-    const { rows } = await pool.query('SELECT count(*) FROM oauth_tokens');
-    expect(Number(rows[0].count)).toBe(0);
-  });
 });

@@ -1,24 +1,22 @@
 // services/mediator/src/targets/slack.target.ts
-// Posts the notification, into our workspace or into the visitor's own (spec 10.1).
+// Posts the notification into the workspace this demo owns (spec 10.1).
 //
 // Slack has neither idempotency keys nor a natural key, so the delivery embeds its
-// own marker in the message text. How that marker is checked depends on whose
-// workspace it is, because the two hold different scopes:
+// own marker in the message text and the channel is read back before posting. That
+// is the technique spec 6.5 assigns to Slack, and it leaves a narrow window between
+// the read and the post.
 //
-//   house    our app, channels:history granted, so read the channel back before
-//            posting. That is the technique spec 6.5 assigns to Slack.
-//   visitor  chat:write and incoming-webhook only. Asking a stranger for read
-//            access to their channel so that we can save ourselves a database row
-//            is the wrong trade, so the send log remembers instead.
+// There was a second path, for a visitor who had connected their own workspace. It
+// held chat:write and no read scope, so it remembered in a database row what it
+// could not go and look up, and an interrupted send there could only be parked. The
+// visitor OAuth is gone and so is that path, along with the send log it needed.
 //
-// Both are weaker than Stripe's guarantee and both are documented as such. For a
+// This one is weaker than Stripe's guarantee and is documented as such. For a
 // notification that is the right trade; for the invoice it would not be, which is
 // why the ledger uses a database constraint instead.
 import { CALLER_TIMEOUT_MS } from '@ngl/contracts';
 import type { DeliveryContext, DeliveryOutcome, DeliveryTarget } from '../target.interface';
-import { UnresolvableDelivery } from '../target.interface';
 import type { SlackCredentials } from '../credentials';
-import type { SlackSendLog } from '../slack-send.log';
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -73,65 +71,21 @@ export class SlackTarget implements DeliveryTarget {
   constructor(
     private readonly client: SlackClient,
     private readonly credentials: () => Promise<SlackCredentials>,
-    private readonly sendLog: SlackSendLog,
   ) {}
 
   async deliver(ctx: DeliveryContext): Promise<DeliveryOutcome> {
     const creds = await this.credentials();
-    return creds.visitor
-      ? this.deliverToVisitor(creds, ctx)
-      : this.deliverToHouse(creds, ctx);
-  }
-
-  private async deliverToHouse(
-    creds: SlackCredentials, ctx: DeliveryContext,
-  ): Promise<DeliveryOutcome> {
     const existing = await this.client.history(creds, ctx.idempotencyKey);
     if (existing.ts) return outcome(existing.ts);
 
-    const posted = await this.client.post(creds, this.text(ctx, false));
+    const posted = await this.client.post(creds, this.text(ctx));
     return outcome(posted.ts);
   }
 
-  private async deliverToVisitor(
-    creds: SlackCredentials, ctx: DeliveryContext,
-  ): Promise<DeliveryOutcome> {
-    const claim = await this.sendLog.begin(ctx.eventId, ctx.idempotencyKey);
-    if (claim.status === 'sent') return outcome(claim.messageTs);
-    if (claim.status === 'unknown') {
-      throw new UnresolvableDelivery(
-        'A message was sent to your Slack workspace but the outcome could not be ' +
-        'confirmed, because this worker stopped mid-call and the demo holds no ' +
-        'permission to read your channel. Parked rather than posted twice.',
-      );
-    }
-
-    let posted: { ts: string };
-    try {
-      posted = await this.client.post(creds, this.text(ctx, true));
-    } catch (error) {
-      // We are alive to handle this, so the post did not happen. Clearing the claim
-      // is what lets the cut connection heal on the next attempt like every other
-      // target does. Only a worker that dies before reaching here leaves it standing.
-      await this.sendLog.abandon(ctx.eventId);
-      throw error;
-    }
-
-    await this.sendLog.complete(ctx.eventId, posted.ts);
-    return outcome(posted.ts);
-  }
-
-  private text(ctx: DeliveryContext, visitor: boolean): string {
+  private text(ctx: DeliveryContext): string {
     const payload = ctx.payload as NotifyPayload;
     const amount = (payload.totalCents / 100).toFixed(2);
-    const line = `New order from ${payload.customerName} — EUR ${amount}  \`${ctx.idempotencyKey}\``;
-    if (!visitor) return line;
-    // Spec 10.1: their first message has to say what just happened and that the
-    // connection ends on its own. Said on every message rather than only the first,
-    // because remembering which one was first is state we do not need.
-    return `${line}\nSent by the Nothing Gets Lost demo, which you connected to this ` +
-      'workspace. The connection removes itself within 24 hours, or right away with ' +
-      'the Disconnect button on the page.';
+    return `New order from ${payload.customerName} — EUR ${amount}  \`${ctx.idempotencyKey}\``;
   }
 }
 

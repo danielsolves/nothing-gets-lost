@@ -1,9 +1,12 @@
 // services/api/src/cleanup.service.ts
-// Nightly tidy-up (spec 14). Visitor email addresses and OAuth tokens live 24 hours.
+// Nightly tidy-up (spec 14). A visitor's email address lives 24 hours.
 //
-// The order row survives with its address replaced, and so do the delivery history
-// and the proof log. Only the address goes, so the pipeline stays readable for
-// anyone still looking at it, without keeping a list of who visited.
+// It swept stored OAuth tokens as well, until the visitor OAuth was removed. The
+// table they lived in is gone with it, so there is nothing left here to sweep.
+//
+// The order row survives with its address replaced, and so does the delivery
+// history. Only the address goes, so the pipeline stays readable for anyone still
+// looking at it, without keeping a list of who visited.
 //
 // The address is stored three times. orders.customer_email is the copy a reader sees,
 // events.payload is the copy the deliveries were built from, and sent_mail.recipient
@@ -69,10 +72,6 @@ export class CleanupService {
           AND recipient <> $1`,
       [ERASED],
     );
-    const tokens = await this.pool.query(
-      'DELETE FROM oauth_tokens WHERE expires_at <= now()',
-    );
-    return (orders.rowCount ?? 0) + (events.rowCount ?? 0)
-      + (mail.rowCount ?? 0) + (tokens.rowCount ?? 0);
+    return (orders.rowCount ?? 0) + (events.rowCount ?? 0) + (mail.rowCount ?? 0);
   }
 }

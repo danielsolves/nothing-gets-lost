@@ -3,9 +3,11 @@
 // retried delivery must find the contact by email and patch it, never create a
 // second one. A fake stands in for api.hubapi.com so no test touches the network.
 //
-// The visitor's own portal needs nothing extra for that (spec 9.4): the email
-// address is just as natural a key over there. Only the token changes, and the call
-// still goes through the egress gate so the control panel keeps working.
+// It used to be handed a visitor's own portal token as well, and the claim then was
+// that nothing extra was needed for it: the email address is just as natural a key
+// over there. That connection is gone. What the tests below still hold is the part
+// that outlived it, that the target sends whichever token it is given and always
+// through the egress gate, so the control panel keeps working.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HubSpotTarget, HubSpotClient } from '../../src/targets/hubspot.target';
 import type { HubSpotCredentials } from '../../src/credentials';
@@ -71,8 +73,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-const HOUSE: HubSpotCredentials = { token: 'pat-house', visitor: false };
-const THEIRS: HubSpotCredentials = { token: 'pat-theirs', visitor: true };
+const HOUSE: HubSpotCredentials = { token: 'pat-house' };
+// The portal a visitor had connected. There is no such thing any more, so this is
+// only a second token, kept because the target must still send whatever token it is
+// handed rather than one of its own.
+const OTHER: HubSpotCredentials = { token: 'pat-other' };
 
 let api: FakeHubSpot;
 let target: HubSpotTarget;
@@ -131,28 +136,28 @@ describe('HubSpotTarget', () => {
     expect(found.total).toBe(1);
   });
 
-  it('writes with the house token when the visitor connected nothing', async () => {
+  it('writes with the token the resolver handed it', async () => {
     await target.deliver(ctx('m@example.com'));
     expect(api.calls.every((c) => c.token === 'Bearer pat-house')).toBe(true);
   });
 
-  it('writes into the visitor portal with their own token', async () => {
-    await targetFor(THEIRS).deliver(ctx('m@example.com'));
-    expect(api.calls.every((c) => c.token === 'Bearer pat-theirs')).toBe(true);
+  it('sends whatever token it was handed, rather than one of its own', async () => {
+    await targetFor(OTHER).deliver(ctx('m@example.com'));
+    expect(api.calls.every((c) => c.token === 'Bearer pat-other')).toBe(true);
   });
 
-  it('still goes through the egress gate for the visitor portal', async () => {
+  it('goes through the egress gate whichever token it carries', async () => {
     // Otherwise "cut the connection to HubSpot" would quietly stop being true for
-    // anyone who connected their own portal, which is the one visitor most likely
-    // to look closely.
-    await targetFor(THEIRS).deliver(ctx('m@example.com'));
+    // some deliveries, and a switch that is true only sometimes is worse than no
+    // switch at all.
+    await targetFor(OTHER).deliver(ctx('m@example.com'));
     expect(api.calls.every((c) => c.url.startsWith('http://gate/proxy/hubspot'))).toBe(true);
   });
 
-  it('creates one contact in the visitor portal even when retried', async () => {
-    const theirs = targetFor(THEIRS);
-    await theirs.deliver(ctx('m@example.com'));
-    const second = await theirs.deliver(ctx('m@example.com'));
+  it('creates one contact under a second token even when retried', async () => {
+    const other = targetFor(OTHER);
+    await other.deliver(ctx('m@example.com'));
+    const second = await other.deliver(ctx('m@example.com'));
     expect(second.remoteRef).toBe('contact-1');
     expect(api.contacts.size).toBe(1);
   });
