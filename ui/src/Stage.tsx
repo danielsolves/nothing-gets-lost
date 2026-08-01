@@ -41,7 +41,7 @@ export function Stage() {
       <p className="sub" data-testid="stage-intro">
         Today, many businesses rely on different systems to handle payments, customer
         relationships, invoicing, and communication. Each system can work perfectly
-        well on its own. Problems begin when information needs to move between them.
+        well on its own. Problems begin when one of those systems cannot be reached.
       </p>
 
       <p className="sub">

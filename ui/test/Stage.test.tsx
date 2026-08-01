@@ -51,7 +51,7 @@ describe('Stage', () => {
     render(<Stage />);
     const intro = screen.getByTestId('stage-intro');
     expect(intro).toHaveTextContent(/work perfectly well on its own/i);
-    expect(intro).toHaveTextContent(/move between them/i);
+    expect(intro).toHaveTextContent(/cannot be reached/i);
   });
 
   it('says which way the demo can be broken without pointing at a tile', () => {
