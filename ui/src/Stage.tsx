@@ -22,7 +22,11 @@ export function Stage(props: { connected: boolean; viewers: number }) {
     <header className="stage">
       <p className="stage-who">Daniel Froemmig, integration engineer</p>
 
-      <h1>Nothing gets lost. Not even when you break it.</h1>
+      {/* It read "Nothing gets lost. Not even when you break it." for a long time,
+          which is the claim the machine below demonstrates rather than the thing on
+          offer. A visitor arriving from a case list is deciding whether to hire
+          somebody, so the heading says what that person does. */}
+      <h1>I bring your business systems together in one reliable workflow.</h1>
 
       {/* The problem first, then what was built for it. It read the other way round
           for a long time, opening on five systems and a queue, which is an answer to

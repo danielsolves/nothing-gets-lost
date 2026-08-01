@@ -159,7 +159,9 @@ body {
 
 .stage h1 {
   margin: 0;
-  max-width: 20ch;
+  /* Wide enough for the heading to fall in three lines rather than five. It was 20ch
+     for a claim of six short words; this one is a sentence. */
+  max-width: 26ch;
   font-size: var(--fs-display);
   line-height: 0.98;
   letter-spacing: -0.03em;
@@ -1969,11 +1971,16 @@ body {
   color: var(--faint);
 }
 
-/* Scrolls rather than growing, but tall enough that scrolling is the exception. At
-   16rem it showed four and a half products of eight, and a list cut through the
-   middle of a row reads as a rendering fault rather than as more below. */
+/* Five products whole and a strip of the sixth. The strip is the point: a list that
+   ends flush on a row boundary looks finished, and the three products below it are
+   then only found by somebody who tries scrolling a thing that does not look
+   scrollable. Cut through the middle of a row it read as a rendering fault instead.
+
+   This is also what sets the height of the whole builder. The right-hand column is
+   shorter than this and only stretches to match, so a row taken off here is a row
+   off the panel. */
 .order-basket .catalog {
-  max-height: 26rem;
+  max-height: 320px;
   overflow-y: auto;
   padding-right: 4px;
 }

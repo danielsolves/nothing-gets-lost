@@ -29,10 +29,13 @@ afterEach(() => { vi.unstubAllGlobals(); });
 const props = { connected: true, viewers: 1 };
 
 describe('Stage', () => {
-  it('makes the claim before anything else', () => {
+  it('says what the person behind the page does, before demonstrating it', () => {
+    // It read "Nothing gets lost. Not even when you break it.", which is the claim
+    // the machine below demonstrates rather than the thing on offer. A visitor
+    // arriving from a case list is deciding whether to hire somebody.
     render(<Stage {...props} />);
     expect(screen.getByRole('heading', { level: 1 }))
-      .toHaveTextContent(/nothing gets lost/i);
+      .toHaveTextContent(/bring your business systems together/i);
   });
 
   it('says the systems are real and running now', () => {
