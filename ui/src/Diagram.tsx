@@ -53,10 +53,13 @@ export function Diagram(props: {
    */
   orderForm?: React.ReactNode;
   /**
-   * Specification 8.5 wants the one replayed step said out loud. It used to be a
-   * banner under the whole machine, which is the part of a page nobody reads, and
-   * then a note on the order-mail tile. That tile is gone, so it says its piece
-   * beside the button whose odd orders are the thing the model reads.
+   * Specification 8.5 wants the one replayed step said out loud. It was a banner
+   * under the whole machine, then a note on the order-mail tile, then a line beside
+   * the send button. Each move was towards the place it is true, and beside the
+   * button it was still not: it sat next to the ordinary order, which never touches
+   * the model, and read as a caveat about the whole machine.
+   *
+   * It is on the two menu entries that are read by the model, and nowhere else.
    */
   extractorMode?: 'live' | 'recorded';
 }) {
@@ -131,7 +134,9 @@ export function Diagram(props: {
     items: ORDER_WAYS.filter((way) => way.kind !== null).map((way) => ({
       id: way.id,
       label: way.label,
-      means: way.means,
+      means: props.extractorMode === 'recorded'
+        ? `${way.means}. Replayed here: no model key is configured`
+        : way.means,
       run: () => fire('entry', way.kind as ChaosKind),
     })),
   };
@@ -154,9 +159,9 @@ export function Diagram(props: {
       <header className="machine-head" data-testid="machine-head">
         <h2 className="machine-title">One order, five real systems</h2>
         <p className="machine-lede">
-          Press the button. The mediator takes the order, calls each system in turn and
-          writes down what came back. Open any system to break it, then press again and
-          watch where the order waits instead of disappearing.
+          Build an order and send it. The mediator takes it, calls each system in turn
+          and writes down what came back. Open any system to break it, then send
+          another and watch where that one waits instead of disappearing.
         </p>
 
         <div className="machine-entry">
@@ -170,11 +175,6 @@ export function Diagram(props: {
             testId="entry"
             sections={[waysSection]}
           />
-          {props.extractorMode === 'recorded' && (
-            <span className="said" data-testid="extractor-mode">
-              The model step is replayed. No model key here.
-            </span>
-          )}
           {said.entry !== undefined && (
             <span className="said" data-testid="said-entry">{said.entry}</span>
           )}

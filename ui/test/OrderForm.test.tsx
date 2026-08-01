@@ -1,16 +1,21 @@
 // @vitest-environment jsdom
 // ui/test/OrderForm.test.tsx
-// The one thing to press, and everything a visitor might want to change about it.
+// Making an order, then sending it.
 //
-// It used to be two things in two places: a loud button at the top that sent a
-// fixed order, and a section at the very bottom of the page called "Place your own
-// order" with a mandatory email field. A visitor who wanted their own order in the
-// picture had to scroll past the whole demo to find the form, and then hand over an
-// address before anything would happen at all.
+// It used to be a section at the very bottom of the page called "Place your own
+// order" with a mandatory email field, so a visitor who wanted their own order in
+// the picture scrolled past the whole demo to find it and then handed over an
+// address before anything would happen at all. The form came up to the button and
+// both fields became optional. Spec 9.7 makes the address mandatory and calls it
+// the strongest proof. It still is, and the panel says so; it is no longer the
+// toll gate.
 //
-// So the form came up to the button, and both the basket and the address became
-// optional. Spec 9.7 makes the address mandatory and calls it the strongest proof.
-// It still is, and the panel says so; it is simply no longer the toll gate.
+// Then the button sent a fixed basket on one press, with a quiet link beside it
+// that opened the detail. Two controls, and the quiet one was the interesting one:
+// a visitor pressed the loud button and never saw what they had just sent. So it is
+// two steps now. "Create order" opens the builder, the basket is on the left, who
+// it is for on the right, and the send button is inside it. Nothing leaves without
+// having been on screen first.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -43,35 +48,64 @@ function json(body: unknown): Response {
   });
 }
 
-/** Opens the panel and waits for the catalogue it fetches on the way. */
+/** Opens the builder and waits for the catalogue it fetches on the way. */
 async function openPanel(): Promise<void> {
-  fireEvent.click(screen.getByTestId('customise-order'));
+  fireEvent.click(screen.getByTestId('create-order'));
   await screen.findByTestId('qty-TEAPOT');
 }
 
 describe('OrderForm', () => {
   it('offers one obvious thing to press', () => {
     render(<OrderForm onPlaced={() => {}} />);
-    expect(screen.getByTestId('send-order')).toBeInTheDocument();
+    expect(screen.getByTestId('create-order')).toBeInTheDocument();
   });
 
-  it('sends the plain order when nothing has been changed', () => {
+  it('sends nothing on the first press, because nothing has been shown yet', () => {
+    // The whole reason for the second step: an order that goes out before the
+    // visitor has seen it teaches them nothing about what went out.
     render(<OrderForm onPlaced={() => {}} />);
-    fireEvent.click(screen.getByTestId('send-order'));
-    expect(sent).toEqual([{ url: '/api/demo-order', body: null }]);
+    fireEvent.click(screen.getByTestId('create-order'));
+    expect(sent).toEqual([]);
   });
 
   it('keeps the detail out of the way until it is wanted', () => {
     render(<OrderForm onPlaced={() => {}} />);
     expect(screen.queryByTestId('order-email')).not.toBeInTheDocument();
-    expect(screen.getByTestId('customise-order')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('create-order')).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('says both fields are optional, since nothing else on the page says so', () => {
+  it('puts the send button where the order is, not where the page begins', async () => {
+    // It is the control that puts something into the machine, so it lives with the
+    // thing it is about to send and it is what the wire into the mediator hangs on.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByTestId('order-panel'))
+      .toContainElement(screen.getByTestId('send-order'));
+  });
+
+  it('marks whichever control is live as the one the wire hangs on', async () => {
+    // Closed, that is the create button. Open, it is the send button. Exactly one
+    // of the two is on screen, so the drawing always has something to point at.
+    render(<OrderForm onPlaced={() => {}} />);
+    expect(screen.getByTestId('create-order')).toHaveAttribute('data-wire-anchor');
+    await openPanel();
+    expect(screen.getByTestId('send-order')).toHaveAttribute('data-wire-anchor');
+    expect(screen.queryByTestId('create-order')).not.toBeInTheDocument();
+  });
+
+  it('can be closed again without sending anything', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('close-order'));
+    expect(screen.getByTestId('create-order')).toBeInTheDocument();
+    expect(sent).toEqual([]);
+  });
+
+  it('says both fields are optional, since nothing else on the page says so', async () => {
     // Spec 9.7 makes the address mandatory. It is optional here on the owner's
     // instruction, and a visitor cannot know that unless it is written down.
     render(<OrderForm onPlaced={() => {}} />);
-    fireEvent.click(screen.getByTestId('customise-order'));
+    await openPanel();
     expect(screen.getByTestId('order-panel')).toHaveTextContent(/optional/i);
   });
 
@@ -80,14 +114,15 @@ describe('OrderForm', () => {
     // which reads as the demo being broken rather than as a form to fill in.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    expect(screen.getByTestId('qty-TEAPOT')).toHaveValue(1);
-    expect(screen.getByTestId('qty-MUG-BLUE')).toHaveValue(2);
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('1');
+    expect(screen.getByTestId('qty-MUG-BLUE')).toHaveTextContent('2');
   });
 
-  it('sends the visitor own basket and address once the panel is open', async () => {
+  it('sends the visitor own basket and address', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.change(screen.getByTestId('qty-TEAPOT'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('more-TEAPOT'));
+    fireEvent.click(screen.getByTestId('more-TEAPOT'));
     fireEvent.change(screen.getByTestId('order-name'), { target: { value: 'M. Berger' } });
     fireEvent.change(screen.getByTestId('order-email'), { target: { value: 'm@example.com' } });
     fireEvent.click(screen.getByTestId('send-order'));
@@ -105,7 +140,8 @@ describe('OrderForm', () => {
   it('sends a chosen basket with no address at all', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.change(screen.getByTestId('qty-MUG-BLUE'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
+    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
     fireEvent.click(screen.getByTestId('send-order'));
 
     expect(sent).toEqual([{
@@ -147,8 +183,9 @@ describe('OrderForm', () => {
   it('will not send an empty basket, and says what is missing', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.change(screen.getByTestId('qty-TEAPOT'), { target: { value: '0' } });
-    fireEvent.change(screen.getByTestId('qty-MUG-BLUE'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('less-TEAPOT'));
+    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
+    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
     expect(screen.getByTestId('send-order')).toBeDisabled();
     expect(screen.getByTestId('order-panel')).toHaveTextContent(/put something in/i);
   });
@@ -168,24 +205,55 @@ describe('OrderForm', () => {
     // would read as the machine being stuck.
     const placed = vi.fn();
     render(<OrderForm onPlaced={placed} />);
+    await openPanel();
     fireEvent.click(screen.getByTestId('send-order'));
     await waitFor(() => expect(placed).toHaveBeenCalledWith('evt-1', false));
   });
 
   it('repeats the reason an order was refused, rather than failing quietly', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
     vi.stubGlobal('fetch', async () => new Response(
       JSON.stringify({ message: 'invalid email address' }),
       { status: 400, headers: { 'content-type': 'application/json' } },
     ));
-    render(<OrderForm onPlaced={() => {}} />);
     fireEvent.click(screen.getByTestId('send-order'));
     expect(await screen.findByTestId('order-error'))
       .toHaveTextContent(/invalid email address/i);
   });
 
+  it('changes a quantity by one on each press, in both directions', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('more-TEAPOT'));
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('2');
+    fireEvent.click(screen.getByTestId('less-TEAPOT'));
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('1');
+  });
+
+  it('will not go below nothing', async () => {
+    // The old number field accepted a typed -3 and sent it. Buttons that stop at
+    // the floor cannot.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('less-TEAPOT'));
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('0');
+    expect(screen.getByTestId('less-TEAPOT')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('less-TEAPOT'));
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('0');
+  });
+
+  it('names each button after the thing it changes', async () => {
+    // Two dozen buttons all called "+" is a screen reader reading out a row of
+    // plus signs. The label carries the product.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByLabelText('One more Cast iron teapot')).toBeInTheDocument();
+    expect(screen.getByLabelText('One fewer Blue mug')).toBeInTheDocument();
+  });
+
   it('fetches the catalogue only when somebody asks to see it', () => {
-    // Most visitors press the button and never open the panel. Loading eight
-    // products for all of them buys nothing.
+    // A visitor who never presses Create order never needs eight products.
     render(<OrderForm onPlaced={() => {}} />);
     expect(screen.queryByTestId('qty-TEAPOT')).not.toBeInTheDocument();
   });

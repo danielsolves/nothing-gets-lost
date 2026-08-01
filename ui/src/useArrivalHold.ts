@@ -19,7 +19,7 @@
 // would quietly stop the numbers being right.
 import { useEffect, useRef, useState } from 'react';
 import type { Counters, DeliveryView, OrderView } from '@ngl/contracts';
-import { ARRIVAL_MS } from './useDeliveryPulses';
+import { PULSE_MS } from './useDeliveryPulses';
 
 /**
  * Everything the hub draws, held or released as one. Three values rather than the
@@ -61,7 +61,7 @@ export function useArrivalHold(live: HubBoard): HubBoard {
 
     const arriving = before !== undefined
       && [...ids].some((eventId) => !before.has(eventId));
-    if (arriving) landsAt.current = Date.now() + ARRIVAL_MS;
+    if (arriving) landsAt.current = Date.now() + PULSE_MS;
 
     const wait = landsAt.current - Date.now();
     if (wait <= 0) {

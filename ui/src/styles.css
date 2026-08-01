@@ -588,13 +588,20 @@ body {
 
 .machine-lede { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
 
+/* The way in, and the menu of odd things to send through it. A grid rather than a
+   flex row, because the way in changes size: closed it is a button, open it is a
+   two-column builder, and in a wrapping row the menu was pushed onto a line of its
+   own and sat under the builder looking like it had come loose from something. Two
+   named columns keep it beside whatever is in the first one. */
 .machine-entry {
   position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: start;
+  gap: 10px 14px;
 }
+.machine-entry > .said { grid-column: 1 / -1; }
 
 /* What the endpoint said about an order that was never going to parse. Quiet, and
    beside the button rather than under the whole head: it is an answer to the press,
@@ -685,62 +692,41 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
+  /* The middle of the dot rides the line. Left to the default it does too, and the
+     -4.5px margins that used to sit here then moved it off again by half its own
+     width: measured, every impulse ran 4.6px beside its wire. Pinned rather than
+     inherited, because this is the one thing about a travelling dot that has to be
+     exactly true. */
+  offset-anchor: 50% 50%;
   offset-rotate: 0deg;
+  /* A bright core that falls off into its own light, rather than a flat disc with a
+     shadow. Written once against a colour each kind sets, so the four of them cannot
+     drift into four different glows. */
+  background: radial-gradient(
+    circle at 50% 50%,
+    oklch(from var(--quantum) calc(l + 0.32) c h) 0 20%,
+    var(--quantum) 42%,
+    oklch(from var(--quantum) l c h / 0.45) 64%,
+    transparent 74%
+  );
+  box-shadow:
+    0 0 5px oklch(from var(--quantum) l c h / 0.95),
+    0 0 13px oklch(from var(--quantum) l c h / 0.65),
+    0 0 26px oklch(from var(--quantum) l c h / 0.35);
   animation-duration: 880ms;
   animation-timing-function: cubic-bezier(0.33, 0.1, 0.2, 1);
   animation-fill-mode: both;
 }
-.packet-delivered {
-  background: var(--good);
-  box-shadow: 0 0 10px oklch(from var(--good) l c h / 0.8);
-  animation-name: packet-through;
-}
-.packet-held {
-  background: var(--warn);
-  box-shadow: 0 0 10px oklch(from var(--warn) l c h / 0.8);
-  animation-name: packet-back;
-}
-.packet-parked {
-  background: var(--bad);
-  box-shadow: 0 0 10px oklch(from var(--bad) l c h / 0.8);
-  animation-name: packet-short;
-}
+.packet-delivered { --quantum: var(--good); animation-name: packet-through; }
+.packet-held { --quantum: var(--warn); animation-name: packet-back; }
+.packet-parked { --quantum: var(--bad); animation-name: packet-short; }
 /* An order arriving wears the wire's own colour. Delivered green would say that an
    order coming in is a delivery going out, and the two would then be one restyling
    away from each other for good. */
-.packet-arrival {
-  background: var(--accent);
-  box-shadow: 0 0 10px oklch(from var(--accent) l c h / 0.8);
-  animation-name: packet-through;
-}
-
-/* The answer coming back. It leaves after the call it is answering has arrived, so
-   it waits out the first half rather than racing it: the two together are one round
-   trip drawn end to end, and overlapped they would read as two systems talking at
-   once. Smaller and hollow, because a response is not another delivery going out and
-   must not be counted as one by a reader glancing at the drawing. */
-.packet-answer {
-  width: 7px;
-  height: 7px;
-  margin: -3.5px 0 0 -3.5px;
-  background: transparent;
-  border: 2px solid var(--good);
-  box-shadow: 0 0 8px oklch(from var(--good) l c h / 0.6);
-  animation-name: packet-return;
-  animation-delay: 380ms;
-}
-
-/* Back along the wire it went out on, from the system to the mediator. */
-@keyframes packet-return {
-  from { offset-distance: 100%; opacity: 0; transform: scale(0.5); }
-  18%  { opacity: 1; transform: scale(1); }
-  84%  { offset-distance: 0%; opacity: 1; transform: scale(1); }
-  to   { offset-distance: 0%; opacity: 0; transform: scale(1.6); }
-}
+.packet-arrival { --quantum: var(--accent); animation-name: packet-through; }
 
 /* Delivered: travels the wire and is taken in at the far end. */
 @keyframes packet-through {
@@ -1403,10 +1389,13 @@ body {
 
 .catalog li {
   display: grid;
-  grid-template-columns: 1fr auto 84px;
+  /* The last column takes whatever the stepper needs rather than a number written
+     down here. Fixed at 84px it was narrower than the three buttons in it, so the
+     overflow came out of the product name and "Large plate" broke over two lines. */
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 14px;
-  padding: 11px 14px;
+  gap: 10px;
+  padding: 9px 12px;
   background: var(--surface-sunken);
 }
 .catalog .price {
@@ -1418,7 +1407,7 @@ body {
 
 /* Text fields only. It used to say `input` and caught the payment radios, which
    came out as full width circles with the label pushed to the far edge. */
-.order-panel input:not([type='radio']),
+.order-who input,
 .connection input, .sql-console textarea {
   width: 100%;
   min-height: 44px;
@@ -1430,13 +1419,49 @@ body {
   font-family: var(--sans);
   font-size: 15px;
 }
-.catalog input { min-height: 38px; text-align: center; font-family: var(--mono); }
+/* Minus, the count, plus. Sized so each button clears the 44px floor the two
+   controls that carry the demo already keep to: a basket is changed by ones, and a
+   target that needs aiming at turns that into work. */
+.qty {
+  display: grid;
+  grid-template-columns: 34px minmax(2.5ch, auto) 34px;
+  align-items: center;
+  justify-self: end;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.qty button {
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.qty button:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.qty button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Quiet rather than hidden at zero and at the ceiling. A control that disappears
+   makes the row jump; one that greys out says the same thing and stays still. */
+.qty button:disabled { opacity: 0.3; cursor: default; }
+.qty-count {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
 
-.order-panel input:not([type='radio'])::placeholder,
+.order-who input::placeholder,
 .connection input::placeholder,
 .sql-console textarea::placeholder { color: var(--faint); }
 
-.order-panel input:not([type='radio']):focus-visible,
+.order-who input:focus-visible,
 .connection input:focus-visible,
 .sql-console textarea:focus-visible {
   outline: 2px solid var(--accent);
@@ -1706,7 +1731,7 @@ body {
   .mediator-count { padding: 10px 4px; }
   .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
 
-  .catalog li { grid-template-columns: 1fr 72px; }
+  .catalog li { grid-template-columns: minmax(0, 1fr) auto; }
   .catalog .price { grid-column: 1; font-size: 12px; }
   .connection, .connection.webhook { grid-template-columns: 1fr; }
 }
@@ -1862,4 +1887,94 @@ body {
   line-height: 1.5;
   color: var(--faint);
   max-width: 56ch;
+}
+
+
+/* Creating the order, before sending it ---------------------------------------
+   The button used to send a fixed basket on one press, with a quiet link beside it
+   that opened the detail. Two controls, and the quiet one was the interesting one:
+   a visitor pressed the loud button and never saw what they had just sent.
+
+   So it is two steps. "Create order" opens this, the basket sits on the left and
+   who it is for on the right, and the send button is inside. What goes into the
+   machine is on screen before it goes. */
+.order-builder {
+  display: grid;
+  /* The basket takes the larger share. Split evenly, the name column came out at
+     86px and three of the eight products wrapped over two lines, which turned a
+     price list into a ragged block. The right side is prose and wraps without
+     anybody minding. */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-areas: "basket who" "foot foot";
+  gap: clamp(16px, 2vw, 26px);
+  width: 100%;
+  padding: 16px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.order-basket { grid-area: basket; }
+.order-who { grid-area: who; }
+/* Only the heading has to clear the close button. Given to the whole column, the
+   34px came out of the two fields and cut the longer placeholder off mid-word. */
+.order-who > .order-ph { padding-right: 34px; }
+.order-basket, .order-who { display: grid; gap: 10px; align-content: start; min-width: 0; }
+
+.order-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--faint);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.order-close:hover { color: var(--text); border-color: var(--line-input); }
+.order-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The send button bottom left, the fine print beside it. The button ends the panel
+   because it is the last thing you do in it, and it stands on the left because that
+   is the side the mediator is on: the wire from it runs down rather than across. */
+.order-foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.order-foot-said { display: grid; gap: 6px; max-width: 46ch; }
+
+.order-ph {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Scrolls rather than growing. Eight products push the send button below the fold
+   on a laptop, and a send button you have to go looking for is the one control on
+   this page that must never be. */
+.order-basket .catalog {
+  max-height: 16rem;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+
+
+@media (max-width: 48rem) {
+  .order-builder { grid-template-columns: minmax(0, 1fr); }
 }

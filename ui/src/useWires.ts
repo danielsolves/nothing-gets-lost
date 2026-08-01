@@ -85,7 +85,11 @@ export function useWires(targets: readonly string[]): WireLayer {
     const hubBox = boxOf(hubElement, origin);
     // The button sits above the frame, so its box has a negative y here. Only its
     // horizontal middle is wanted, which is why that does not matter.
-    const from = entry.current === null ? null : boxOf(entry.current, origin);
+    // The anchor inside, not the wrapper. The wrapper holds the whole order builder
+    // once it is open, so its middle is the middle of a two-column form rather than
+    // the middle of the button that sends the order.
+    const anchor = entry.current?.querySelector('[data-wire-anchor]') ?? entry.current;
+    const from = anchor === null ? null : boxOf(anchor, origin);
     const way = entryWire(hubBox, from);
     const measured = new Map(wiresFrom(hubBox, boxes).map((wire) => [wire.target, wire.d]));
     setSize({ width: origin.width, height: origin.height });

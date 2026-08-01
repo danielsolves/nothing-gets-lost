@@ -21,6 +21,9 @@ const STARTING_BASKET: Record<string, number> = Object.fromEntries(
   DEFAULT_BASKET.map((line) => [line.sku, line.qty]),
 );
 
+/** The ceiling the number field used to carry as max, kept now that it is buttons. */
+const MOST = 20;
+
 export function OrderForm({
   onPlaced,
 }: {
@@ -44,6 +47,13 @@ export function OrderForm({
       .then(setCatalog)
       .catch(() => setError('The catalogue could not be loaded'));
   }, [open, catalog.length]);
+
+  const step = (sku: string, by: number) => {
+    setQuantities((was) => {
+      const next = Math.min(MOST, Math.max(0, (was[sku] ?? 0) + by));
+      return { ...was, [sku]: next };
+    });
+  };
 
   const items = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
@@ -83,78 +93,133 @@ export function OrderForm({
 
   return (
     <div className="order-form">
-      <div className="stage-actions">
+      {/* Closed, this is the way in and carries the wire. Open, the wire moves to
+          the send button inside, because that is then the thing that puts an order
+          into the machine. Whichever of the two is live wears the anchor. */}
+      {!open && (
         <button
           type="button"
           className="stage-cta"
-          data-testid="send-order"
-          disabled={busy || emptyBasket}
-          onClick={() => void send()}
-        >
-          {busy ? 'Sending' : 'Send an order'}
-        </button>
-
-        <button
-          type="button"
-          className="order-disclosure"
-          data-testid="customise-order"
-          aria-expanded={open}
+          data-wire-anchor=""
+          data-testid="create-order"
+          aria-expanded={false}
           aria-controls="order-panel"
-          onClick={() => setOpen((was) => !was)}
+          onClick={() => setOpen(true)}
         >
-          {open ? 'Never mind the detail' : 'Make it your own order'}
+          Create order
         </button>
-      </div>
+      )}
 
       {open && (
-        <div className="order-panel" id="order-panel" data-testid="order-panel">
-          <p className="order-why">
-            Both are optional. An address is worth giving: the confirmation mail
-            lands in your inbox with a timestamp written by your own provider, and
-            that is the one thing on this page nobody here can fake.
-          </p>
+        <div className="order-builder" id="order-panel" data-testid="order-panel">
+          {/* Closing is not a decision about the order, so it does not stand next to
+              the button that sends one. It sits in the corner, where leaving a panel
+              lives everywhere else. */}
+          <button
+            type="button"
+            className="order-close"
+            data-testid="close-order"
+            aria-label="Close the order detail"
+            onClick={() => setOpen(false)}
+          >
+            &times;
+          </button>
 
-          <ul className="catalog">
-            {catalog.map((item) => (
-              <li key={item.sku}>
-                <span>{item.name}</span>
-                <span className="price">{(item.cents / 100).toFixed(2)} EUR</span>
-                <input
-                  type="number" min={0} max={20}
-                  aria-label={`Quantity of ${item.name}`}
-                  data-testid={`qty-${item.sku}`}
-                  value={quantities[item.sku] ?? 0}
-                  onChange={(event) =>
-                    setQuantities({ ...quantities, [item.sku]: Number(event.target.value) })}
-                />
-              </li>
-            ))}
-          </ul>
+          {/* The basket on the left, who it is for on the right. Two columns rather
+              than one long form: what is being sent is the interesting half, and
+              stacked under a paragraph it was the half a visitor scrolled past. */}
+          <div className="order-basket">
+            <p className="order-ph">What is in it</p>
+            <ul className="catalog">
+              {catalog.map((item) => {
+                const qty = quantities[item.sku] ?? 0;
+                return (
+                  <li key={item.sku}>
+                    <span>{item.name}</span>
+                    <span className="price">{(item.cents / 100).toFixed(2)} EUR</span>
+                    {/* Two buttons and a number, not a number field. The native
+                        spinner puts two three-pixel arrows in the corner of the box,
+                        which is a target nobody hits on the first go and nothing at
+                        all on a phone. Changing a basket by one is the whole
+                        interaction here, so it gets a control the size of a thumb. */}
+                    <span className="qty" role="group" aria-label={`Quantity of ${item.name}`}>
+                      <button
+                        type="button"
+                        data-testid={`less-${item.sku}`}
+                        aria-label={`One fewer ${item.name}`}
+                        disabled={qty === 0}
+                        onClick={() => step(item.sku, -1)}
+                      >
+                        &minus;
+                      </button>
+                      <span className="qty-count" data-testid={`qty-${item.sku}`}>{qty}</span>
+                      <button
+                        type="button"
+                        data-testid={`more-${item.sku}`}
+                        aria-label={`One more ${item.name}`}
+                        disabled={qty === MOST}
+                        onClick={() => step(item.sku, 1)}
+                      >
+                        +
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-          {/* A statement, not a choice. There was a radio group here while a second
-              provider existed; one option in a radio group is a control that asks a
-              question with one answer. The sentence stays because it is what sets up
-              the proof panel further down the page. */}
-          <p className="order-note" data-testid="route-note">
-            Paid through Stripe, in test mode. It ends in a receipt page stripe.com
-            serves itself, which is the one payment proof nobody here can fake.
-          </p>
+          <div className="order-who">
+            <p className="order-ph">Who it is for</p>
+            <p className="order-why">
+              Both are optional. An address is worth giving: the confirmation mail
+              lands in your inbox with a timestamp written by your own provider, and
+              that is the one thing on this page nobody here can fake.
+            </p>
 
-          <input placeholder="Your name, if you like" value={name} data-testid="order-name"
-                 aria-label="Your name" autoComplete="name"
-                 onChange={(event) => setName(event.target.value)} />
-          <input placeholder="Your email address, if you like" value={email}
-                 data-testid="order-email" aria-label="Your email address"
-                 type="email" autoComplete="email"
-                 onChange={(event) => setEmail(event.target.value)} />
+            <input placeholder="Your name, if you like" value={name} data-testid="order-name"
+                   aria-label="Your name" autoComplete="name"
+                   onChange={(event) => setName(event.target.value)} />
+            <input placeholder="Your email address, if you like" value={email}
+                   data-testid="order-email" aria-label="Your email address"
+                   type="email" autoComplete="email"
+                   onChange={(event) => setEmail(event.target.value)} />
 
-          {emptyBasket && (
-            <p className="order-hint">Put something in the basket to send an order.</p>
-          )}
+            {/* A statement, not a choice. There was a radio group here while a second
+                provider existed; one option in a radio group is a control that asks a
+                question with one answer. The sentence stays because it is what sets up
+                the proof panel further down the page. */}
+            <p className="order-note" data-testid="route-note">
+              Paid through Stripe, in test mode. It ends in a receipt page stripe.com
+              serves itself, which is the one payment proof nobody here can fake.
+            </p>
 
-          <p className="fine-print">
-            Your address is used for this one order and deleted after 24 hours.
-          </p>
+          </div>
+
+          {/* The send button ends the panel, bottom left. It is what the wire into
+              the mediator hangs on, and the mediator is on the left, so the order
+              leaves the drawing on the side it is going to. */}
+          <div className="order-foot">
+            <button
+              type="button"
+              className="stage-cta"
+              data-wire-anchor=""
+              data-testid="send-order"
+              disabled={busy || emptyBasket}
+              onClick={() => void send()}
+            >
+              {busy ? 'Sending' : 'Send order'}
+            </button>
+
+            <div className="order-foot-said">
+              {emptyBasket && (
+                <p className="order-hint">Put something in the basket to send an order.</p>
+              )}
+              <p className="fine-print">
+                Your address is used for this one order and deleted after 24 hours.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

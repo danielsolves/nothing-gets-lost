@@ -182,8 +182,15 @@ export function wiresFrom(hub: Box | null, tiles: Map<string, Box>): Wire[] {
  */
 export function entryWire(hub: Box | null, from?: Box | null): Wire | null {
   if (hub === null) return null;
-  const x = round(from ? from.x + from.width / 2 : hub.x + hub.width / 2);
-  return { target: 'shop', d: `M ${x} 0 V ${round(hub.y)}` };
+  if (!from) return { target: 'shop', d: `M ${round(hub.x + hub.width / 2)} 0 V ${round(hub.y)}` };
+
+  // The button sits above the box the lines are drawn in, so its foot is a negative
+  // y here. The line starts there rather than at the top edge of the box: started at
+  // the edge it left a gap between the button and the line, and a visitor has to
+  // close that gap themselves to see that the two are one thing. The drawing must
+  // not need help being read.
+  const x = round(from.x + from.width / 2);
+  return { target: 'shop', d: `M ${x} ${round(from.y + from.height)} V ${round(hub.y)}` };
 }
 
 /**

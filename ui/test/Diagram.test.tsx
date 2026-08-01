@@ -91,17 +91,27 @@ describe('Diagram', () => {
     expect(screen.queryByTestId('box-mail')).not.toBeInTheDocument();
   });
 
-  it('puts the replayed-step note beside the button whose orders the model reads', () => {
+  it('says the model step is replayed on the two orders the model reads', () => {
     // Spec 8.5 wants it said out loud. It was a banner under the whole machine,
-    // which is the part of a page nobody reads, and then a note on a tile that no
-    // longer exists.
+    // then a note on a tile that no longer exists, then a line beside the send
+    // button, where it sat next to the ordinary order and read as a caveat about
+    // the whole machine. The ordinary order never touches the model.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
-    expect(screen.getByTestId('extractor-mode')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('menu-entry'));
+    expect(screen.getByTestId('menu-entry-garbage_payload'))
+      .toHaveTextContent(/replayed here: no model key/i);
+  });
+
+  it('keeps that caveat off the ordinary order, which never reaches the model', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
+    expect(screen.getByTestId('machine-head')).not.toHaveTextContent(/model key/i);
   });
 
   it('says nothing about replaying when the model is really being called', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="live" />);
-    expect(screen.queryByTestId('extractor-mode')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('menu-entry'));
+    expect(screen.getByTestId('menu-entry-garbage_payload'))
+      .not.toHaveTextContent(/replayed/i);
   });
 
   it('puts the one way in at the top of the machine, before the systems it feeds', () => {
