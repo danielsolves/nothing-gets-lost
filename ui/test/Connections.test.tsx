@@ -46,11 +46,13 @@ describe('Connections', () => {
     expect(container).not.toHaveTextContent(/24 hours/i);
   });
 
-  // The tab that opens this panel is already called "Your own endpoint". A heading
-  // repeating it back is a line that says nothing.
-  it('does not repeat the name of the tab that opened it', () => {
+  // It had no heading while it was the only panel behind a tab already called "Your
+  // own endpoint", where repeating the tab back said nothing. The tab is gone and
+  // this now sits open beside the MCP panel, where two unlabelled blocks of prose
+  // side by side are something the reader has to sort out for themselves.
+  it('names itself, now that it stands beside another panel', () => {
     render(<Connections />);
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your own endpoint' })).toBeInTheDocument();
   });
 
   it('asks for nothing but a url', () => {

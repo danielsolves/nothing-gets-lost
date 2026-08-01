@@ -11,10 +11,10 @@
 // it takes thirty seconds and no login: paste a webhook.site url and watch the
 // deliveries arrive.
 //
-// No heading at all. It carried a section title and then a row title under it, which
-// was worth it while three rows shared the panel. With one row left, the tab that
-// opens this already says "Your own endpoint", and a panel that repeats its own tab
-// back at the reader is a line of text that says nothing.
+// It carries its own heading again. It lost one when it was the single panel behind a
+// tab that already said "Your own endpoint", and repeating the tab back at the reader
+// said nothing. The tab is gone: this now sits open beside the MCP panel, and two
+// unlabelled panels side by side are two paragraphs a reader has to sort out.
 import { useState } from 'react';
 
 export function Connections() {
@@ -39,12 +39,14 @@ export function Connections() {
   }
 
   return (
-    <section className="connections">
-      {/* The description sits under the tab at full width rather than in a
-          column beside the field. Squeezed into a third of the row it broke into
-          four short lines next to a field that had the rest of the space, which read
-          as a caption for the input instead of as what it is: the reason to use this
-          at all. */}
+    <section className="connections outside-panel">
+      <h3>Your own endpoint</h3>
+
+      {/* The description sits above the field at the panel's full width rather than
+          in a column beside it. Squeezed into a third of the row it broke into four
+          short lines next to a field that had the rest of the space, which read as a
+          caption for the input instead of as what it is: the reason to use this at
+          all. */}
       <p className="endpoint-lede">
         A url of yours that we POST every delivery to, with the same retry schedule
         the five systems get. Watch it from your side and you are not taking our word
