@@ -56,6 +56,14 @@ There is no account, no sign up and no password on this demo. Adding one would p
 
 The cost is real and it is accepted: the demo is open to the internet, so it is rate limited instead. Order placement is capped per hour and per visitor, and the address that identifies a visitor is hashed rather than kept, because a demo that lectures about care with other people's data while keeping a list of IPs would be arguing against itself. Rate limits are the right tool here. A login is not.
 
+An order that asks for a confirmation mail is capped twice more, and tightly: once against the visitor and once against the address the mail would go to. Everything else this demo does lands in an account I own, and the worst a stranger can manage with thirty orders an hour is to make my own CRM untidy. A confirmation mail goes wherever the visitor types, which makes the form a way of sending mail from this domain to people who did not ask for it. What that costs is not money but whether mail from the domain is delivered anywhere at all, and that is lost slowly and won back with difficulty. The button that starts the demo asks for no address, can send to nobody, and is charged against neither cap.
+
+## No captcha
+
+A proof of work challenge is solvable by any bot willing to spend the cycles, because spending cycles is the whole mechanism; there is nothing in it to defeat. It also charges an old phone considerably more than it charges a rented server, so it taxes the visitor this page exists for and waves through the one it does not. The challenges built on behaviour and device signals are broken commercially for a few cents a thousand.
+
+Neither kind stops somebody who has decided to abuse this form. What such a person needs is volume, and volume is precisely what the caps above refuse. Putting a puzzle in front of the one interaction the whole page is built around, in exchange for nothing, was the worse trade.
+
 ## No settings page
 
 Everything configurable is either a state you can put a system into from the menu on its own tile in the diagram or an environment variable in `.env.example`. There is no preferences screen, no theming, no persisted per visitor state.

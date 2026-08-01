@@ -9,7 +9,7 @@ import {
 import type { Request } from 'express';
 import type { PlaceOrderRequest, PlaceOrderResponse } from '@ngl/contracts';
 import { OrdersService } from './orders.service';
-import { LIMITS, RateLimiter, hashIp } from './rate-limit.guard';
+import { LIMITS, RateLimiter, hashIp, hashRecipient } from './rate-limit.guard';
 
 export const RATE_LIMITER = Symbol('RATE_LIMITER');
 
@@ -38,10 +38,47 @@ export class OrdersController {
       );
     }
 
+    await this.checkMail(body.customerEmail, request.ip ?? 'unknown');
+
     try {
       return await this.orders.place(body);
     } catch (error) {
       throw new BadRequestException((error as Error).message);
+    }
+  }
+
+  /**
+   * The two caps that only apply once an order would send mail to somebody.
+   *
+   * Checked here rather than in the service, beside the cap it belongs with, and
+   * before anything is booked: a refused order must not leave a contact in the CRM
+   * and a charge at Stripe behind it.
+   *
+   * An order with no address can send to nobody and is not counted against either.
+   * The service treats a blank address as "book it under the house", and rule 6.7
+   * then queues no mail at all, so counting it would be metering a thing that cannot
+   * happen and would spend the visitor's allowance on the loud button.
+   */
+  private async checkMail(address: string | undefined, ip: string): Promise<void> {
+    const to = address?.trim() ?? '';
+    if (to === '') return;
+
+    const fromVisitor = await this.limiter.check('mail', hashIp(ip), LIMITS.mail);
+    if (!fromVisitor) {
+      throw new HttpException(
+        `That is ${LIMITS.mail} confirmation mails this hour from your address. `
+        + 'Order without an address to carry on, or try again next hour.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const toAddress = await this.limiter.check('mail_to', hashRecipient(to), LIMITS.mailTo);
+    if (!toAddress) {
+      throw new HttpException(
+        `That address has had ${LIMITS.mailTo} confirmation mails this hour. `
+        + 'Try again next hour.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 }

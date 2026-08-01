@@ -4,22 +4,63 @@
 // Addresses are hashed, never stored raw. A demo that lectures about care while
 // keeping a list of visitor IPs would be arguing against itself.
 //
-// One bucket, and it is worth saying why rather than leaving two constants standing
-// that nothing reads. Spec 11 named three. `sql` belonged to the public SQL console,
-// which has been removed. `model` was declared and never checked: the extractor is
-// reached through the chaos endpoint and was never counted, so the number described
-// an intention rather than a limit, and a limit that is only written down is worse
-// than none because it is quoted as if it held.
+// Spec 11 named three buckets and two of them were fiction. `sql` belonged to the
+// public SQL console, which has been removed. `model` was declared and never checked:
+// the extractor is reached through the chaos endpoint and was never counted, so the
+// number described an intention rather than a limit, and a limit that is only written
+// down is worse than none, because it gets quoted as if it held.
+//
+// The two below are real and are checked. They exist because sending mail changes who
+// this form can hurt. Everything else the demo does lands in accounts we own, and the
+// worst a visitor can do with thirty orders an hour is make our own CRM untidy. A
+// confirmation mail goes to an address the visitor types, which makes the form a way
+// to send mail from our domain to strangers. The damage there is not ours to clean up
+// and not money: it is whether mail from this domain is delivered at all, which is
+// lost slowly and got back with difficulty.
+//
+// So the loud button, which asks for no address and can send to nobody, keeps its
+// thirty. An order that carries an address is metered twice over: against the visitor,
+// so one browser cannot pump; and against the address, so many browsers cannot gang up
+// on one inbox.
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 
-/** Per hour, per visitor. Orders are the only thing this service meters. */
-export const LIMITS = { orders: 30 } as const;
+/**
+ * Per hour. `orders` is per visitor, `mail` is per visitor, `mailTo` is per recipient
+ * address.
+ *
+ * The mail numbers are small on purpose and are still generous for the thing they
+ * allow: a reader who wants to watch a confirmation arrive needs one, and a reader
+ * who wants to watch one arrive, break the mailer and watch a retry needs two.
+ */
+export const LIMITS = { orders: 30, mail: 5, mailTo: 3 } as const;
 export type Bucket = keyof typeof LIMITS;
 
-export function hashIp(address: string): string {
+/**
+ * The subject of a bucket, salted and truncated.
+ *
+ * Whatever is being metered goes through here, never the raw value, and the column it
+ * lands in is called `ip_hash` for the one subject that existed when it was created.
+ * It holds an opaque hash of whatever identifies the caller for that bucket; the
+ * bucket name says which. A demo that lectures about care while keeping a list of
+ * visitor addresses would be arguing against itself.
+ */
+function hashSubject(subject: string): string {
   const salt = process.env.IP_HASH_SALT ?? 'nothing-gets-lost';
-  return createHash('sha256').update(`${salt}:${address}`).digest('hex').slice(0, 32);
+  return createHash('sha256').update(`${salt}:${subject}`).digest('hex').slice(0, 32);
+}
+
+export function hashIp(address: string): string {
+  return hashSubject(address);
+}
+
+/**
+ * Case and surrounding space folded away first, so `A@b.com ` and `a@b.com` are one
+ * inbox to this counter. They are one inbox to every mail server too, and a cap that
+ * a capital letter walks through is not a cap.
+ */
+export function hashRecipient(address: string): string {
+  return hashSubject(`to:${address.trim().toLowerCase()}`);
 }
 
 export class RateLimiter {

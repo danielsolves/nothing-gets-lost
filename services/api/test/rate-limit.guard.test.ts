@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
-import { RateLimiter, hashIp } from '../src/rate-limit.guard';
+import { RateLimiter, hashIp, hashRecipient } from '../src/rate-limit.guard';
 
 let container: StartedPostgreSqlContainer;
 let pool: Pool;
@@ -56,5 +56,43 @@ describe('RateLimiter', () => {
     for (let i = 0; i < 5; i++) await limiter.check('model', ip, 5);
     await pool.query(`UPDATE rate_limits SET window_at = window_at - interval '2 hours'`);
     expect(await limiter.check('model', ip, 5)).toBe(true);
+  });
+});
+
+// The cap that exists because a confirmation mail goes somewhere we do not own. The
+// per-visitor cap above stops one browser pumping; this one stops many browsers
+// ganging up on one inbox, which is the shape an attack on a form like this takes.
+describe('the recipient cap', () => {
+  it('counts two spellings of one inbox as one inbox', async () => {
+    // A cap that a capital letter or a trailing space walks through is not a cap,
+    // and every mail server in the world already treats these as one address.
+    for (let i = 0; i < 3; i++) {
+      await limiter.check('mail_to', hashRecipient('Reader@Example.com'), 3);
+    }
+    expect(await limiter.check('mail_to', hashRecipient(' reader@example.com '), 3)).toBe(false);
+  });
+
+  it('counts different inboxes separately', async () => {
+    for (let i = 0; i < 3; i++) {
+      await limiter.check('mail_to', hashRecipient('one@example.com'), 3);
+    }
+    expect(await limiter.check('mail_to', hashRecipient('two@example.com'), 3)).toBe(true);
+  });
+
+  it('never stores the raw recipient', async () => {
+    await limiter.check('mail_to', hashRecipient('reader@example.com'), 3);
+    const { rows } = await pool.query('SELECT ip_hash FROM rate_limits');
+    expect(rows[0].ip_hash).not.toContain('reader@example.com');
+    expect(rows[0].ip_hash).not.toContain('example.com');
+  });
+
+  it('does not spend the visitor cap on the recipient cap', async () => {
+    // They are two facts about one request and must not share a counter: a reader
+    // sending to their own address once would otherwise be charged twice.
+    await limiter.check('mail', ip, 5);
+    const { rows } = await pool.query<{ bucket: string; count: number }>(
+      'SELECT bucket, count FROM rate_limits ORDER BY bucket',
+    );
+    expect(rows).toEqual([{ bucket: 'mail', count: 1 }]);
   });
 });

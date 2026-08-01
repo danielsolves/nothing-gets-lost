@@ -11,7 +11,7 @@
 // own claim, always. What a visitor can still have in a system we do not control is
 // their own endpoint, which is in the set below.
 import type { Pool } from 'pg';
-import { upstreamUrl, type Target, type VerifyResponse } from '@ngl/contracts';
+import { isIndisputable, upstreamUrl, type Target, type VerifyResponse } from '@ngl/contracts';
 import type { HubSpotClient } from '../../mediator/src/targets/hubspot.target';
 import type { SlackClient } from '../../mediator/src/targets/slack.target';
 import type { CredentialResolver } from '../../mediator/src/credentials';
@@ -23,16 +23,6 @@ export interface DeliveryRecord {
 export interface DeliveryLookup {
   find(eventId: string, target: Target): Promise<DeliveryRecord | null>;
 }
-
-/**
- * Only proofs served by a third party or landing with the visitor count as proof.
- *
- * Stripe is in this set because its receipt is a page on stripe.com that anybody can
- * open. A payment id that only the account holder can look up would not be, however
- * foreign the system that issued it: calling both proof would borrow credibility one
- * of them has not got (spec 9.0).
- */
-const INDISPUTABLE: ReadonlySet<Target> = new Set<Target>(['stripe', 'mailer', 'custom_webhook']);
 
 export class VerifyService {
   constructor(
@@ -46,7 +36,7 @@ export class VerifyService {
     // Decided once, from the set alone. It used to be reassigned further down: a
     // read-back on a portal the visitor had connected became indisputable, because
     // the record was then in a system they controlled. Nothing flips it any more.
-    const indisputable = INDISPUTABLE.has(target);
+    const indisputable = isIndisputable(target);
 
     if (target === 'stripe') {
       return {
