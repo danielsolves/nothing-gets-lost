@@ -18,6 +18,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
+import { liveState } from './live';
 import { Queue } from './Queue';
 import { Timeline } from './Timeline';
 
@@ -30,10 +31,15 @@ export function Mediator(props: {
   timeline: TimelineEntry[];
   openOrder: string | null;
   onToggleOrder: (eventId: string) => void;
+  /** Whether the event stream is up. See live.ts for why this lives here. */
+  connected: boolean;
+  /** Everyone on the page, this reader included. */
+  viewers: number;
 }) {
   const [tab, setTab] = useState<Tab>('queue');
   const [help, setHelp] = useState(false);
   const doing = currentWork(props.deliveries);
+  const live = liveState(props.connected, props.viewers);
   const tabs = useRef<HTMLDivElement>(null);
   // Where the underline has to be. Measured rather than assumed: the two labels are
   // different lengths, and a bar that travelled a guessed distance would arrive next
@@ -60,6 +66,25 @@ export function Mediator(props: {
         <span className="mediator-titles">
           <span className="mediator-title">The mediator</span>
           <span className="mediator-sub">everything goes through here</span>
+        </span>
+
+        {/* The connection, said out loud. A page whose stream has died goes quiet
+            rather than visibly wrong, and quiet is the one failure this page cannot
+            afford: every number on it would be stale and still look current.
+            role=status so a reader who is not watching this corner is told once.
+
+            Two words at most. The head already holds a title, a subtitle, the reset
+            and the help, and a badge that also carried the visitor count pushed the
+            subtitle onto a second line. The count moved to the line below, which is
+            where it is about something. */}
+        <span
+          className="mediator-live"
+          data-testid="hub-live"
+          data-tone={live.tone}
+          role="status"
+        >
+          <i className="mediator-live-dot" aria-hidden="true" />
+          {live.text}
         </span>
 
         {/* The reset came up from the drawer at the bottom of the page along with
@@ -98,7 +123,7 @@ export function Mediator(props: {
                 <li>Delivers to each system separately, so one failure blocks nothing</li>
                 <li>Retries a failed delivery with a growing gap, six times</li>
                 <li>Lands each delivery exactly once, even if it dies mid-call</li>
-                <li>Parks what it cannot deliver for a human, rather than dropping it</li>
+                <li>Writes what it cannot deliver to a backlog, rather than dropping it</li>
               </ul>
             </span>
           )}
@@ -140,8 +165,17 @@ export function Mediator(props: {
         )}
       </div>
 
+      {/* What it is doing, and who else is watching it happen. The second one is
+          here because this is the line it qualifies: a reader who has touched
+          nothing and sees work going on reads it as a script unless somebody says
+          there is another person on the page. */}
       <p className="mediator-doing" data-testid="hub-doing" data-tone={doing.tone}>
-        {doing.text}
+        <span>{doing.text}</span>
+        {live.others && (
+          <em className="mediator-doing-others" data-testid="hub-viewers">
+            {live.others}
+          </em>
+        )}
       </p>
 
       <div

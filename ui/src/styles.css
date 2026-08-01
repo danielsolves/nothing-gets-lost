@@ -357,6 +357,98 @@ body {
   font-size: 14.5px;
 }
 
+/* The backlog. Deliberately not styled like the mediator: the hub is the machine
+   working and gets the accent and the glow, this is the tray the machine could not
+   empty and gets a plain box. It is the same weight as a system tile because that
+   is what it is about. */
+.backlog {
+  display: grid;
+  gap: 12px;
+  padding: clamp(16px, 1.6vw, 22px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-shell);
+  background: var(--surface-sunken);
+}
+.backlog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.backlog-titles { display: grid; gap: 3px; }
+.backlog-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.backlog-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+/* Only drawn when it is not zero. A backlog with a big 0 on it invites a reader to
+   watch a number rather than to read the sentence under it, and the sentence is the
+   claim. The count carries the warning colour because a number here means work. */
+.backlog-count {
+  flex: none;
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: oklch(from var(--bad) l c h / 0.16);
+  color: var(--bad);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.backlog-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.backlog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  /* Long enough to show that the list is a list, short enough that a demo somebody
+     has been breaking for ten minutes cannot push the page apart. */
+  max-height: 16rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.backlog-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid oklch(from var(--bad) l c h / 0.3);
+  border-radius: var(--r-control);
+  background: oklch(from var(--bad) l c h / 0.07);
+  font-size: 13px;
+}
+.backlog-order { font-family: var(--mono); font-weight: 600; }
+.backlog-target { font-weight: 600; }
+.backlog-note { color: var(--muted); }
+
+.backlog-check {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.backlog-check code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--wash);
+  color: var(--muted);
+}
+
 /* The card is the box, and the box is what grows. Everything that draws it lives
    here rather than on the button inside it: the detail cannot be a child of a
    button, so a card whose border belonged to the button could only ever have put
@@ -653,7 +745,28 @@ body {
 .wire[data-state='cut'] { stroke: var(--bad); stroke-dasharray: 5 6; }
 .wire[data-tracked='open'] { filter: drop-shadow(0 0 6px var(--glow)); }
 
-.machine-hub { position: relative; }
+/* A grid rather than a plain block, so the mediator inside it fills the row instead
+   of ending wherever its content did. `align-self: stretch` on the panel had nothing
+   to stretch against: a block parent gives a block child no height to answer to.
+
+   That is what settles the empty space in this box. The two columns are as tall as
+   the taller of them either way; the question was only which of them got to use it.
+   The mediator does, and it spends it on the queue, which is the one list here that
+   is always longer than the room it has. */
+.machine-hub { position: relative; display: grid; }
+
+/* The column beside the mediator: the systems, and under them what could not be
+   delivered to any of them. The hub is about twice the height of the five tiles, so
+   without this the column stopped halfway down the machine and the rest of it was
+   empty. `start` rather than stretch, so the backlog is as tall as it needs to be
+   and the space under it stays honest rather than being padded out by a panel
+   pretending to have more in it. */
+.machine-side {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+  gap: 26px;
+}
 
 /* Two across, and five systems then fall as 2 + 2 + 1. Named rather than
    auto-filled: auto-fill decides the count from whatever width is going spare, so
@@ -1057,6 +1170,45 @@ body {
 }
 .mediator-titles { display: grid; gap: 3px; margin-right: auto; }
 
+/* The connection, in the corner of the panel whose numbers depend on it. Quiet
+   while it holds and impossible to miss once it does not: a dead stream leaves a
+   page that looks calm and is entirely stale, which is the one failure mode this
+   page cannot afford. */
+.mediator-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.mediator-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0.5);
+}
+/* The pulse is the one animation on this page that is not driven by an event, and
+   it earns that: it is the difference between "connected" and "the last frame of a
+   page that stopped updating an hour ago". */
+@media (prefers-reduced-motion: no-preference) {
+  .mediator-live[data-tone='live'] .mediator-live-dot {
+    animation: live-pulse 2.4s ease-out infinite;
+  }
+}
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0.5); }
+  70% { box-shadow: 0 0 0 6px oklch(from var(--good) l c h / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(from var(--good) l c h / 0); }
+}
+.mediator-live[data-tone='lost'] { color: var(--bad); }
+.mediator-live[data-tone='lost'] .mediator-live-dot { background: var(--bad); }
+
 /* Quiet on purpose. It is the one control here that throws work away, so it must
    be findable and must not be the thing a visitor reaches for first. */
 .mediator-reset {
@@ -1216,9 +1368,22 @@ body {
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 .mediator-doing[data-tone='work'] { color: var(--good); }
 .mediator-doing[data-tone='bad'] { color: var(--bad); }
+/* Never the tone of the line it shares. The colour on that line says how the work
+   is going; who else is here is not news of that kind, and colouring it red because
+   a delivery is parked would say the visitors were the problem. */
+.mediator-doing-others {
+  flex: none;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--faint);
+}
 
 .mediator-tabs {
   position: relative;
@@ -1686,6 +1851,13 @@ body {
 
   .mediator-panel { height: 17rem; }
   .mediator { grid-template-rows: none; }
+
+  /* Four things in the head and room for three. Given a phone's width the badge
+     took enough off the title for "The mediator" to break across two lines, which
+     is a worse trade than one more row: the name of the panel is the thing a reader
+     lands on. The title takes the row, the rest share the next one. */
+  .mediator-head { flex-wrap: wrap; }
+  .mediator-titles { flex: 1 1 100%; }
 
   .machine-body {
     grid-template-columns: minmax(0, 1fr);

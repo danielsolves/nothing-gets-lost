@@ -66,6 +66,10 @@ const props = {
   counters, deliveries, orders, timeline,
   openOrder: null,
   onToggleOrder: () => {},
+  // The everyday case: the stream is up and nobody else is here. The cases where
+  // either is not true have their own tests at the bottom of this file.
+  connected: true,
+  viewers: 1,
 };
 
 describe('Mediator', () => {
@@ -195,5 +199,32 @@ describe('Mediator', () => {
     expect(fetch).toHaveBeenCalledWith('/api/reset', expect.objectContaining({
       method: 'POST',
     }));
+  });
+
+  // The badge and the visitor count came out of the page header when it was cut
+  // back to a name and a claim. Both were doing a job, so they moved rather than
+  // going: this panel is where the numbers they qualify are.
+  it('says the stream is live', () => {
+    render(<Mediator {...props} />);
+    const live = screen.getByTestId('hub-live');
+    expect(live).toHaveTextContent(/live/i);
+    expect(live).toHaveAttribute('data-tone', 'live');
+  });
+
+  it('says so when the stream has dropped, rather than looking calm', () => {
+    render(<Mediator {...props} connected={false} />);
+    const live = screen.getByTestId('hub-live');
+    expect(live).toHaveTextContent(/connection lost/i);
+    expect(live).toHaveAttribute('data-tone', 'lost');
+  });
+
+  it('explains why the numbers move when somebody else is here', () => {
+    render(<Mediator {...props} viewers={3} />);
+    expect(screen.getByTestId('hub-viewers')).toHaveTextContent('2 others here right now');
+  });
+
+  it('says nothing about other visitors when there are none', () => {
+    render(<Mediator {...props} viewers={1} />);
+    expect(screen.queryByTestId('hub-viewers')).not.toBeInTheDocument();
   });
 });
