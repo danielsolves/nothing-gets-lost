@@ -61,7 +61,18 @@ export function Connections() {
 
       {/* Three children, not two: this row needs its own grid track for the input. */}
       <div className="connection webhook">
-        <span>Your own endpoint</span>
+        <span>
+          Your own endpoint
+          {/* It said only "Your own endpoint", which names a field and explains
+              nothing. A visitor who does not already know what a webhook target is
+              cannot tell whether this is for them, and the one who does cannot tell
+              what we will send or how often. */}
+          <small>
+            A url of yours that we POST every delivery to, with the same retries as
+            the systems above. Watch it from your side and you are not taking our
+            word for any of this.
+          </small>
+        </span>
         <input placeholder="https://your-server.example/hook" value={webhookUrl}
                data-testid="webhook-url"
                onChange={(event) => setWebhookUrl(event.target.value)} />

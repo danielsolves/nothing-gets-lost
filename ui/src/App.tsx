@@ -15,7 +15,7 @@
 // kept them: they belong next to the queue they are counting.
 import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
-import { Deeper } from './Deeper';
+import { Deeper, type DeeperTab } from './Deeper';
 import { Diagram } from './Diagram';
 import { OrderForm } from './OrderForm';
 import { ProofPanel } from './ProofPanel';
@@ -36,6 +36,10 @@ export function App() {
   // One open card at a time, and open doubles as selected: the order being read is
   // the one marked in the diagram.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
+  // Which of the further tools is open. Held here rather than inside Deeper because
+  // a tile can send the visitor to one of them: the check on a system we read back
+  // ourselves offers connecting your own account as the way out of taking our word.
+  const [deeper, setDeeper] = useState<DeeperTab | null>(null);
 
   // The hub reads a board held back until the dot carrying a new order has finished
   // travelling to it; the diagram reads the live one, because the dot is the thing
@@ -61,6 +65,7 @@ export function App() {
         <section className="board">
           <Diagram
             extractorMode={extractorMode}
+            onConnectOwn={() => setDeeper('connect')}
             switches={switches}
             deliveries={deliveries}
             openOrder={openOrder}
@@ -95,7 +100,12 @@ export function App() {
           <ProofPanel eventId={placed.eventId} expectMail={placed.expectMail} />
         )}
 
-        <Deeper connect={<Connections />} sql={<SqlConsole />} />
+        <Deeper
+          connect={<Connections />}
+          sql={<SqlConsole />}
+          open={deeper}
+          onOpen={setDeeper}
+        />
       </main>
     </>
   );

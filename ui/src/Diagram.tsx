@@ -63,6 +63,12 @@ export function Diagram(props: {
    * It is on the two menu entries that are read by the model, and nowhere else.
    */
   extractorMode?: 'live' | 'recorded';
+  /**
+   * Sends a visitor to the section where they connect their own account. The tiles
+   * offer that as the way out of "you only have our word for this", so the drawing
+   * has to be able to open it.
+   */
+  onConnectOwn?: () => void;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
   const layer = useWires(TARGETS);
@@ -154,7 +160,13 @@ export function Diagram(props: {
     const eventId = lastDeliveredEvent(node.id, props.deliveries);
     if (eventId === null) return undefined;
     return (
-      <StepProof eventId={eventId} target={node.id} label={node.label} layout="tile" />
+      <StepProof
+        eventId={eventId}
+        target={node.id}
+        label={node.label}
+        layout="tile"
+        onConnectOwn={props.onConnectOwn}
+      />
     );
   };
 

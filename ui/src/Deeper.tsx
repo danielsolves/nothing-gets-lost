@@ -20,10 +20,23 @@ const TABS: Array<{ id: DeeperTab; label: string; hint: string }> = [
 interface DeeperProps {
   connect: ReactNode;
   sql: ReactNode;
+  /**
+   * Which tab is open, when somebody outside decides. The tiles offer a way out of
+   * "you only have our word for this", and that way out is this section, so it has
+   * to be openable from up there. Left uncontrolled it keeps its own state, which is
+   * what every test of it does.
+   */
+  open?: DeeperTab | null;
+  onOpen?: (tab: DeeperTab | null) => void;
 }
 
-export function Deeper({ connect, sql }: DeeperProps) {
-  const [open, setOpen] = useState<DeeperTab | null>(null);
+export function Deeper({ connect, sql, open: controlled, onOpen }: DeeperProps) {
+  const [ownOpen, setOwnOpen] = useState<DeeperTab | null>(null);
+  const open = controlled === undefined ? ownOpen : controlled;
+  const setOpen = (tab: DeeperTab | null) => {
+    if (controlled === undefined) setOwnOpen(tab);
+    onOpen?.(tab);
+  };
   const content: Record<DeeperTab, ReactNode> = { connect, sql };
 
   return (

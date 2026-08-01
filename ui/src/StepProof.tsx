@@ -18,6 +18,7 @@
 // nothing here and is exactly what keeps the Stripe receipt worth something.
 import { useState } from 'react';
 import type { Target, VerifyResponse } from '@ngl/contracts';
+import { canConnectOwn } from './machine';
 
 type Answer =
   | { kind: 'idle' }
@@ -49,6 +50,15 @@ export function StepProof(props: {
    * on this domain.
    */
   layout?: 'card' | 'tile';
+  /**
+   * Opens the section where a visitor points this system at their own account.
+   *
+   * The caveat used to end at "worth our word", which is true and is a dead end: it
+   * tells somebody the evidence is weak and leaves them there. The way out already
+   * exists further down the page, and the service already knows about it, since a
+   * read-back against the visitor's own portal comes back indisputable.
+   */
+  onConnectOwn?: () => void;
 }) {
   const [answer, setAnswer] = useState<Answer>({ kind: 'idle' });
   const id = `${props.eventId}-${props.target}`;
@@ -71,6 +81,8 @@ export function StepProof(props: {
   const openable = verified !== null && verified.indisputable && verified.httpStatus === 200;
   const host = openable ? hostOf(verified.requestUrl) : null;
   const tile = props.layout === 'tile';
+  // Stripe and the mailer never reach here: their answers come back indisputable.
+  const canOwn = canConnectOwn(props.target);
 
   return (
     <div className="step-proof" data-layout={props.layout ?? 'card'}>
@@ -134,11 +146,24 @@ export function StepProof(props: {
 
           {!verified.indisputable && (
             <p className="step-proof-caveat" data-testid={`proof-caveat-${id}`}>
-              {tile
-                ? 'Read back through us. We render this answer, so it is worth our word.'
-                : 'Read back through us, from our own portal. We render this answer, so it '
-                  + 'is worth exactly as much as our word. The Stripe receipt is not: that '
-                  + 'page is served by stripe.com.'}
+              Read back through us, so it is worth our word.
+              {' '}
+              {canOwn && props.onConnectOwn ? (
+                <>
+                  <button
+                    type="button"
+                    className="step-proof-own"
+                    data-testid={`proof-connect-${id}`}
+                    onClick={props.onConnectOwn}
+                  >
+                    Connect your own {props.label}
+                  </button>
+                  {' '}and this becomes a record in your portal.
+                </>
+              ) : (
+                'This one is our own service, so there is no account of yours it could '
+                + 'land in instead.'
+              )}
             </p>
           )}
         </div>

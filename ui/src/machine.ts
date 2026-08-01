@@ -163,3 +163,20 @@ export const NODES: Node[] = [
 ];
 
 export const SYSTEMS: SystemNode[] = NODES;
+
+/**
+ * The systems a visitor can point at their own account, which is the only thing that
+ * turns our read-back into their record.
+ *
+ * Two, and it is worth saying why the others are not. The ledger is our own service,
+ * so there is no account to connect and no honest way out of "you have our word for
+ * this"; that is the price of the Stripe receipt beside it being worth something.
+ * The mailer already lands in the visitor's own inbox, which is stronger than any
+ * connecting would make it. Stripe is a receipt on stripe.com and needs nothing.
+ */
+const CONNECTABLE: readonly SwitchableTarget[] = ['hubspot', 'slack'];
+
+/** Takes any target, because the caller has one of the six, not one of the five. */
+export function canConnectOwn(target: string): boolean {
+  return (CONNECTABLE as readonly string[]).includes(target);
+}

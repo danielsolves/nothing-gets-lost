@@ -1536,7 +1536,11 @@ body {
   border-top: 1px solid var(--line);
 }
 .connection > span { font-weight: 600; }
+/* The HubSpot note sits under its whole row; the endpoint note sits under its own
+   label, because that row already spends its middle track on the input. */
 .connection small { grid-column: 1 / -1; color: var(--faint); font-size: 13px; }
+.connection.webhook span { display: grid; gap: 4px; align-content: start; }
+.connection.webhook span small { grid-column: auto; line-height: 1.45; max-width: 34ch; }
 .connection .error { grid-column: 1 / -1; }
 
 /* Three children, so this row needs its own track for the input. */
@@ -2028,3 +2032,19 @@ body {
 .step-proof[data-layout='tile'] .step-proof-caveat { font-size: 10.5px; line-height: 1.45; }
 .step-proof[data-layout='tile'] .step-proof-error { font-size: 10.5px; }
 
+
+
+/* The way out of "you have our word for this". A button that reads as a link,
+   because it goes somewhere on this page rather than doing something here. */
+.step-proof-own {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.step-proof-own:hover { color: var(--text); }
+.step-proof-own:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
