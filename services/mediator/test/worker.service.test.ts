@@ -226,38 +226,77 @@ describe('WorkerService', () => {
   });
 });
 
-describe('timing the hop', () => {
-  it('stamps the send at the call, not when the batch was claimed', async () => {
-    // A batch is claimed together and worked through one at a time. Stamped at the
-    // claim, a row called second carried the wait for the first one, and the page
-    // prints that gap as how long the system took to answer. It would have read as
-    // HubSpot being slow while HubSpot had not yet been asked.
+describe('working a batch', () => {
+  /** A target that takes its time without blocking anything else. */
+  function slowTarget(target: 'hubspot' | 'ledger', ms: number): DeliveryTarget {
+    return {
+      target,
+      async deliver() {
+        await new Promise((resolve) => { setTimeout(resolve, ms); });
+        return { remoteRef: `ref-${target}`, remoteAt: null };
+      },
+    };
+  }
+
+  it('calls the systems at the same time rather than one behind the other', async () => {
+    // The systems an order goes to know nothing about each other, so nothing in the
+    // domain says HubSpot has to wait for the ledger to answer. Worked one at a
+    // time, an order cost the sum of the round trips; it should cost the slowest.
+    await seed('order-parallel-1', 'hubspot');
+    await seed('order-parallel-2', 'ledger');
+
+    const worker = new WorkerService(
+      queue, [slowTarget('hubspot', 200), slowTarget('ledger', 200)], pool,
+    );
+    const started = Date.now();
+    expect(await worker.tick()).toBe(2);
+    const elapsed = Date.now() - started;
+
+    // Sequential would be 400ms plus the writes around them. The headroom is wide
+    // on purpose: this test is about the shape, not about the machine it runs on.
+    expect(elapsed).toBeLessThan(350);
+
+    const { rows } = await pool.query<{ state: string }>('SELECT state FROM deliveries');
+    expect(rows.map((r) => r.state)).toEqual(['done', 'done']);
+  });
+
+  it('stamps a fanned-out batch as having gone out together', async () => {
+    // The other half of the same fact, read off the column the page prints. Two
+    // rows claimed in one batch and sent in parallel were sent at the same moment,
+    // and "answered in ..." for the second one must not carry the first one's wait.
     const first = await seed('order-timing-1', 'hubspot');
     const second = await seed('order-timing-2', 'ledger');
 
-    // Both hold, so the gap between the two stamps is there whichever order the
-    // worker happens to reach them in. Which one goes first is not something this
-    // test should have an opinion about: claimDue picks the batch in next_at order
-    // but returns it in whatever order the update produced.
-    const hold = () => {
-      const until = Date.now() + 200;
-      while (Date.now() < until) { /* keep the worker on this delivery */ }
-    };
     const worker = new WorkerService(
-      queue, [recordingTarget('hubspot', hold), recordingTarget('ledger', hold)], pool,
+      queue, [slowTarget('hubspot', 200), slowTarget('ledger', 200)], pool,
     );
     await worker.tick();
 
-    const { rows } = await pool.query<{ target: string; sent_at: Date }>(
-      `SELECT target, sent_at FROM deliveries
-        WHERE event_id IN ($1, $2) ORDER BY sent_at`,
+    const { rows } = await pool.query<{ sent_at: Date }>(
+      `SELECT sent_at FROM deliveries WHERE event_id IN ($1, $2) ORDER BY sent_at`,
       [first, second],
     );
-    // Both rows were claimed in one batch, so a stamp taken at the claim would put
-    // them within a millisecond of each other. Taken at the call, they are as far
-    // apart as the first delivery took.
     const spread = rows[1].sent_at.getTime() - rows[0].sent_at.getTime();
-    expect(spread).toBeGreaterThan(150);
+    expect(spread).toBeLessThan(100);
+  });
+
+  it('lets one system fail without holding up the one beside it', async () => {
+    await seed('order-independent-1', 'hubspot');
+    await seed('order-independent-2', 'ledger');
+
+    const worker = new WorkerService(queue, [
+      { target: 'hubspot', async deliver() { throw new Error('ECONNRESET'); } },
+      slowTarget('ledger', 10),
+    ], pool);
+    await worker.tick();
+
+    const { rows } = await pool.query<{ target: string; state: string }>(
+      'SELECT target, state FROM deliveries ORDER BY target',
+    );
+    expect(rows).toEqual([
+      { target: 'hubspot', state: 'pending' },
+      { target: 'ledger', state: 'done' },
+    ]);
   });
 
   it('records both ends of the hop on a delivery that settled', async () => {

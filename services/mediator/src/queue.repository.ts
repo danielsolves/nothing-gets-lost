@@ -54,11 +54,16 @@ export class QueueRepository {
   /**
    * Stamps the moment the call is about to go out.
    *
-   * Deliberately not done in claimDue, where it would have cost nothing. A batch is
-   * claimed together and then worked through one at a time, so a row claimed with
-   * four others and called fourth was stamped about five seconds before anything
-   * was sent to it. The page prints this gap as "answered in 4.9 s", which would
-   * have read as HubSpot being slow when HubSpot had not yet been asked.
+   * Deliberately not done in claimDue, where it would have cost nothing. A claim is
+   * a decision to work a row; a send is the row leaving. The two sit close together
+   * now that a batch fans out instead of queueing behind itself, and they did not
+   * always: worked one at a time, a row called fourth was stamped seconds before
+   * anything was sent to it, and the page printed that gap as "answered in 4.9 s".
+   * It read as HubSpot being slow while HubSpot had not yet been asked.
+   *
+   * They come apart again for reasons that have nothing to do with that loop: the
+   * batch is capped, a retry waits out its backoff, and a second worker claims rows
+   * while this one is still holding its own. The stamp belongs at the call.
    *
    * One extra write per delivery. On a page whose whole claim is that its numbers
    * are real, a number that is quietly four seconds of our own queueing is not a
