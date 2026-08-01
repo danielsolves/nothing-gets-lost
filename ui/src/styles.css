@@ -609,10 +609,16 @@ body {
 .machine-body {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(320px, 27rem) minmax(0, 1fr);
+  /* The mediator takes about a third more than it did. Two systems fit beside it
+     now instead of three, which is what stops the branch lines stacking: with three
+     columns the line to the third crossed two lanes to get there, and three lanes
+     in one corridor is the thing that read as a tangle however far apart they were.
+     Two columns means one lane, and five systems then fall as 2 + 2 + 1. */
+  grid-template-columns: minmax(360px, 36rem) minmax(0, 1fr);
   gap: clamp(28px, 3vw, 44px);
-  /* Room above the mediator for the line an arriving order travels down. */
-  padding-top: 26px;
+  /* The drop from the button into the mediator. Long enough to read as a connection
+     rather than as a gap the eye has to close by itself. */
+  padding-top: 52px;
 }
 
 .wires, .packets {
@@ -639,22 +645,27 @@ body {
 
 .machine-hub { position: relative; }
 
-/* Three across, then the rest underneath. Named rather than auto-filled: auto-fill
-   decides the count from whatever width is going spare, so the drawing rearranged
-   itself between one desktop and the next, and a picture of a machine should be the
-   same picture on every screen that can hold it.
+/* Two across, and five systems then fall as 2 + 2 + 1. Named rather than
+   auto-filled: auto-fill decides the count from whatever width is going spare, so
+   the drawing rearranged itself between one desktop and the next, and a picture of a
+   machine should be the same picture on every screen that can hold it.
 
    The rows are further apart than the columns on purpose. The line to a tile in the
-   second or third column runs along a lane above its row, and a lane in a 16px gap
-   grazes the tiles on both sides of it: nothing overlaps, but everything touches,
-   and touching reads as overlapping. */
+   second column runs along a lane above its row, and a lane in a 16px gap grazes the
+   tiles on both sides of it: nothing overlaps, but everything touches, and touching
+   reads as overlapping.
+
+   The block starts below the top of the mediator. That gap is the corridor the first
+   row's lane runs in, and it exists so that no wire has to climb over the mediator's
+   roof to reach anything: everything here leaves the mediator, and a line arriving
+   from above says the opposite. */
 .systems {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 34px 0 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: clamp(10px, 1.1vw, 14px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(12px, 1.2vw, 18px);
   row-gap: 34px;
   align-content: start;
 }
@@ -1643,7 +1654,7 @@ body {
   /* Two across a phone, and tall enough that a tile with nothing to report is not
      a strip. There is no square left to undo here: the tile takes its height from
      its content everywhere now. */
-  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; padding-top: 0; }
   .target { min-height: 7rem; }
 
   /* The menu hangs off the tile here rather than off the three dots. Anchored to

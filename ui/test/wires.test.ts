@@ -85,15 +85,38 @@ describe('wiresFrom', () => {
   });
 
   it('runs the branch above the row rather than across the tiles in it', () => {
+    // The row is set well below the mediator's top edge, so there is a corridor to
+    // run the lane in without climbing over the panel.
     const tiles = new Map<string, Box>([
-      ['stripe', { x: 400, y: 40, width: 160, height: 120 }],
-      ['hubspot', { x: 580, y: 40, width: 160, height: 120 }],
+      ['stripe', { x: 400, y: 90, width: 160, height: 120 }],
+      ['hubspot', { x: 580, y: 90, width: 160, height: 120 }],
     ]);
     const [, second] = wiresFrom(hub, tiles);
     const points = numbers(second.d);
-    // The lane it travels along sits above the top edge of the row, which is 40.
-    expect(points[3]).toBeLessThan(40);
-    expect(points[points.length - 1]).toBe(40);
+    // The lane it travels along sits above the top edge of the row, which is 90.
+    expect(points[3]).toBeLessThan(90);
+    expect(points[points.length - 1]).toBe(90);
+  });
+
+  it('never runs a line above the top of the mediator', () => {
+    // Everything here leaves the mediator. A line that climbs over its roof to get
+    // somewhere reads as a route arriving from above rather than as one going out
+    // sideways, which is the opposite of what the machine does.
+    const tight = new Map<string, Box>([
+      ['stripe', { x: 400, y: 40, width: 160, height: 120 }],
+      ['hubspot', { x: 580, y: 40, width: 160, height: 120 }],
+    ]);
+    for (const wire of wiresFrom(hub, tight)) {
+      for (const point of numbers(wire.d)) expect(point).toBeGreaterThanOrEqual(hub.y);
+    }
+  });
+
+  it('still goes round the foot of the mediator for a tile underneath it', () => {
+    // Clamped only from above. A tile that has wrapped under the panel is reached
+    // round its bottom edge, and that lane is below the mediator, not over it.
+    const below: Box = { x: 20, y: 300, width: 160, height: 120 };
+    const [wire] = wiresFrom(hub, new Map([['ledger', below]]));
+    expect(numbers(wire.d)[3]).toBeGreaterThan(hub.y + hub.height);
   });
 
   it('puts every tile in a row on the same lane, so the route forks once', () => {

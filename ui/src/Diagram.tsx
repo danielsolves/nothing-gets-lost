@@ -160,7 +160,11 @@ export function Diagram(props: {
         </p>
 
         <div className="machine-entry">
-          {props.orderForm}
+          {/* Measured, so the line into the mediator hangs under this rather than
+              under the middle of the panel. */}
+          <span className="machine-entry-button" ref={layer.entryRef}>
+            {props.orderForm}
+          </span>
           <TileMenu
             menuLabel="Send an order that is not well formed"
             testId="entry"

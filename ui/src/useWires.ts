@@ -31,6 +31,8 @@ export interface WireLayer {
   frameRef: (element: HTMLElement | null) => void;
   /** Put this on the mediator. */
   hubRef: (element: HTMLElement | null) => void;
+  /** Put this on the button an order is sent from, so the way in hangs under it. */
+  entryRef: (element: HTMLElement | null) => void;
   /** Put this on each tile, keyed by the system it stands for. */
   tileRef: (target: string) => (element: HTMLElement | null) => void;
   wires: Wire[];
@@ -40,6 +42,7 @@ export interface WireLayer {
 export function useWires(targets: readonly string[]): WireLayer {
   const frame = useRef<HTMLElement | null>(null);
   const hub = useRef<HTMLElement | null>(null);
+  const entry = useRef<HTMLElement | null>(null);
   const tiles = useRef(new Map<string, HTMLElement>());
 
   /**
@@ -80,10 +83,13 @@ export function useWires(targets: readonly string[]): WireLayer {
     }
 
     const hubBox = boxOf(hubElement, origin);
-    const entry = entryWire(hubBox);
+    // The button sits above the frame, so its box has a negative y here. Only its
+    // horizontal middle is wanted, which is why that does not matter.
+    const from = entry.current === null ? null : boxOf(entry.current, origin);
+    const way = entryWire(hubBox, from);
     const measured = new Map(wiresFrom(hubBox, boxes).map((wire) => [wire.target, wire.d]));
     setSize({ width: origin.width, height: origin.height });
-    setWires(withPaths((target) => measured.get(target) ?? '', entry?.d ?? ''));
+    setWires(withPaths((target) => measured.get(target) ?? '', way?.d ?? ''));
   }, [targets, withPaths]);
 
   useEffect(() => {
@@ -91,6 +97,7 @@ export function useWires(targets: readonly string[]): WireLayer {
     const observer = new ResizeObserver(() => measure());
     if (frame.current !== null) observer.observe(frame.current);
     if (hub.current !== null) observer.observe(hub.current);
+    if (entry.current !== null) observer.observe(entry.current);
     for (const element of tiles.current.values()) observer.observe(element);
     measure();
     return () => observer.disconnect();
@@ -104,6 +111,10 @@ export function useWires(targets: readonly string[]): WireLayer {
     hub.current = element;
   }, []);
 
+  const entryRef = useCallback((element: HTMLElement | null) => {
+    entry.current = element;
+  }, []);
+
   const tileRef = useCallback(
     (target: string) => (element: HTMLElement | null) => {
       if (element === null) tiles.current.delete(target);
@@ -112,5 +123,5 @@ export function useWires(targets: readonly string[]): WireLayer {
     [],
   );
 
-  return { frameRef, hubRef, tileRef, wires, size };
+  return { frameRef, hubRef, entryRef, tileRef, wires, size };
 }
