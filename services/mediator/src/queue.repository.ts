@@ -51,6 +51,25 @@ export class QueueRepository {
     }));
   }
 
+  /**
+   * Stamps the moment the call is about to go out.
+   *
+   * Deliberately not done in claimDue, where it would have cost nothing. A batch is
+   * claimed together and then worked through one at a time, so a row claimed with
+   * four others and called fourth was stamped about five seconds before anything
+   * was sent to it. The page prints this gap as "answered in 4.9 s", which would
+   * have read as HubSpot being slow when HubSpot had not yet been asked.
+   *
+   * One extra write per delivery. On a page whose whole claim is that its numbers
+   * are real, a number that is quietly four seconds of our own queueing is not a
+   * number worth saving a write on.
+   */
+  async markSending(id: number): Promise<void> {
+    await this.pool.query(
+      'UPDATE deliveries SET sent_at = now() WHERE id = $1', [id],
+    );
+  }
+
   async markDone(id: number, remoteRef: string | null, remoteAt: Date | null): Promise<void> {
     await this.pool.query(
       `UPDATE deliveries

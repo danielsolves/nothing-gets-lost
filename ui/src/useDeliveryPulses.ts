@@ -9,8 +9,25 @@ import { useEffect, useRef, useState } from 'react';
 import type { DeliveryView } from '@ngl/contracts';
 import { pulsesFrom, type Pulse } from './pulses';
 
-/** Long enough to read as travel, short enough to keep up with a busy queue. */
-export const PULSE_MS = 900;
+/**
+ * How long one leg takes: long enough to read as travel, short enough to keep up
+ * with a busy queue. This is the number the hub waits out before it admits an order
+ * has landed, because what it is waiting for is the arrival dot finishing its run.
+ */
+export const ARRIVAL_MS = 900;
+
+/**
+ * How long a pulse stays on the page. Longer than one leg, because a settled
+ * delivery draws two: the answer waits out the call it is answering before setting
+ * off, so the pair needs a window that holds both halves. Cut back to a single leg,
+ * the return dot is unmounted mid-flight and the delivery looks unanswered.
+ *
+ * Kept apart from ARRIVAL_MS rather than shared. They were one number until the
+ * return leg existed, and merging them again would have the hub hold its numbers
+ * back for the length of the longest animation on the page rather than for the one
+ * thing it is actually waiting for.
+ */
+export const PULSE_MS = 1400;
 
 /** A pulse plus the one thing that makes two dots on the same line distinguishable. */
 export interface LivePulse extends Pulse {

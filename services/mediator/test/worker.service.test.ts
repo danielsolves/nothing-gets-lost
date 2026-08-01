@@ -225,3 +225,64 @@ describe('WorkerService', () => {
     expect(rows[0].attempts).toBe(6);
   });
 });
+
+describe('timing the hop', () => {
+  it('stamps the send at the call, not when the batch was claimed', async () => {
+    // A batch is claimed together and worked through one at a time. Stamped at the
+    // claim, a row called second carried the wait for the first one, and the page
+    // prints that gap as how long the system took to answer. It would have read as
+    // HubSpot being slow while HubSpot had not yet been asked.
+    const first = await seed('order-timing-1', 'hubspot');
+    const second = await seed('order-timing-2', 'ledger');
+
+    // Both hold, so the gap between the two stamps is there whichever order the
+    // worker happens to reach them in. Which one goes first is not something this
+    // test should have an opinion about: claimDue picks the batch in next_at order
+    // but returns it in whatever order the update produced.
+    const hold = () => {
+      const until = Date.now() + 200;
+      while (Date.now() < until) { /* keep the worker on this delivery */ }
+    };
+    const worker = new WorkerService(
+      queue, [recordingTarget('hubspot', hold), recordingTarget('ledger', hold)], pool,
+    );
+    await worker.tick();
+
+    const { rows } = await pool.query<{ target: string; sent_at: Date }>(
+      `SELECT target, sent_at FROM deliveries
+        WHERE event_id IN ($1, $2) ORDER BY sent_at`,
+      [first, second],
+    );
+    // Both rows were claimed in one batch, so a stamp taken at the claim would put
+    // them within a millisecond of each other. Taken at the call, they are as far
+    // apart as the first delivery took.
+    const spread = rows[1].sent_at.getTime() - rows[0].sent_at.getTime();
+    expect(spread).toBeGreaterThan(150);
+  });
+
+  it('records both ends of the hop on a delivery that settled', async () => {
+    const eventId = await seed('order-timing-3', 'hubspot');
+    const worker = new WorkerService(queue, [recordingTarget('hubspot')], pool);
+    await worker.tick();
+
+    const { rows } = await pool.query<{ sent_at: Date | null; state: string }>(
+      'SELECT sent_at, state FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    expect(rows[0]?.state).toBe('done');
+    expect(rows[0]?.sent_at).not.toBeNull();
+  });
+
+  it('keeps the send time after the row settles, unlike the lock', async () => {
+    // locked_at is cleared by every settling path, which is why it could not be
+    // borrowed for this: it is null on exactly the rows a duration is wanted for.
+    const eventId = await seed('order-timing-4', 'hubspot');
+    const worker = new WorkerService(queue, [recordingTarget('hubspot')], pool);
+    await worker.tick();
+
+    const { rows } = await pool.query<{ sent_at: Date | null; locked_at: Date | null }>(
+      'SELECT sent_at, locked_at FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    expect(rows[0]?.locked_at).toBeNull();
+    expect(rows[0]?.sent_at).not.toBeNull();
+  });
+});

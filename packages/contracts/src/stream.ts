@@ -25,6 +25,18 @@ export interface DeliveryView {
   lastError: string | null;
   remoteRef: string | null;
   remoteAt: string | null;
+  /**
+   * When the call went out, and when we had the answer back. Both are our own
+   * clock, and the gap between them is the round trip as this machine measured it.
+   *
+   * Deliberately not the same thing as remoteAt. That is the timestamp the far end
+   * put on the record, which is what makes it evidence and also what makes it
+   * useless for timing: it is their clock, and it says when they wrote the record,
+   * not when we heard about it. These two are ours, and they are only ever used to
+   * say how long the hop took.
+   */
+  sentAt: string | null;
+  answeredAt: string | null;
 }
 
 /**

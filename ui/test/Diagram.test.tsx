@@ -40,7 +40,7 @@ const ALL_UP: Record<SwitchableTarget, SwitchState> = {
 const waiting: DeliveryView[] = [
   {
     id: 1, target: 'hubspot', state: 'pending', attempts: 2, eventId: 'evt-1',
-    nextAt: null, lastError: 'ECONNRESET', remoteRef: null, remoteAt: null,
+    nextAt: null, lastError: 'ECONNRESET', remoteRef: null, remoteAt: null, sentAt: null, answeredAt: null,
   },
 ];
 
@@ -265,7 +265,7 @@ describe('Diagram', () => {
       ...waiting,
       {
         id: 2, target: 'stripe', state: 'done', attempts: 1, eventId: 'evt-1',
-        nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null,
+        nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null, sentAt: null, answeredAt: null,
       },
     ];
     render(<Diagram {...base} switches={ALL_UP} deliveries={mixed} openOrder="evt-1" />);

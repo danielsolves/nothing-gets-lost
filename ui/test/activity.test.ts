@@ -36,7 +36,8 @@ function d(
   const id = nextId++;
   return {
     id, eventId: `evt-${id}`, target, state, attempts: 1,
-    nextAt: null, lastError: null, remoteRef: null, remoteAt: null, ...extra,
+    nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
+    sentAt: null, answeredAt: null, ...extra,
   };
 }
 
@@ -272,5 +273,53 @@ describe('currentWork', () => {
     expect(work.text).toBe('Queued for your endpoint');
     expect(currentWork([d('custom_webhook', 'dead', { attempts: 6 })]).text)
       .toBe('Your endpoint needs a human after 6 attempts');
+  });
+});
+
+describe('the answer coming back', () => {
+  it('says how long the system took, because the number is the evidence', () => {
+    // "Delivered" is one more thing to read for no news. A duration only exists
+    // because something at the other end really answered.
+    const done = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:00.312Z',
+    });
+    expect(activityFor('hubspot', [done])?.text).toBe('Answered in 312 ms');
+  });
+
+  it('reads a slow hop in seconds rather than four digits of milliseconds', () => {
+    const done = d('slack', 'done', {
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:08.400Z',
+    });
+    expect(activityFor('slack', [done])?.text).toBe('Answered in 8.4 s');
+  });
+
+  it('takes the most recent answer when several have settled', () => {
+    const older = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:00.900Z',
+    });
+    const newer = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:05.000Z', answeredAt: '2026-08-01T10:00:05.100Z',
+    });
+    expect(activityFor('hubspot', [older, newer])?.text).toBe('Answered in 100 ms');
+  });
+
+  it('stays quiet about a delivery that was never timed', () => {
+    // A made-up duration on this page costs more than a blank tile.
+    expect(activityFor('hubspot', [d('hubspot', 'done')])).toBeNull();
+  });
+
+  it('ignores a pair of timestamps that runs backwards', () => {
+    const broken = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:05.000Z', answeredAt: '2026-08-01T10:00:00.000Z',
+    });
+    expect(activityFor('hubspot', [broken])).toBeNull();
+  });
+
+  it('says nothing about timing while something is still moving', () => {
+    const done = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:00.312Z',
+    });
+    const going = d('hubspot', 'inflight');
+    expect(activityFor('hubspot', [done, going])?.text).toBe('Delivering');
   });
 });

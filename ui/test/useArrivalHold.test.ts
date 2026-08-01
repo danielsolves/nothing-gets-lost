@@ -40,7 +40,7 @@ afterEach(() => { vi.useRealTimers(); });
 const order = (eventId: string, firstId: number): DeliveryView[] =>
   (['hubspot', 'stripe'] as const).map((target, index): DeliveryView => ({
     id: firstId + index, eventId, target, state: 'pending', attempts: 0,
-    nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
+    nextAt: null, lastError: null, remoteRef: null, remoteAt: null, sentAt: null, answeredAt: null,
   }));
 
 /** Time passing, with React told about the state the timers set. */

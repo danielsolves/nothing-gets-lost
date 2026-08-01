@@ -697,6 +697,30 @@ body {
   animation-name: packet-through;
 }
 
+/* The answer coming back. It leaves after the call it is answering has arrived, so
+   it waits out the first half rather than racing it: the two together are one round
+   trip drawn end to end, and overlapped they would read as two systems talking at
+   once. Smaller and hollow, because a response is not another delivery going out and
+   must not be counted as one by a reader glancing at the drawing. */
+.packet-answer {
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: transparent;
+  border: 2px solid var(--good);
+  box-shadow: 0 0 8px oklch(from var(--good) l c h / 0.6);
+  animation-name: packet-return;
+  animation-delay: 380ms;
+}
+
+/* Back along the wire it went out on, from the system to the mediator. */
+@keyframes packet-return {
+  from { offset-distance: 100%; opacity: 0; transform: scale(0.5); }
+  18%  { opacity: 1; transform: scale(1); }
+  84%  { offset-distance: 0%; opacity: 1; transform: scale(1); }
+  to   { offset-distance: 0%; opacity: 0; transform: scale(1.6); }
+}
+
 /* Delivered: travels the wire and is taken in at the far end. */
 @keyframes packet-through {
   from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }

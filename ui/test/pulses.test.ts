@@ -15,6 +15,7 @@ const delivery = (
 ): DeliveryView => ({
   id, target, state, attempts,
   eventId: `evt-${id}`, nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
+  sentAt: null, answeredAt: null,
 });
 
 describe('pulsesFrom', () => {
@@ -255,5 +256,44 @@ describe('pulsesFrom, on a board the page watched empty', () => {
     // The default is the careful one: a caller that says nothing is a caller that
     // cannot tell an empty board from a board it has not seen.
     expect(pulsesFrom([], order('evt-new', 10, ['hubspot']))).toEqual([]);
+  });
+});
+
+describe('the answer coming back', () => {
+  it('draws the return leg of a delivery that was timed on both sides', () => {
+    // A settled delivery is two things that happened: a call went out and an answer
+    // came back. One dot absorbed at the far end said the first half and left the
+    // second to be taken on trust, which is the half that matters here.
+    const before = [delivery(1, 'hubspot', 'inflight', 1)];
+    const after = [{
+      ...delivery(1, 'hubspot', 'done', 1),
+      sentAt: '2026-08-01T10:00:00.000Z',
+      answeredAt: '2026-08-01T10:00:00.312Z',
+    }];
+    expect(pulsesFrom(before, after).map((p) => p.kind))
+      .toEqual(['delivered', 'answer']);
+  });
+
+  it('draws no return leg for a row that was never timed', () => {
+    // Never an animation standing in for a measurement we do not have.
+    const before = [delivery(1, 'hubspot', 'inflight', 1)];
+    const after = [delivery(1, 'hubspot', 'done', 1)];
+    expect(pulsesFrom(before, after).map((p) => p.kind)).toEqual(['delivered']);
+  });
+
+  it('sends the return leg back along the wire it went out on', () => {
+    const before = [delivery(1, 'slack', 'inflight', 1)];
+    const after = [{
+      ...delivery(1, 'slack', 'done', 1),
+      sentAt: '2026-08-01T10:00:00.000Z',
+      answeredAt: '2026-08-01T10:00:00.100Z',
+    }];
+    for (const pulse of pulsesFrom(before, after)) expect(pulse.target).toBe('slack');
+  });
+
+  it('draws nothing back from an attempt that got no answer', () => {
+    const before = [delivery(1, 'hubspot', 'inflight', 1)];
+    const after = [{ ...delivery(1, 'hubspot', 'dead', 3), sentAt: '2026-08-01T10:00:00.000Z' }];
+    expect(pulsesFrom(before, after).map((p) => p.kind)).toEqual(['parked']);
   });
 });

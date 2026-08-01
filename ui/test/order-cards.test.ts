@@ -23,7 +23,7 @@ function d(
 ): DeliveryView {
   return {
     id: nextId++, eventId, target, state, attempts: 1,
-    nextAt: null, lastError: null, remoteRef: null, remoteAt: null, ...extra,
+    nextAt: null, lastError: null, remoteRef: null, remoteAt: null, sentAt: null, answeredAt: null, ...extra,
   };
 }
 

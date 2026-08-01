@@ -55,7 +55,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 const delivery = (id: number, state: DeliveryView['state']): DeliveryView => ({
   id, eventId: `evt-${id}`, target: 'slack', state, attempts: 1,
-  nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
+  nextAt: null, lastError: null, remoteRef: null, remoteAt: null, sentAt: null, answeredAt: null,
 });
 
 const line = (at: string, text: string): TimelineEntry => ({

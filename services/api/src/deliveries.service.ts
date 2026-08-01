@@ -15,6 +15,7 @@ interface DeliveryRow {
   last_error: string | null;
   remote_ref: string | null;
   remote_at: Date | null;
+  sent_at: Date | null;
   updated_at: Date;
 }
 
@@ -39,7 +40,7 @@ export class DeliveriesService {
   private async read(limit: number): Promise<DeliveryRow[]> {
     const { rows } = await this.pool.query<DeliveryRow>(
       `SELECT id, event_id, target, state, attempts, next_at, last_error,
-              remote_ref, remote_at, updated_at
+              remote_ref, remote_at, sent_at, updated_at
          FROM deliveries ORDER BY updated_at DESC LIMIT $1`,
       [limit],
     );
@@ -57,6 +58,15 @@ export class DeliveriesService {
       lastError: row.last_error,
       remoteRef: row.remote_ref,
       remoteAt: row.remote_at === null ? null : row.remote_at.toISOString(),
+      // sent_at and not locked_at. The two are written together when a row is
+      // claimed, but locked_at is a lock: every settling path clears it, so on
+      // exactly the rows a duration is wanted for it is null.
+      sentAt: row.sent_at === null ? null : row.sent_at.toISOString(),
+      // updated_at is touched by every write to the row, so it is only the moment
+      // the answer landed on a row that has settled. On one still being retried it
+      // is the moment of the last failure, which is a different fact and must not
+      // be handed over as if it were the same one.
+      answeredAt: row.state === 'done' ? row.updated_at.toISOString() : null,
     };
   }
 

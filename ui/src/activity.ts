@@ -137,9 +137,47 @@ export function activityFor(
   if (queued.length === 1) return line('queued', 'wait');
   if (queued.length > 1) return line(`${queued.length} orders queued`, 'wait');
 
-  // Everything here is delivered, or there was never anything. A tile that
-  // announced that would be one more thing to read for no news.
+  // Everything is delivered. "Delivered" on its own would be one more thing to read
+  // for no news, but how long the system took to answer is news, and it is the news
+  // this page exists to carry: a number that only exists because something at the
+  // other end really answered. Measured on our clock either side of the call, which
+  // is why it is worded as a round trip and not as their processing time.
+  const settled = lastAnswered(mine);
+  if (settled !== null) return line(`answered in ${settled}`, 'wait');
+
   return null;
+}
+
+/**
+ * How long the most recent settled delivery took, or null when none of them carries
+ * both timestamps. Rows written before the timings existed say nothing rather than
+ * guessing, because a made-up duration on this page costs more than a blank tile.
+ */
+function lastAnswered(deliveries: DeliveryView[]): string | null {
+  let best: { at: number; text: string } | null = null;
+
+  for (const delivery of deliveries) {
+    if (delivery.state !== 'done') continue;
+    if (delivery.sentAt === null || delivery.answeredAt === null) continue;
+    const sent = Date.parse(delivery.sentAt);
+    const answered = Date.parse(delivery.answeredAt);
+    if (Number.isNaN(sent) || Number.isNaN(answered) || answered < sent) continue;
+    if (best === null || answered > best.at) {
+      best = { at: answered, text: roundTrip(answered - sent) };
+    }
+  }
+
+  return best?.text ?? null;
+}
+
+/**
+ * Milliseconds under a second and seconds above it. A hop that took 312 ms reads as
+ * a machine talking to a machine; the same number as "0.3 s" reads as a rounding,
+ * and the point of printing it at all is that it is a measurement.
+ */
+export function roundTrip(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
 }
 
 /**

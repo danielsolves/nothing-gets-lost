@@ -41,6 +41,9 @@ export class WorkerService {
       }
       try {
         const payload = await this.loadPayload(delivery.eventId);
+        // Here rather than at the claim, and after the payload is loaded: what the
+        // page times is the hop to the system, not this worker's own queueing.
+        await this.queue.markSending(delivery.id);
         const outcome = await target.deliver({
           eventId: delivery.eventId,
           idempotencyKey: idempotencyKey(delivery.eventId, delivery.target),

@@ -38,11 +38,11 @@ const counters: Counters = {
 const deliveries: DeliveryView[] = [
   {
     id: 1, eventId: EVENT, target: 'stripe', state: 'done', attempts: 1,
-    nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null,
+    nextAt: null, lastError: null, remoteRef: 'pi_1', remoteAt: null, sentAt: null, answeredAt: null,
   },
   {
     id: 2, eventId: EVENT, target: 'hubspot', state: 'pending', attempts: 3,
-    nextAt: null, lastError: 'ECONNRESET', remoteRef: null, remoteAt: null,
+    nextAt: null, lastError: 'ECONNRESET', remoteRef: null, remoteAt: null, sentAt: null, answeredAt: null,
   },
 ];
 

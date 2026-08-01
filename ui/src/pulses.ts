@@ -16,7 +16,7 @@
 // was not in the list before. Nothing here polls for it and nothing announces it.
 import { SWITCHABLE_TARGETS, type DeliveryView, type SwitchableTarget } from '@ngl/contracts';
 
-export type PulseKind = 'delivered' | 'held' | 'parked' | 'arrival';
+export type PulseKind = 'delivered' | 'answer' | 'held' | 'parked' | 'arrival';
 
 /**
  * An arrival travels the wire into the mediator rather than one of the outgoing
@@ -48,6 +48,24 @@ function kindOf(delivery: DeliveryView): PulseKind | null {
   // A queued row has not been anywhere yet, so nothing has travelled.
   if (delivery.attempts === 0) return null;
   return 'held';
+}
+
+/**
+ * A settled delivery is two things that happened, not one: a call went out and an
+ * answer came back. Drawn as a single dot absorbed at the far end, the picture said
+ * the first half and left the second to be taken on trust, which on this page is the
+ * half that matters. The system answering is the evidence that it is a system.
+ *
+ * Both halves are real and both are timed: `sentAt` and `answeredAt` are stamped by
+ * this machine on either side of the call. The return dot is only drawn when the row
+ * carries both, so it is never an animation standing in for a measurement we do not
+ * have. An older row that predates the timestamps simply draws the one dot it can
+ * account for.
+ */
+function answered(delivery: DeliveryView): boolean {
+  return delivery.state === 'done'
+    && delivery.sentAt !== null
+    && delivery.answeredAt !== null;
 }
 
 function signature(delivery: DeliveryView): string {
@@ -134,6 +152,9 @@ export function pulsesFrom(
     const kind = kindOf(delivery);
     if (kind === null) continue;
     pulses.push({ id: delivery.id, target: delivery.target, kind });
+    if (answered(delivery)) {
+      pulses.push({ id: delivery.id, target: delivery.target, kind: 'answer' });
+    }
   }
 
   return pulses;
