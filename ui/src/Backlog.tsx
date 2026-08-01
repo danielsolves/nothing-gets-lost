@@ -1,16 +1,15 @@
 // ui/src/Backlog.tsx
-// The backlog, under the systems it could not reach.
+// What the machine could not deliver, as the mediator's third panel.
 //
-// It is here rather than inside the mediator for two reasons. The mediator holds
-// what is still moving; this holds what has stopped, and folding the two together is
-// what let a parked delivery disappear into a list of things that were merely slow.
-// And the space under the tiles was empty: the hub is about twice their height, so
-// the right-hand column ended halfway down the machine with nothing under it.
+// It began as a box of its own under the systems, which put two panels on the page
+// about the same thing: the mediator holds the queue and the log, and this is the
+// third thing it holds. The tab strip it now sits in is labelled "what the mediator
+// holds", so the panel had been arguing with its own neighbour.
 //
-// The panel is always drawn, empty or not. Empty is the state this demo is in almost
-// all the time, and an empty backlog that explains itself is the strongest thing on
-// the page: it says what would land here, and it hands over the two ways to check
-// that claim from outside the page.
+// Not a system in the drawing either, which was the other idea. A system is
+// somewhere we deliver to, drawn with a line to it. Nothing is delivered to the
+// backlog; it is where a delivery stops. Drawing it as a node would say the opposite
+// of what it is.
 import type { DeliveryView, OrderView } from '@ngl/contracts';
 import { backlogOf } from './backlog-rows';
 
@@ -20,50 +19,41 @@ export function Backlog(props: {
 }) {
   const rows = backlogOf(props.deliveries, props.orders);
 
-  return (
-    <section className="backlog" data-testid="backlog">
-      <header className="backlog-head">
-        <span className="backlog-titles">
-          <span className="backlog-title">Backlog</span>
-          <span className="backlog-sub">waiting for a person</span>
-        </span>
-        {rows.length > 0 && (
-          <span className="backlog-count" data-testid="backlog-count">
-            {rows.length}
-          </span>
-        )}
-      </header>
-
-      {rows.length === 0 ? (
-        <p className="backlog-empty" data-testid="backlog-empty">
-          Nothing is waiting. A delivery that uses up its six attempts is written
-          here and stays until a person deals with it. Retrying will not clear it and
-          neither will this page.
-        </p>
-      ) : (
-        <ul className="backlog-list" data-testid="backlog-list">
-          {rows.map((row) => (
-            <li key={row.id} className="backlog-row" data-testid={`backlog-row-${row.id}`}>
-              <span className="backlog-order">
-                {row.number === null ? `id ${row.id}` : `#${row.number}`}
-              </span>
-              <span className="backlog-target">{row.label}</span>
-              <span className="backlog-note">
-                written to the backlog after {row.attempts}{' '}
-                {row.attempts === 1 ? 'attempt' : 'attempts'}, a person has to review it
-                {row.lastError ? ` (${row.lastError})` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* The point of the panel. Whatever it says above, these two lines are how a
-          reader finds out whether it is true, and neither of them is this page. */}
-      <p className="backlog-check" data-testid="backlog-check">
-        Read it yourself: <code>SELECT * FROM v_backlog</code> in the SQL console, or
-        the <code>backlog_list</code> tool on the MCP server at <code>/mcp</code>.
+  if (rows.length === 0) {
+    return (
+      <p className="backlog-empty" data-testid="backlog-empty">
+        Nothing is waiting. A delivery that uses up its six attempts is written here
+        and stays until a person deals with it. Retrying will not clear it and
+        neither will this page. The entries can be read from outside this page with
+        the <code>backlog_list</code> tool on the MCP server.
       </p>
-    </section>
+    );
+  }
+
+  return (
+    <>
+      <ul className="backlog-list" data-testid="backlog-list">
+        {rows.map((row) => (
+          <li key={row.id} className="backlog-row" data-testid={`backlog-row-${row.id}`}>
+            <span className="backlog-order">
+              {row.number === null ? `id ${row.id}` : `Order #${row.number}`}
+            </span>
+            <span className="backlog-target">{row.label}</span>
+            <span className="backlog-note">
+              written to the backlog after {row.attempts}{' '}
+              {row.attempts === 1 ? 'attempt' : 'attempts'}, a person has to review it
+              {row.lastError ? ` (${row.lastError})` : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* The point of the panel. Whatever it lists above, this is how a reader finds
+          out whether the list is true, and it is not this page. */}
+      <p className="backlog-check" data-testid="backlog-check">
+        Ask for these yourself with the <code>backlog_list</code> tool on the MCP
+        server, which reads them straight out of the database.
+      </p>
+    </>
   );
 }

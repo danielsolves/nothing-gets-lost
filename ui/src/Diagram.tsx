@@ -48,15 +48,6 @@ export function Diagram(props: {
   /** The hub itself, passed in so this file stays layout and wiring. */
   hub: React.ReactNode;
   /**
-   * What the machine could not deliver, drawn under the systems it failed to reach.
-   *
-   * It goes in the column beside the mediator rather than under the whole machine
-   * because that column ended halfway down: the hub is about twice the height of the
-   * five tiles, and the space under them was empty. This is the one panel that
-   * belongs there — everything in it is a system that would not answer.
-   */
-  backlog?: React.ReactNode;
-  /**
    * The one way in. It sits at the top of the machine rather than on a tile of its
    * own, because there is one entrance and a visitor should meet it before the
    * seven things it feeds.
@@ -73,11 +64,11 @@ export function Diagram(props: {
    */
   extractorMode?: 'live' | 'recorded';
   /**
-   * Sends a visitor to the section where they connect their own account. The tiles
-   * offer that as the way out of "you only have our word for this", so the drawing
-   * has to be able to open it.
+   * Sends a visitor to the section holding their own endpoint. The tiles offer it as
+   * the way out of "you only have our word for this", so the drawing has to be able
+   * to open it.
    */
-  onConnectOwn?: () => void;
+  onOwnEndpoint?: () => void;
 }) {
   const pulses = useDeliveryPulses(props.deliveries);
   const layer = useWires(TARGETS);
@@ -174,7 +165,7 @@ export function Diagram(props: {
         target={node.id}
         label={node.label}
         layout="tile"
-        onConnectOwn={props.onConnectOwn}
+        onOwnEndpoint={props.onOwnEndpoint}
       />
     );
   };
@@ -273,19 +264,13 @@ export function Diagram(props: {
 
         <div className="machine-hub" ref={layer.hubRef}>{props.hub}</div>
 
-        {/* One column, so the backlog sits under the tiles rather than under the
-            mediator. The tiles keep their own grid inside it and are still measured
-            individually, so the lines are drawn from where each one ended up. */}
-        <div className="machine-side">
-          <ul className="systems">
-            {NODES.map((node) => (
-              <li className="system" key={node.id} ref={layer.tileRef(node.id)}>
-                {tile(node)}
-              </li>
-            ))}
-          </ul>
-          {props.backlog}
-        </div>
+        <ul className="systems">
+          {NODES.map((node) => (
+            <li className="system" key={node.id} ref={layer.tileRef(node.id)}>
+              {tile(node)}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

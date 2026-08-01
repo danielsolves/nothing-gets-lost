@@ -18,11 +18,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
+import { Backlog } from './Backlog';
+import { backlogOf } from './backlog-rows';
 import { liveState } from './live';
 import { Queue } from './Queue';
 import { Timeline } from './Timeline';
 
-type Tab = 'queue' | 'log';
+type Tab = 'queue' | 'log' | 'backlog';
 
 export function Mediator(props: {
   counters: Counters;
@@ -40,6 +42,9 @@ export function Mediator(props: {
   const [help, setHelp] = useState(false);
   const doing = currentWork(props.deliveries);
   const live = liveState(props.connected, props.viewers);
+  // Counted here rather than inside the panel: the tab has to say how many are
+  // waiting while the panel is shut, which is the state it is in nearly always.
+  const parked = backlogOf(props.deliveries, props.orders).length;
   const tabs = useRef<HTMLDivElement>(null);
   // Where the underline has to be. Measured rather than assumed: the two labels are
   // different lengths, and a bar that travelled a guessed distance would arrive next
@@ -63,9 +68,17 @@ export function Mediator(props: {
   return (
     <section className="mediator" data-testid="mediator">
       <header className="mediator-head">
+        {/* "The mediator" is what this thing is called in the specification and in
+            every file name under services/, and it stayed on screen for a long time
+            for that reason. It is a word from the architecture, not from the
+            visitor's world: somebody arriving from a case list has to be told what a
+            mediator is before the panel means anything, which is what the question
+            mark beside it was for. "Integration hub" needs no such introduction.
+            The name inside the code has not changed, and should not: it is what the
+            pattern is called. */}
         <span className="mediator-titles">
-          <span className="mediator-title">The mediator</span>
-          <span className="mediator-sub">everything goes through here</span>
+          <span className="mediator-title">Integration hub</span>
+          <span className="mediator-sub">tracks, retries, and recovers</span>
         </span>
 
         {/* The connection, said out loud. A page whose stream has died goes quiet
@@ -104,7 +117,7 @@ export function Mediator(props: {
             type="button"
             className="mediator-help-toggle"
             data-testid="hub-help-toggle"
-            aria-label="What does the mediator do?"
+            aria-label="What does the integration hub do?"
             aria-expanded={help}
             onClick={() => setHelp((open) => !open)}
             onMouseEnter={() => setHelp(true)}
@@ -181,7 +194,7 @@ export function Mediator(props: {
       <div
         className="mediator-tabs"
         role="tablist"
-        aria-label="What the mediator holds"
+        aria-label="What the hub holds"
         ref={tabs}
       >
         <button
@@ -205,6 +218,25 @@ export function Mediator(props: {
           onClick={() => setTab('log')}
         >
           Log
+        </button>
+        {/* The third thing the mediator holds. It carries its count on the tab
+            because a backlog behind a closed tab is a backlog nobody knows about,
+            and this panel is shut nearly all the time: the demo delivers. */}
+        <button
+          type="button"
+          role="tab"
+          id="hub-tab-backlog"
+          data-testid="hub-tab-backlog"
+          aria-selected={tab === 'backlog'}
+          aria-controls="hub-panel-backlog"
+          onClick={() => setTab('backlog')}
+        >
+          Backlog
+          {parked > 0 && (
+            <span className="hub-tab-count" data-testid="hub-tab-backlog-count">
+              {parked}
+            </span>
+          )}
         </button>
 
         {/* Decorative: the tabs already say which is selected, to a screen reader
@@ -253,6 +285,17 @@ export function Mediator(props: {
           aria-labelledby="hub-tab-log"
         >
           <Timeline entries={props.timeline} />
+        </div>
+        <div
+          className="mediator-panel"
+          id="hub-panel-backlog"
+          data-testid="hub-panel-backlog"
+          data-current={tab === 'backlog' ? 'true' : 'false'}
+          aria-hidden={tab === 'backlog' ? undefined : 'true'}
+          role="tabpanel"
+          aria-labelledby="hub-tab-backlog"
+        >
+          <Backlog deliveries={props.deliveries} orders={props.orders} />
         </div>
       </div>
     </section>

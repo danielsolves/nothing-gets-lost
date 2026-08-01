@@ -18,7 +18,6 @@
 // nothing here and is exactly what keeps the Stripe receipt worth something.
 import { useState } from 'react';
 import type { Target, VerifyResponse } from '@ngl/contracts';
-import { canConnectOwn } from './machine';
 
 type Answer =
   | { kind: 'idle' }
@@ -51,14 +50,14 @@ export function StepProof(props: {
    */
   layout?: 'card' | 'tile';
   /**
-   * Opens the section where a visitor points this system at their own account.
+   * Opens the section holding the visitor's own endpoint.
    *
    * The caveat used to end at "worth our word", which is true and is a dead end: it
-   * tells somebody the evidence is weak and leaves them there. The way out already
-   * exists further down the page, and the service already knows about it, since a
-   * read-back against the visitor's own portal comes back indisputable.
+   * tells somebody the evidence is weak and leaves them there. It used to point at
+   * connecting their own portal; that is gone, and what it points at now is the one
+   * way left to have a delivery land somewhere we do not control.
    */
-  onConnectOwn?: () => void;
+  onOwnEndpoint?: () => void;
 }) {
   const [answer, setAnswer] = useState<Answer>({ kind: 'idle' });
   const id = `${props.eventId}-${props.target}`;
@@ -81,8 +80,6 @@ export function StepProof(props: {
   const openable = verified !== null && verified.indisputable && verified.httpStatus === 200;
   const host = openable ? hostOf(verified.requestUrl) : null;
   const tile = props.layout === 'tile';
-  // Stripe and the mailer never reach here: their answers come back indisputable.
-  const canOwn = canConnectOwn(props.target);
 
   return (
     <div className="step-proof" data-layout={props.layout ?? 'card'}>
@@ -144,25 +141,26 @@ export function StepProof(props: {
             </a>
           )}
 
+          {/* The same sentence for every system that is read back through us, and
+              the same way out. It used to fork: connect your own portal here, and
+              nothing to offer there. Both halves are gone, one because the OAuth is
+              gone and the other because it left the reader at a dead end. */}
           {!verified.indisputable && (
             <p className="step-proof-caveat" data-testid={`proof-caveat-${id}`}>
               Read back through us, so it is worth our word.
-              {' '}
-              {canOwn && props.onConnectOwn ? (
+              {props.onOwnEndpoint && (
                 <>
+                  {' '}
                   <button
                     type="button"
                     className="step-proof-own"
-                    data-testid={`proof-connect-${id}`}
-                    onClick={props.onConnectOwn}
+                    data-testid={`proof-own-${id}`}
+                    onClick={props.onOwnEndpoint}
                   >
-                    Connect your own {props.label}
+                    Point your own endpoint at this
                   </button>
-                  {' '}and this becomes a record in your portal.
+                  {' '}and watch the deliveries arrive on your side.
                 </>
-              ) : (
-                'This one is our own service, so there is no account of yours it could '
-                + 'land in instead.'
               )}
             </p>
           )}

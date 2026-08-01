@@ -73,9 +73,13 @@ const props = {
 };
 
 describe('Mediator', () => {
+  // "The mediator" is what the pattern is called and what every file under
+  // services/ is named after. It is not a word a visitor arrives with, which is why
+  // it needed a question mark beside it to explain itself.
   it('names itself and says what it is', () => {
     render(<Mediator {...props} />);
-    expect(screen.getByText('The mediator')).toBeInTheDocument();
+    expect(screen.getByText('Integration hub')).toBeInTheDocument();
+    expect(screen.getByText('tracks, retries, and recovers')).toBeInTheDocument();
   });
 
   it('shows the counts that carry the claim', () => {
@@ -226,5 +230,41 @@ describe('Mediator', () => {
   it('says nothing about other visitors when there are none', () => {
     render(<Mediator {...props} viewers={1} />);
     expect(screen.queryByTestId('hub-viewers')).not.toBeInTheDocument();
+  });
+
+  // The backlog was a box of its own under the systems. It belongs here: the strip
+  // holds what the hub is holding, and this is the third of those things.
+  it('holds the backlog as its third panel', () => {
+    render(<Mediator {...props} />);
+    expect(screen.getByTestId('hub-tab-backlog')).toBeInTheDocument();
+    expect(screen.getByTestId('hub-panel-backlog')).toBeInTheDocument();
+  });
+
+  it('opens the backlog when its tab is used', () => {
+    render(<Mediator {...props} />);
+    fireEvent.click(screen.getByTestId('hub-tab-backlog'));
+    expect(screen.getByTestId('hub-panel-backlog')).toHaveAttribute('data-current', 'true');
+    expect(screen.getByTestId('hub-panel-queue')).toHaveAttribute('data-current', 'false');
+    expect(screen.getByTestId('hub-tab-underline')).toHaveAttribute('data-for', 'backlog');
+  });
+
+  // A backlog behind a shut panel is a backlog nobody knows about, and shut is the
+  // state it is in nearly always, because the demo delivers.
+  it('says on the tab how much is waiting for a person', () => {
+    const parked: DeliveryView[] = [
+      ...deliveries,
+      {
+        id: 3, eventId: EVENT, target: 'slack', state: 'dead', attempts: 6,
+        nextAt: null, lastError: 'channel_not_found', remoteRef: null, remoteAt: null,
+        sentAt: null, answeredAt: null,
+      },
+    ];
+    render(<Mediator {...props} deliveries={parked} />);
+    expect(screen.getByTestId('hub-tab-backlog-count')).toHaveTextContent('1');
+  });
+
+  it('carries no count while nothing is parked', () => {
+    render(<Mediator {...props} />);
+    expect(screen.queryByTestId('hub-tab-backlog-count')).not.toBeInTheDocument();
   });
 });

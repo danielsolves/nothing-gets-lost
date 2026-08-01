@@ -7,19 +7,24 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-export type DeeperTab = 'connect' | 'sql';
+export type DeeperTab = 'connect';
 
-// "Control panel" used to be the first of these, holding the four states per system
-// and the three one-off actions. Those are on the tiles now, where the thing they
-// break is drawn, so the drawer no longer has a copy of them to fall out of date.
+// Three of these have gone, and each for its own reason. "Control panel" held the
+// four states per system and the one-off actions; those are on the tiles now, where
+// the thing they break is drawn. "Query the database" held a public SQL console: a
+// real read-only role behind four layers, but the answer it gave came out of views
+// we wrote, so it invited a reader to check our screen against our database. What
+// asks nothing of the reader's trust is the MCP server, which the backlog names.
+//
+// One entry left. It stays a disclosure rather than becoming a plain section
+// because the point of this strip is that none of it is part of the first sixty
+// seconds.
 const TABS: Array<{ id: DeeperTab; label: string; hint: string }> = [
-  { id: 'connect', label: 'Your own systems', hint: 'Send the record somewhere you own' },
-  { id: 'sql', label: 'Query the database', hint: 'Read-only. Do not trust my screen' },
+  { id: 'connect', label: 'Your own endpoint', hint: 'Send every delivery somewhere you own' },
 ];
 
 interface DeeperProps {
   connect: ReactNode;
-  sql: ReactNode;
   /**
    * Which tab is open, when somebody outside decides. The tiles offer a way out of
    * "you only have our word for this", and that way out is this section, so it has
@@ -30,14 +35,14 @@ interface DeeperProps {
   onOpen?: (tab: DeeperTab | null) => void;
 }
 
-export function Deeper({ connect, sql, open: controlled, onOpen }: DeeperProps) {
+export function Deeper({ connect, open: controlled, onOpen }: DeeperProps) {
   const [ownOpen, setOwnOpen] = useState<DeeperTab | null>(null);
   const open = controlled === undefined ? ownOpen : controlled;
   const setOpen = (tab: DeeperTab | null) => {
     if (controlled === undefined) setOwnOpen(tab);
     onOpen?.(tab);
   };
-  const content: Record<DeeperTab, ReactNode> = { connect, sql };
+  const content: Record<DeeperTab, ReactNode> = { connect };
 
   return (
     <section className="deeper" data-testid="deeper">

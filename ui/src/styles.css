@@ -501,83 +501,177 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--faint);
 }
-.order-progress {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.order-marks {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
+/* Five checkpoints, and each one is the mark of the system it is about: the same
+   Stripe S, HubSpot sprocket and Slack hash the tiles wear, so the card and the
+   drawing are one picture seen twice. They were coloured dots, then anonymous
+   checkboxes, and both left a visitor to open the card to learn which box was which.
 
-/* Five checkpoints, and the state of each one is the whole point.
-   They were coloured dots. A dot has to be learnt; a box that is ticked, crossed or
-   still empty says the same thing to somebody who has never seen this page. */
-.order-checks { display: flex; gap: 5px; }
+   The gap and the padding leave room for the overlay to sit at the corner of a mark
+   without touching the next one or the headline below. */
+.order-checks { display: flex; gap: 8px; padding-bottom: 2px; }
 .order-check {
+  position: relative;
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid var(--line-input);
-  border-radius: 4px;
-  font-size: 10px;
   line-height: 1;
+}
+/* Smaller than the 30px a tile gives it. Both sizes were built and looked at: at the
+   tile's size five marks and their gaps want about 190px, which is more than a card
+   head has on a phone, and a row that wide stops reading as one line of state and
+   starts reading as five buttons. The outline survives being shrunk in a way a
+   wordmark would not have, so the recognition is not what is paid for it. */
+.order-check .system-mark {
+  width: 21px;
+  height: 21px;
+  border-radius: 8px;
+  transition: color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
+}
+.order-check .system-mark svg { width: 13px; height: 13px; }
+
+/* Grey until the step has actually reached somewhere. The brand's colour is what
+   arriving looks like, so a card half way through says so from across the room.
+   Written on colour and background rather than on --mark-tint, because the tint is
+   an inline style on the mark and nothing in a sheet can outrank it. */
+.order-check[data-look='waiting'] .system-mark,
+.order-check[data-look='queued'] .system-mark,
+.order-check[data-look='sending'] .system-mark {
   color: var(--faint);
-  transition: background 0.25s ease, border-color 0.25s ease;
+  background: oklch(from var(--faint) l c h / 0.13);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
-/* Filled and marked, never filled alone. Delivered and gave-up are the two states a
-   red-green reader cannot separate, and the two it matters most to separate, so the
-   tick and the cross carry the difference and the colour only reinforces it. */
-.order-check[data-state='done'] {
-  background: var(--good);
-  border-color: var(--good);
-  color: var(--on-accent);
-}
-.order-check[data-state='dead'] {
-  background: var(--bad);
-  border-color: var(--bad);
-  color: var(--on-accent);
-}
-.order-check[data-state='inflight'] {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 8px var(--glow);
-}
-/* Queued: an empty box with a solid edge. Nothing has happened to it yet, and a
-   filled box would claim otherwise. */
-.order-check[data-state='pending'] {
-  border-color: var(--warn);
-  background: oklch(from var(--warn) l c h / 0.14);
-}
-/* The queue has not made the row at all (spec 6.7). A dashed edge is the one thing
-   that reads as "not yet" rather than as "not done". */
-.order-check[data-state='waiting'] {
-  border-style: dashed;
-  border-color: var(--line-strong);
+/* The queue has not made the row at all (spec 6.7), which is not the same fact as a
+   row that is queued and untried. Both are a grey mark with nothing on it, so the
+   edge is what holds them apart, and a dashed edge is the one thing that reads as
+   "not yet" rather than as "not done". */
+.order-check[data-look='waiting'] .system-mark {
   background: none;
+  box-shadow: none;
+  border: 1px dashed var(--line-strong);
+}
+/* Failed once and sitting out its backoff. Its own colour, because the system has
+   been reached and has answered, and held back, because it has not been reached this
+   time round. The hourglass in the corner is what actually says so. */
+.order-check[data-look='retrying'] .system-mark { opacity: 0.5; }
+/* In the backlog. The one place on the page a mark is not drawn in the colour it
+   belongs to: the row has stopped moving and a person has to pick it up, and that
+   matters more about it now than whose logo it is. */
+.order-check[data-look='parked'] .system-mark {
+  color: var(--bad);
+  background: oklch(from var(--bad) l c h / 0.16);
+  box-shadow: inset 0 0 0 1px oklch(from var(--bad) l c h / 0.4);
+}
+
+/* The state, in the corner, as a shape. Colour agrees with it and never carries it
+   alone: a screenshot in black and white and a reader who cannot separate red from
+   green both lose the tint, and neither may lose the state.
+
+   A cross is deliberately not among these. A cross says failed, and failed is the
+   state before the backlog, which the hourglass already holds. What is different
+   about a parked row is that it has been handed to a person, so it gets a person.
+
+   Sized against the mark rather than against the glyph inside it, and allowed to
+   hang past the corner by 3px: inside a 21px mark it would cover most of the shape
+   it is meant to be annotating. The row above reserves the space it overhangs. */
+.order-check-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  color: var(--on-accent);
+}
+.order-check-badge[data-badge='delivered'] { background: var(--good); }
+.order-check-badge[data-badge='retrying'] { background: var(--warn); }
+.order-check-badge[data-badge='parked'] { background: var(--bad); }
+.order-check-badge[data-badge='sending'] { background: var(--accent); }
+.order-check-badge[data-badge='sending'] svg {
+  animation: order-check-spin 0.9s linear infinite;
+}
+@keyframes order-check-spin { to { transform: rotate(1turn); } }
+/* Spelled out here as well as in the blanket rule at the foot of this sheet, because
+   this is the one thing on a card that a visitor reads as "still working" and the
+   fallback has to be deliberate rather than inherited: the notched ring stays and
+   stops turning. A notched ring is the shape everything else on a screen uses for
+   this, whether or not it is moving. */
+@media (prefers-reduced-motion: reduce) {
+  .order-check-badge[data-badge='sending'] svg { animation: none; }
 }
 
 .order-headline { font-size: 13.5px; color: var(--muted); }
 
+/* How long anything on a card or on the order form takes to fold, written once. The
+   builder's way in has to leave and come back in step with the panel it opens, and
+   two durations that have to agree by hand will disagree the first time one of them
+   is touched. Declared on the two things that host a fold, because a custom property
+   only reaches downwards. */
+.order-card, .order-form {
+  --fold-time: 0.32s;
+  --fold-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* The fold. A grid whose single row goes from 0fr to 1fr is the one way to
    animate to a height nobody has measured, and the detail is a different height on
-   every card. The child clips, or the content spills out while the row is short. */
+   every card. The child clips, or the content spills out while the row is short.
+
+   The order builder under "Create order" opens with this too, rather than with a
+   second way of unfolding a block, which is why the rule sits on a class of its own
+   and not on the card. */
 .order-fold {
   display: grid;
   /* minmax(0, ...) and not a bare 0fr. A bare fr track is minmax(auto, 0fr), and
      that auto minimum is the item's own min-content, so the fold stayed 28px tall
      while shut and every card wore a sliver of its own detail. */
   grid-template-rows: minmax(0, 0fr);
-  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Hidden as well as clipped, and not for tidiness. A shut fold holds real
+     controls: the proof buttons on a card, and the whole basket and both address
+     fields in the builder. Something clipped to no height is still in the tab order
+     and still read out. visibility takes it out of both, and it flips at the end of
+     the fold rather than at the start, which is the only reason it is in the
+     transition at all: switched immediately, closing would blink shut. */
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--fold-time) var(--fold-ease),
+    visibility 0s linear var(--fold-time);
 }
-.order-fold[data-open='true'] { grid-template-rows: minmax(0, 1fr); }
+.order-fold[data-open='true'] {
+  grid-template-rows: minmax(0, 1fr);
+  visibility: visible;
+  transition: grid-template-rows var(--fold-time) var(--fold-ease), visibility 0s;
+}
+
+/* The way in: the "Create order" button, and the row it stands in.
+
+   It folds too, but not on the same schedule, because opening and closing are not
+   symmetric in what a visitor should see. Opening: the button is gone before the
+   panel starts, so the panel has the space to itself. Closing: the button waits out
+   the whole fold and comes back only once the panel has gone, which is opening run
+   backwards. Both waits are var(--fold-time), so there is one duration on the page
+   and not two that have to be kept level.
+
+   Folded rather than taken out of the markup, for the reason the panel is: a button
+   that is put back on the click is on screen while the panel is still collapsing
+   underneath it, which is what this rule exists to stop. */
+.order-way {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  /* No overflow: hidden, unlike the fold. The row here snaps rather than easing, so
+     there is never a frame with a half-clipped button, and clipping would cut the
+     focus ring off the one control the page most wants a keyboard to find. */
+  visibility: visible;
+  transition:
+    grid-template-rows 0s linear var(--fold-time),
+    visibility 0s linear var(--fold-time);
+}
+.order-way[data-open='true'] {
+  grid-template-rows: minmax(0, 0fr);
+  visibility: hidden;
+  transition: grid-template-rows 0s, visibility 0s;
+}
+.order-way > * { min-height: 0; }
 /* min-height: 0 as well as the clip. A row of 0fr takes none of the leftover
    space, but its base size is still the item's content minimum, so without this the
    fold sits 28px tall while shut and every card carries a sliver of its own detail. */
@@ -718,9 +812,12 @@ body {
      Two columns means one lane, and five systems then fall as 2 + 2 + 1. */
   grid-template-columns: minmax(360px, 36rem) minmax(0, 1fr);
   gap: clamp(28px, 3vw, 44px);
-  /* The drop from the button into the mediator. Long enough to read as a connection
-     rather than as a gap the eye has to close by itself. */
-  padding-top: 52px;
+  /* The drop from the send button into the hub. It was 52px, and with the gap this
+     box already sits below the head that came to about 86px of bare line: long
+     enough to read as a journey rather than as a connection, and it pushed the whole
+     machine down the page to say nothing. Nothing here leaves the head-to-body gap
+     as the entire drop, which is about a third of what it was. */
+  padding-top: 0;
 }
 
 .wires, .packets {
@@ -737,7 +834,17 @@ body {
   stroke-linejoin: round;
   transition: stroke 0.25s ease;
 }
-.wire[data-state='up'] { stroke: oklch(from var(--good) l c h / 0.55); }
+/* Grey while the line is simply up, which is nearly always. It was green, and a
+   drawing where five lines are lit the moment the page loads spends its loudest
+   colour on the state that carries no news: green then meant "this exists" rather
+   than "something is happening here", and the packets travelling along it had
+   nothing left to stand out against. Colour is kept for the states a reader has to
+   do something about.
+
+   Derived from a token rather than written as a colour, because the page has a light
+   theme: a fixed near-white grey is a line on the dark background and nothing at all
+   on the light one. */
+.wire[data-state='up'] { stroke: oklch(from var(--faint) l c h / 0.55); }
 .wire[data-state='slow'] { stroke: oklch(from var(--warn) l c h / 0.6); }
 .wire[data-state='error'] { stroke: oklch(from var(--bad) l c h / 0.6); }
 /* A cut line is drawn broken, so an unreachable system reads as a severed
@@ -755,18 +862,6 @@ body {
    is always longer than the room it has. */
 .machine-hub { position: relative; display: grid; }
 
-/* The column beside the mediator: the systems, and under them what could not be
-   delivered to any of them. The hub is about twice the height of the five tiles, so
-   without this the column stopped halfway down the machine and the rest of it was
-   empty. `start` rather than stretch, so the backlog is as tall as it needs to be
-   and the space under it stays honest rather than being padded out by a panel
-   pretending to have more in it. */
-.machine-side {
-  display: grid;
-  grid-template-rows: auto auto;
-  align-content: start;
-  gap: 26px;
-}
 
 /* Two across, and five systems then fall as 2 + 2 + 1. Named rather than
    auto-filled: auto-fill decides the count from whatever width is going spare, so
@@ -1406,6 +1501,9 @@ body {
               width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .mediator-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding: 9px 15px;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -1418,6 +1516,20 @@ body {
   text-transform: uppercase;
   cursor: pointer;
   transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+/* How much is waiting behind a shut panel. It carries the warning colour whether or
+   not its tab is selected, because the point of it is to be read by somebody who is
+   looking at a different tab. */
+.hub-tab-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: oklch(from var(--bad) l c h / 0.18);
+  color: var(--bad);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-align: center;
 }
 .mediator-tabs button:hover { color: var(--muted); }
 .mediator-tabs button[aria-selected='true'] { color: var(--accent); }
@@ -1462,8 +1574,16 @@ body {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
 }
 
-.mediator-panels[data-tab='queue'] #hub-panel-log { transform: translateX(100%); }
+/* Each panel is parked on the side it sits on in the strip, so the movement matches
+   the direction the reader's eye just travelled. Written out per pair rather than
+   generated, because with three tabs the middle one has to be able to leave in
+   either direction and a single rule cannot say that. */
+.mediator-panels[data-tab='queue'] #hub-panel-log,
+.mediator-panels[data-tab='queue'] #hub-panel-backlog { transform: translateX(100%); }
 .mediator-panels[data-tab='log'] #hub-panel-queue { transform: translateX(-100%); }
+.mediator-panels[data-tab='log'] #hub-panel-backlog { transform: translateX(100%); }
+.mediator-panels[data-tab='backlog'] #hub-panel-queue,
+.mediator-panels[data-tab='backlog'] #hub-panel-log { transform: translateX(-100%); }
 
 .extractor-note {
   margin: 0;
@@ -1474,16 +1594,14 @@ body {
   font-size: 14px;
 }
 
-.sql-console button:focus-visible,
-.connection .button:focus-visible,
-.connection button:focus-visible {
+.endpoint-form button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 /* Sections ------------------------------------------------------------------ */
 
-.log, .connections, .sql-console, .proof-panel {
+.log, .connections {
   display: grid;
   gap: 14px;
   padding: clamp(18px, 2.4vw, 28px);
@@ -1492,14 +1610,14 @@ body {
   border-radius: var(--r-shell);
 }
 
-.log h2, .connections h2, .sql-console h2, .proof-panel h2 {
+.log h2, .connections h2 {
   margin: 0;
   font-size: var(--fs-section);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.connections > p, .proof-panel > p {
+.connections > p {
   margin: 0;
   color: var(--muted);
   max-width: 68ch;
@@ -1594,7 +1712,7 @@ body {
 /* Text fields only. It used to say `input` and caught the payment radios, which
    came out as full width circles with the label pushed to the far edge. */
 .order-who input,
-.connection input, .sql-console textarea {
+.endpoint-form input {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -1644,41 +1762,13 @@ body {
 }
 
 .order-who input::placeholder,
-.connection input::placeholder,
-.sql-console textarea::placeholder { color: var(--faint); }
+.endpoint-form input::placeholder { color: var(--faint); }
 
 .order-who input:focus-visible,
-.connection input:focus-visible,
-.sql-console textarea:focus-visible {
+.endpoint-form input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
-}
-
-.sql-console button {
-  min-height: 48px;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.1s ease;
-}
-.sql-console button:hover { box-shadow: 0 0 28px var(--glow); }
-.sql-console button:active { transform: translateY(1px); }
-.sql-console button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.order-form .error, .connection .error, .sql-console .error {
-  margin: 0;
-  color: var(--bad);
-  font-size: 14px;
 }
 
 .placed {
@@ -1690,28 +1780,38 @@ body {
   color: var(--text);
 }
 
-/* Connections --------------------------------------------------------------- */
+/* The visitor's own endpoint ------------------------------------------------
+   The panel held three rows: connect your Slack, connect your HubSpot, and this
+   field. The two connections are gone, so the grid that lined three rows up went
+   with them and what is left is set as a block: heading, then the reason at full
+   width, then the control.
 
-.connection {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
+   The description used to sit in a column beside the field, where it broke into
+   four short lines against an input that had the rest of the row. That read as a
+   caption for the input rather than as the reason to use it at all. */
+
+.endpoint-lede {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
 }
-.connection > span { font-weight: 600; }
-/* The HubSpot note sits under its whole row; the endpoint note sits under its own
-   label, because that row already spends its middle track on the input. */
-.connection small { grid-column: 1 / -1; color: var(--faint); font-size: 13px; }
-.connection.webhook span { display: grid; gap: 4px; align-content: start; }
-.connection.webhook span small { grid-column: auto; line-height: 1.45; max-width: 34ch; }
-.connection .error { grid-column: 1 / -1; }
 
-/* Three children, so this row needs its own track for the input. */
-.connection.webhook { grid-template-columns: auto minmax(0, 1fr) auto; }
-
-.connection .button, .connection button {
+/* Left aligned and only as wide as it needs to be. Stretched across the panel the
+   field said "this is a long url" about a field most people paste twenty characters
+   into. */
+.endpoint-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.endpoint-form input {
+  flex: 1 1 26rem;
+  min-width: 0;
+  max-width: 38rem;
+}
+.endpoint-form button {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -1724,111 +1824,32 @@ body {
   font-family: var(--mono);
   font-size: 13.5px;
   font-weight: 600;
-  text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.connection .button:hover, .connection button:hover {
+.endpoint-form button:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-/* SQL console --------------------------------------------------------------- */
-
-.sql-console textarea {
-  min-height: 108px;
-  font-family: var(--mono);
-  font-size: 13.5px;
-  resize: vertical;
-}
-
-/* A wide result scrolls inside its own box, never the page. */
-.sql-console table {
-  display: block;
-  overflow-x: auto;
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 13px;
-}
-.sql-console th, .sql-console td {
-  border: 1px solid var(--line);
-  padding: 7px 11px;
-  text-align: left;
-  white-space: nowrap;
-}
-.sql-console th { color: var(--accent); font-weight: 600; }
-
-/* Proof panel ---------------------------------------------------------------
-   The two witnesses sit either side of the gap on purpose: the gap is the whole
-   argument, and it is the one number a visitor should read without hunting. */
-
-.proof {
-  display: grid;
-  gap: 14px;
-  padding: clamp(18px, 2.4vw, 28px);
-  background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: var(--r-shell);
-}
-.proof h2 {
+.endpoint-saved {
   margin: 0;
-  font-size: var(--fs-section);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  max-width: 68ch;
+  color: var(--good);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
-.witnesses {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: stretch;
-  gap: 14px;
-}
-
-.witness {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  padding: 16px 18px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-}
-.witness .who {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.witness time {
-  font-family: var(--mono);
-  font-size: 22px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.witness small { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-.witness a, .take-away a { color: var(--accent); }
-
-.gap {
-  padding: 10px 18px;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  align-self: center;
-}
-
-.third-witness, .take-away { margin: 0; color: var(--muted); }
-
-@media (max-width: 52rem) {
-  .witnesses { grid-template-columns: 1fr; }
+/* A url this service will not accept, said where the field is. The guard behind it
+   refuses anything that would let a visitor aim our retries at somebody else's
+   network (ssrf.guard.ts), so this message is read more often than most. */
+.connections .error {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--bad);
+  font-size: 14px;
 }
 
 /* Mobile -------------------------------------------------------------------- */
@@ -1929,7 +1950,6 @@ body {
   .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
 
   .catalog li { grid-template-columns: minmax(0, 1fr) auto; }
-  .connection, .connection.webhook { grid-template-columns: 1fr; }
 }
 
 /* The 44px floor for the two controls that carry the demo: the button that sends
@@ -2094,6 +2114,11 @@ body {
    So it is two steps. "Create order" opens this, the basket sits on the left and
    who it is for on the right, and the send button is inside. What goes into the
    machine is on screen before it goes. */
+/* The fold takes the full width and the builder takes the fold. The row the button
+   sits in is justify-items: start, so without this the panel would be sized by its
+   own content and one long product name would set the width of the whole machine. */
+.order-form > .order-fold { width: 100%; }
+
 .order-builder {
   display: grid;
   /* The basket takes the larger share. Split evenly, the name column came out at
@@ -2141,7 +2166,7 @@ body {
 
 /* The send button bottom left, the fine print beside it. The button ends the panel
    because it is the last thing you do in it, and it stands on the left because that
-   is the side the mediator is on: the wire from it runs down rather than across. */
+   is the side the integration hub is on: the wire runs down rather than across. */
 .order-foot {
   grid-area: foot;
   display: flex;
