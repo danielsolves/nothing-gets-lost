@@ -639,13 +639,23 @@ body {
 
 .machine-hub { position: relative; }
 
+/* Three across, then the rest underneath. Named rather than auto-filled: auto-fill
+   decides the count from whatever width is going spare, so the drawing rearranged
+   itself between one desktop and the next, and a picture of a machine should be the
+   same picture on every screen that can hold it.
+
+   The rows are further apart than the columns on purpose. The line to a tile in the
+   second or third column runs along a lane above its row, and a lane in a 16px gap
+   grazes the tiles on both sides of it: nothing overlaps, but everything touches,
+   and touching reads as overlapping. */
 .systems {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-  gap: clamp(12px, 1.4vw, 18px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: clamp(10px, 1.1vw, 14px);
+  row-gap: 34px;
   align-content: start;
 }
 .system { position: relative; display: grid; }
@@ -779,17 +789,18 @@ body {
   justify-content: flex-start;
   align-items: stretch;
   gap: 3px;
-  /* Square. The width is the old minimum height rather than the old width, so the
-     tiles grew sideways instead of losing the room the longest activity line needs.
-     A column of upright rectangles read as cards; squares read as the boxes of a
-     diagram, which is what they are.
+  /* Neither a fixed width nor a square any more. Both come from the drawing this
+     tile used to live in, where it stood in a column of its own and had to reserve
+     room for the longest activity line it might ever show. It stands in a grid now,
+     so the column already says how wide it is, and the fixed width fought that: at
+     1920 the two produced a 216px square holding a mark, two short lines and about
+     a hundred pixels of nothing. Five of those read as a wall of empty boxes with
+     the wires threading between them, which is the opposite of a diagram.
 
-     The ratio is a preference, not a cage: this is a column flex container, so its
-     automatic minimum is its content and a tile with more in it than the rest still
-     grows. That is how the shop stays taller without a rule of its own. */
-  width: clamp(11rem, 12.8vw, 13.5rem);
-  aspect-ratio: 1 / 1;
-  padding: clamp(14px, 1.4vw, 18px);
+     Height from content, so a tile is as tall as what it has to say. They still end
+     up level with each other, because they are grid items and a grid row is as tall
+     as its tallest cell. */
+  padding: 13px 14px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
   background: var(--surface-sunken);
@@ -819,8 +830,8 @@ body {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 6px;
   /* The menu button floats over this corner instead of sitting in the grid, so the
      heading has to leave it the room. Every name here ran 20px under it, which went
      unseen only because the names are short and the button is faint until you reach
@@ -840,8 +851,8 @@ body {
 .system-mark {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   border-radius: 12px;
   color: var(--mark-tint);
   background: color-mix(in oklch, var(--mark-tint) 16%, transparent);
@@ -1629,10 +1640,11 @@ body {
      here, which is what a stacked layout is for. */
   .wires, .packets { display: none; }
 
-  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-
-  /* The tile keeps its own square only where there is room for one. */
-  .target { width: 100%; aspect-ratio: auto; min-height: 8.5rem; }
+  /* Two across a phone, and tall enough that a tile with nothing to report is not
+     a strip. There is no square left to undo here: the tile takes its height from
+     its content everywhere now. */
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
+  .target { min-height: 7rem; }
 
   /* The menu hangs off the tile here rather than off the three dots. Anchored to
      a 44px button on a 390px screen, a menu wide enough to read runs off one edge

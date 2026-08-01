@@ -72,12 +72,17 @@ function entryOf(
 }
 
 /**
- * How far above a tile the line runs before it turns down into it. Half the gap a
- * row leaves would move with the viewport; a fixed lane keeps every branch in a row
- * on the same line, which is what makes them read as one route that forks rather
- * than as three lines that happen to be near each other.
+ * How far above a tile the line runs before it turns down into it.
+ *
+ * A fixed lane rather than half the gap, so every branch in a row lands on the same
+ * line and the route reads as one thing that forks rather than as three lines that
+ * happen to run near each other.
+ *
+ * 17 against a 34px row gap puts the lane in the middle of the corridor. At 13 in a
+ * 16px gap it cleared the tile above by three pixels, which measures as no overlap
+ * and looks like one: at that distance a line and a border are one thick edge.
  */
-const LANE = 13;
+const LANE = 17;
 
 /**
  * How far out of the mediator a line runs before it turns. A fixed stub rather than
