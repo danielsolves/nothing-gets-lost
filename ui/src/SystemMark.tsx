@@ -13,7 +13,7 @@
 // function glyph from Phosphor rather than something invented for them. The two
 // sources on the left are ours in the same way.
 import {
-  EnvelopeOpen, EnvelopeSimple, Receipt, Storefront, type Icon,
+  EnvelopeSimple, Receipt, type Icon,
 } from '@phosphor-icons/react';
 import type { NodeId } from './machine';
 import { BRAND_MARKS } from './brand-marks';
@@ -31,8 +31,6 @@ export const SYSTEM_LOOK: Record<NodeId, Look> = {
   slack: { tint: '#611F69' },
   ledger: { tint: '#3FB984', glyph: Receipt },
   mailer: { tint: '#5B8DEF', glyph: EnvelopeSimple },
-  shop: { tint: '#A78BFA', glyph: Storefront },
-  mail: { tint: '#EFB366', glyph: EnvelopeOpen },
 };
 
 export function SystemMark({ target }: { target: NodeId }) {

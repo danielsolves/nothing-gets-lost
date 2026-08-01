@@ -9,7 +9,8 @@
 // two ever read the same way again, the demo has lost its point.
 import { describe, it, expect } from 'vitest';
 import { SWITCH_STATES, SWITCHABLE_TARGETS } from '@ngl/contracts';
-import { FOOT, LEFT, NODES, RIGHT, SOURCES, SYSTEMS, faultsFor } from '../src/machine';
+import { CHAOS_KINDS } from '@ngl/contracts';
+import { NODES, ORDER_WAYS, SYSTEMS, faultsFor } from '../src/machine';
 
 describe('faults', () => {
   it('offers every state the gate can actually be put into', () => {
@@ -59,62 +60,61 @@ describe('mischief', () => {
     }
   });
 
-  it('puts both malformed orders on the mail, which is what the extractor reads', () => {
-    const mail = SOURCES.find((node) => node.id === 'mail');
-    expect(mail?.mischief.map((m) => m.kind).sort())
-      .toEqual(['garbage_payload', 'hallucinate']);
+  it('leaves the malformed orders to the way in, not to a system', () => {
+    // They used to hang off an order-mail tile. Neither is a fault of a system we
+    // call: both are things a visitor sends, so they belong to the one entrance.
+    for (const node of SYSTEMS) {
+      expect(node.mischief.map((m) => m.kind)).not.toContain('garbage_payload');
+      expect(node.mischief.map((m) => m.kind)).not.toContain('hallucinate');
+    }
   });
 });
 
-describe('sources', () => {
-  it('draws both places an order can come from', () => {
-    // Specification section 4 has two: the shop page and a free-text order mail.
-    // The diagram used to draw only the outgoing half, so orders appeared from
-    // nowhere.
-    expect(SOURCES.map((node) => node.id)).toEqual(['shop', 'mail']);
+describe('the way in', () => {
+  it('offers the clean order alongside the two odd ones', () => {
+    // Naming the plain press in the same list is what tells a visitor these are
+    // three variants of one action. A list holding only the odd two would read as
+    // if the normal case lived somewhere else.
+    expect(ORDER_WAYS.map((way) => way.id))
+      .toEqual(['clean', 'garbage_payload', 'hallucinate']);
   });
 
-  it('gives a source no state, because a source is not something we call', () => {
-    for (const node of SOURCES) {
-      expect(node.kind).toBe('source');
-      expect((SWITCHABLE_TARGETS as readonly string[])).not.toContain(node.id);
+  it('marks the ordinary order as the one that breaks nothing', () => {
+    const clean = ORDER_WAYS.find((way) => way.id === 'clean');
+    expect(clean?.kind).toBeNull();
+  });
+
+  it('sends every odd order through a chaos kind the server knows', () => {
+    for (const way of ORDER_WAYS) {
+      if (way.kind === null) continue;
+      expect(CHAOS_KINDS as readonly string[]).toContain(way.kind);
     }
   });
 
-  it('draws every system the mediator delivers to', () => {
-    expect(SYSTEMS.map((node) => node.id).sort())
-      .toEqual([...SWITCHABLE_TARGETS].sort());
+  it('says of each way what it does, not just what it is called', () => {
+    for (const way of ORDER_WAYS) expect(way.means.length).toBeGreaterThan(10);
   });
 });
 
-describe('the three sides', () => {
-  it('balances the two columns, so neither side towers over the hub', () => {
-    // Five on one side and two on the other left the hub shorter than the column
-    // beside it, and the outermost lines then began in mid-air next to the hub
-    // rather than at it.
-    expect(LEFT).toHaveLength(3);
-    expect(RIGHT).toHaveLength(3);
+describe('the systems', () => {
+  it('draws every system the mediator delivers to, and nothing else', () => {
+    // There are no source tiles left. The shop and the order mail were drawn beside
+    // the systems, which made two places an order comes from look like two more
+    // places it goes to.
+    expect(SYSTEMS.map((node) => node.id).sort())
+      .toEqual([...SWITCHABLE_TARGETS].sort());
+    expect(NODES.every((node) => node.kind === 'system')).toBe(true);
   });
 
-  it('puts the money underneath, on its own row below the hub', () => {
-    // It sat beside the other systems once. The payment is the one step the visitor
-    // is asked about, so it gets the row under the hub to itself.
-    expect(FOOT.map((node) => node.id)).toEqual(['stripe']);
-  });
-
-  it('draws every node exactly once', () => {
-    expect([...LEFT, ...RIGHT, ...FOOT]).toHaveLength(NODES.length);
+  it('draws every system exactly once', () => {
     expect(new Set(NODES.map((node) => node.id)).size).toBe(NODES.length);
   });
 
-  it('keeps the two ways in together at the top of the left column', () => {
-    expect(LEFT.slice(0, 2).map((node) => node.id)).toEqual(['shop', 'mail']);
+  it('leads with the payment, because every order makes that hop first', () => {
+    expect(NODES[0]?.id).toBe('stripe');
   });
 
-  it('does not make the side a claim about what a node is', () => {
-    // A system can stand on either side. What it is lives in kind, not in the
-    // column it happens to be drawn in.
-    expect(LEFT.some((node) => node.kind === 'system')).toBe(true);
-    expect(RIGHT.every((node) => node.kind === 'system')).toBe(true);
+  it('ends with the confirmation mail, which is last in the chain', () => {
+    expect(NODES[NODES.length - 1]?.id).toBe('mailer');
   });
 });

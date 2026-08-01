@@ -1,28 +1,37 @@
 // ui/src/Stage.tsx
-// The first twenty-five seconds (specification section 1): what this is, that it is
-// running right now, and where to start.
+// The first twenty-five seconds (specification section 1): whose work this is, what
+// it is, that it is running right now, and that none of it has to be taken on trust.
 //
 // It replaced a five-step walkthrough. The walkthrough worked, but once the diagram
 // itself became usable there were two things on screen telling a visitor what to do,
-// and that is worse than one thing that is obvious. What survives from it is the one
-// line that points at the machine.
+// and that is worse than one thing that is obvious.
 //
-// The button that sends an order used to be here, and before that the form behind it
-// sat at the very foot of the page. Both are now on the shop tile in the drawing,
-// which is the place an order is actually sent from. Sending it from up here made it
-// appear in the middle of the picture, skipping the one hop the picture exists to
-// show. The cost is that the first thing to press is no longer the first thing on the
-// screen, so this line has to carry the visitor down to it.
+// What went with the walkthrough, later, was a line pointing down at the machine.
+// While the button that sends an order sat on a tile in the middle of the drawing,
+// something had to carry the visitor to it. The button is now at the top of the
+// machine, directly under this header, so the line was pointing at something already
+// in view and saying "the first tile" about a tile that no longer exists.
+//
+// What is left is one claim, one paragraph and one badge. That is also the answer to
+// there having been four different voices here: a claim in the display face, a lede,
+// a monospaced line beside the live dot, a hint, and a note about test mode further
+// down. Monospace on this page means the machine said it. Prose about the machine is
+// prose, and reads in the same face as everything else.
 export function Stage(props: { connected: boolean; viewers: number }) {
   return (
     <header className="stage">
+      <p className="stage-who">Daniel Froemmig, integration engineer</p>
+
       <h1>Nothing gets lost. Not even when you break it.</h1>
 
-      <p className="sub">
-        One order, four real systems: a payment, a CRM entry, an invoice and a
-        notification. Below is the machine that carries it between them, running right
-        now. Send an order from the shop, then break one of the systems and watch what
-        happens to the orders already on their way.
+      <p className="sub" data-testid="stage-intro">
+        One order, five real systems that know nothing about each other: a Stripe
+        payment, a HubSpot deal, an invoice, a Slack message and a confirmation mail.
+        Below is the machine that carries the order between them, running right now.
+        Take any system away and the order waits, retries, and is either delivered or
+        handed to a person. It is never quietly dropped. Nothing here is staged:
+        every record was written while you watched, and each one links back to the
+        system that holds it, so you can go and look.
       </p>
 
       <p className="status">
@@ -30,23 +39,14 @@ export function Stage(props: { connected: boolean; viewers: number }) {
           {props.connected ? 'live' : 'reconnecting'}
         </span>
         <span className="status-note">
-          Everything on this page is happening as you watch. Nothing is a recording.
+          Stripe runs in test mode with real webhooks. The HubSpot portal is a real
+          one. Breaking a system here stops us reaching it. It does not stop it.
         </span>
         {props.viewers > 1 && (
           <span data-testid="presence">
             Somebody else is experimenting right now. You are watching their events too.
           </span>
         )}
-      </p>
-
-      {/* No direction is named. The shop sits to the left of the machine on a wide
-          screen and on top of it on anything narrower than a laptop, so "on the
-          left" was an instruction that stopped being true on the devices the spec
-          says most visitors arrive on. First is true in both layouts, because the
-          tiles fill the drawing in the order the work travels. */}
-      <p className="stage-hint" data-testid="stage-hint">
-        Start at the shop, the first tile in the machine below. Then open the menu on
-        any system and break it. Nothing will be lost.
       </p>
     </header>
   );

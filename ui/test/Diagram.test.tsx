@@ -9,8 +9,13 @@
 // Two things changed after the first attempt at that. The tile used to be a single
 // toggle, which flattened four distinct faults into on and off and taught the wrong
 // lesson: that an outage is one thing. And the drawing had outgoing lines only, so
-// orders appeared out of the middle of the picture. Both are fixed here: the tile
-// carries a menu of all four faults, and the two ways in are drawn on the left.
+// orders appeared out of the middle of the picture.
+//
+// The second fix has since been redone. The two ways in were drawn as tiles on the
+// left, beside the systems, which made two places an order comes from look like two
+// more places it goes to. There is one entrance now, it is a button at the top of
+// the machine, and the odd orders that used to hang off the mail tile are what its
+// menu offers.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
@@ -69,29 +74,29 @@ describe('Diagram', () => {
     }
   });
 
-  it('draws where an order comes from, so none of them appear from nowhere', () => {
+  it('draws the way in, so no order appears from nowhere', () => {
+    // The drawing had outgoing lines only for a while and every order arrived out
+    // of the middle of it. The entrance is a button now rather than a tile, but the
+    // line an arriving order travels down into the mediator is still drawn.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.getByTestId('box-shop')).toBeInTheDocument();
-    expect(screen.getByTestId('box-mail')).toBeInTheDocument();
     expect(screen.getByTestId('line-shop')).toBeInTheDocument();
   });
 
-  it('gives a source no state, because a source is not something we call', () => {
+  it('draws no tile for a place an order merely comes from', () => {
+    // Shaped like a system, the shop and the order mail read as two more places the
+    // order goes to. Five tiles, five systems, and every one of them is something
+    // the mediator calls.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.getByTestId('box-shop')).not.toHaveAttribute('data-state');
+    expect(screen.queryByTestId('box-shop')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('box-mail')).not.toBeInTheDocument();
   });
 
-  it('leaves the shop page alone, having nothing to offer that the page does not', () => {
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    expect(screen.queryByTestId('menu-shop')).not.toBeInTheDocument();
-  });
-
-  it('puts the replayed-step note on the tile it is about', () => {
+  it('puts the replayed-step note beside the button whose orders the model reads', () => {
     // Spec 8.5 wants it said out loud. It was a banner under the whole machine,
-    // which is the part of a page nobody reads.
+    // which is the part of a page nobody reads, and then a note on a tile that no
+    // longer exists.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
-    expect(screen.getByTestId('box-mail'))
-      .toContainElement(screen.getByTestId('extractor-mode'));
+    expect(screen.getByTestId('extractor-mode')).toBeInTheDocument();
   });
 
   it('says nothing about replaying when the model is really being called', () => {
@@ -99,23 +104,14 @@ describe('Diagram', () => {
     expect(screen.queryByTestId('extractor-mode')).not.toBeInTheDocument();
   });
 
-  it('draws a source with the same tile as a system, so neither looks like a class of its own', () => {
-    // Two code paths drifted once already: the order mail ended up wider than
-    // Slack and read as a different kind of thing, which it is not.
+  it('puts the one way in at the top of the machine, before the systems it feeds', () => {
+    // It was a button on a tile in the middle of the drawing, which meant the first
+    // thing to press was not the first thing on the screen and a line above had to
+    // carry the visitor down to it.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    const mail = screen.getByTestId('box-mail');
-    const slack = screen.getByTestId('box-slack');
-    expect(mail.className.split(' ')).toContain('target');
-    expect(slack.className.split(' ')).toContain('target');
-    expect(mail.className.split(' ')).toContain('source');
-  });
-
-  it('puts the order form on the shop, which is where an order comes from', () => {
-    // Sent from the top of the page instead, an order appears in the middle of the
-    // drawing, skipping the one hop the drawing exists to show.
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    const shop = screen.getByTestId('box-shop');
-    expect(shop).toContainElement(screen.getByTestId('order-form'));
+    const head = screen.getByTestId('machine-head');
+    expect(head).toContainElement(screen.getByTestId('order-form'));
+    expect(head).toContainElement(screen.getByTestId('menu-entry'));
   });
 
   it('offers all four faults rather than one on and off', () => {
@@ -172,10 +168,16 @@ describe('Diagram', () => {
     expect(sent).toEqual([{ url: '/api/chaos/duplicate_webhook', body: null }]);
   });
 
-  it('hands the malformed orders to the mail they arrive as', () => {
+  it('hands the malformed orders to the entrance they are sent from', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    choose('mail', 'garbage_payload');
+    choose('entry', 'garbage_payload');
     expect(sent).toEqual([{ url: '/api/chaos/garbage_payload', body: null }]);
+  });
+
+  it('keeps the odd orders off the systems, which are not what sent them', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    fireEvent.click(screen.getByTestId('menu-hubspot'));
+    expect(screen.queryByTestId('menu-hubspot-garbage_payload')).not.toBeInTheDocument();
   });
 
   it('repeats what came back, so pressing it is visibly not a no-op', async () => {
@@ -183,8 +185,8 @@ describe('Diagram', () => {
     // the log. Without this line the two loudest buttons on the page did nothing a
     // visitor could see.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    choose('mail', 'hallucinate');
-    expect(await screen.findByTestId('said-mail'))
+    choose('entry', 'hallucinate');
+    expect(await screen.findByTestId('said-entry'))
       .toHaveTextContent(/handed to the extractor/i);
   });
 

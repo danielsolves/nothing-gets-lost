@@ -70,7 +70,11 @@
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
 
-  --fs-display: clamp(34px, 5.4vw, 62px);
+  /* The page heading is the portfolio heading. danielsolves.ai sets its case-page
+     h1 at clamp(38px, 6.2vw, 76px), and this page was a step under that at
+     clamp(34px, 5.4vw, 62px), which read as a subpage of a subpage. Matched
+     exactly rather than approximately, so the two sites are one voice. */
+  --fs-display: clamp(38px, 6.2vw, 76px);
   --fs-section: clamp(21px, 2.5vw, 27px);
   --fs-lede: clamp(16px, 1.8vw, 19px);
 
@@ -157,17 +161,35 @@ body {
   margin: 0;
   max-width: 20ch;
   font-size: var(--fs-display);
-  line-height: 1.04;
+  line-height: 0.98;
   letter-spacing: -0.03em;
-  font-weight: 700;
+  /* 600, not 700. The portfolio pages set their headings at 600 and Space Grotesk
+     has a real weight axis, so 700 here was a heavier cut of the same face rather
+     than the same face. */
+  font-weight: 600;
   text-wrap: balance;
+}
+
+/* Who made this, before what it is. The page is a piece of work in a portfolio and
+   said so nowhere: a visitor arriving from the case list met a claim about orders
+   with no idea whose claim it was. Monospace because it is a label rather than a
+   sentence, which is the one job monospace still has outside the machine. */
+.stage-who {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .stage .sub {
   margin: 0;
-  max-width: 66ch;
+  max-width: 62ch;
   font-size: var(--fs-lede);
+  line-height: 1.6;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
 .status {
@@ -175,11 +197,17 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
-  font-family: var(--mono);
-  font-size: 12.5px;
+  gap: 8px 14px;
+  font-size: 13.5px;
   color: var(--faint);
+  max-width: 74ch;
 }
+
+/* The badge keeps the monospace, because it is the one thing in this header that is
+   a reading off the machine rather than a sentence about it. Everything beside it
+   went back to the body face: five stacked lines in four different treatments was
+   what made a header of five short paragraphs look like five separate voices. */
+.status .live, .status .offline { font-family: var(--mono); font-size: 12px; }
 
 .status .live, .status .offline {
   display: inline-flex; align-items: center; gap: 7px;
@@ -232,14 +260,13 @@ body {
    grows by the height of a catalogue rearranges the whole machine the moment
    somebody is curious. */
 
-.order-form { display: grid; gap: 9px; width: 100%; margin-top: 4px; }
-.order-form .stage-actions { display: grid; gap: 7px; }
-.order-form .stage-cta {
-  width: 100%;
-  padding: 11px 12px;
-  font-size: 12px;
-  letter-spacing: 0;
-}
+/* It sat on a tile in the middle of the drawing and had to fill that tile's width,
+   which is why it was a full-width block at twelve point. It stands at the top of
+   the machine now, in a row of its own, so it goes back to being a button: as wide
+   as its label and read at the size of a thing you are meant to press first. */
+.order-form { display: grid; gap: 9px; justify-items: start; }
+.order-form .stage-actions { display: grid; gap: 7px; justify-items: start; }
+.order-form .stage-cta { padding: 14px 26px; font-size: 14px; letter-spacing: 0.01em; }
 
 .order-disclosure {
   padding: 0;
@@ -525,253 +552,184 @@ body {
   gap: clamp(16px, 2vw, 26px);
 }
 
-/* Sources on the left, the mediator in the middle, the systems it delivers to on
-   the right. The drawing reads left to right because that is the direction the
-   work travels, and because a picture with outgoing lines only made every order
-   appear out of the middle of it. */
-.hub {
+/* One box. A heading and the one way in at the top, the mediator on the left, and
+   the systems it delivers to filling the space beside and below it.
+
+   It was three fixed columns for a long time: sources left, mediator centre, systems
+   right, money underneath. That drawing put two kinds of thing in one row, and it
+   could not be made small. Three tiles across at 1440px came out narrower than two
+   across at 768px, so a name overran its column on a desktop and not on a phone. The
+   mediator has a column of its own now and the systems flow into what is left, which
+   is what lets them be smaller without any of them being cut. */
+.machine {
   display: grid;
-  /* Both flanks the same, so the hub sits on the middle of the board. The left was
-     once wider, from when its tiles could grow to hold the button that starts the
-     demo. The tiles are a fixed square now, so the extra width never reached them:
-     it went into the connecting line and pushed the hub off centre. */
-  grid-template-columns: minmax(0, 1fr) minmax(300px, calc(26rem + 30px)) minmax(0, 1fr);
-  /* What comes in on the left, what the order is written into on the right, and the
-     money underneath. The payment has its own row because it is the one hop every
-     order makes before any of the others is worth doing, and because there is more
-     than one way to make it. */
-  grid-template-areas:
-    "left hub   right"
-    ".    foot  .";
-  --hub-row-gap: 38px;
-  row-gap: var(--hub-row-gap);
-  /* Everything starts at the top. Centred, the hub floated down the page while the
-     shop tile sat at the top of the column beside it, and the entry point and the
-     thing it feeds read as belonging to different rows. The columns then simply end
-     where their tiles run out, which is what the bus down each inner edge is for. */
-  align-items: start;
-  gap: 0;
+  gap: clamp(22px, 3vw, 34px);
   padding: clamp(20px, 3vw, 40px);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-shell);
 }
 
-.board-note {
+.machine-head { display: grid; gap: 14px; max-width: 70ch; }
+
+/* One step below the page heading rather than level with it. Two headings of the
+   same size in a row read as a repetition, and the visitor is left working out which
+   of them the page is. */
+.machine-title {
   margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  max-width: 62ch;
+  font-size: var(--fs-section);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 600;
 }
 
-/* A bus down the inner edge, and every line ends on it.
+.machine-lede { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
 
-   Without it the outermost lines began in mid-air: the hub is only as tall as it
-   needs to be, the column beside it is as tall as its tiles, and the two are never
-   the same height, so the top and bottom wires arrived beside the hub rather than
-   at it. The bus spans the first row's midline to the last row's midline, which is
-   why every column declares how many rows it has. */
-.spokes {
-  --spoke-gap: clamp(10px, 1.4vw, 18px);
+.machine-entry {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+/* What the endpoint said about an order that was never going to parse. Quiet, and
+   beside the button rather than under the whole head: it is an answer to the press,
+   not a statement the machine makes about itself. */
+.machine-entry .said { font-size: 13px; color: var(--faint); max-width: 44ch; }
+
+/* The tiles wrap around the mediator, so a line between them has to turn a corner,
+   and a corner is not something a strip of CSS can draw. Every line is one path in
+   a single SVG laid over the body, measured from the boxes after layout (wires.ts).
+   Behind the tiles in paint order and transparent to the pointer, so a line can
+   never eat a click meant for the system it points at. */
+.machine-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(320px, 27rem) minmax(0, 1fr);
+  gap: clamp(28px, 3vw, 44px);
+  /* Room above the mediator for the line an arriving order travels down. */
+  padding-top: 26px;
+}
+
+.wires, .packets {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.wires { overflow: visible; }
+
+.wire {
+  fill: none;
+  stroke: oklch(from var(--accent) l c h / 0.45);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transition: stroke 0.25s ease;
+}
+.wire[data-state='up'] { stroke: oklch(from var(--good) l c h / 0.55); }
+.wire[data-state='slow'] { stroke: oklch(from var(--warn) l c h / 0.6); }
+.wire[data-state='error'] { stroke: oklch(from var(--bad) l c h / 0.6); }
+/* A cut line is drawn broken, so an unreachable system reads as a severed
+   connection and not only as a differently coloured tile. */
+.wire[data-state='cut'] { stroke: var(--bad); stroke-dasharray: 5 6; }
+.wire[data-tracked='open'] { filter: drop-shadow(0 0 6px var(--glow)); }
+
+.machine-hub { position: relative; }
+
+.systems {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--spoke-gap);
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: clamp(12px, 1.4vw, 18px);
+  align-content: start;
 }
+.system { position: relative; display: grid; }
 
-.spoke {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(24px, 1fr);
-  align-items: stretch;
-}
-.line { align-self: center; }
+/* A packet exists because a delivery changed state, never because a timer came
+   round (see pulses.ts). One packet, one real event.
 
-.spokes[data-side='right'] .spoke {
-  grid-template-columns: minmax(24px, 1fr) auto;
-}
-
-.spokes[data-side='left'] { grid-area: left; }
-.spokes[data-side='right'] { grid-area: right; }
-
-/* The foot is the same drawing turned a quarter: tiles side by side under the hub,
-   each with its own line straight up into it. It is laid out in its own rules
-   rather than by reusing the column ones, because every direction in them is the
-   other way round and a shared rule full of exceptions would be harder to read
-   than two honest ones. */
-.spokes[data-side='foot'] {
-  grid-area: foot;
-  position: relative;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  justify-items: center;
-}
-.spokes[data-side='foot'] .spoke {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  justify-items: center;
-}
-/* Straight up into the hub, one line per tile, each docking at its own point on
-   the hub's bottom edge. Exactly the height of the row gap, so it reaches and does
-   not overshoot: the hub fills its row, so its bottom edge is the row's. */
-.spokes[data-side='foot'] .line {
-  width: 2px;
-  height: var(--hub-row-gap);
-  align-self: center;
-  justify-self: center;
-}
-.spokes[data-side='foot'] .line[data-state='cut'] {
-  background: repeating-linear-gradient(
-    180deg, var(--bad) 0 5px, transparent 5px 11px
-  );
-}
-
-
-/* Every line docks at its own point on the hub and nothing runs along its edge.
-
-   There was a bus down each inner edge for a while, because the outermost lines
-   used to arrive in mid-air beside a hub that was shorter than the column next to
-   it. The hub now stretches to the full height of its row, and a row is by
-   definition at least as tall as the tallest column in it, so every tile's midline
-   falls somewhere on the hub. The bus had nothing left to solve and was drawing a
-   second line along the edge of the panel, which read as the connection running
-   sideways before it arrived. */
-
-/* The wire carries the state too, so a cut reads as a broken connection and not
-   only as a differently coloured tile. */
-.line {
-  position: relative;
-  height: 2px;
-  background: oklch(from var(--accent) l c h / 0.45);
-  transition: background 0.25s ease;
-}
-.line[data-state='up'] { background: oklch(from var(--good) l c h / 0.55); }
-.line[data-state='slow'] { background: oklch(from var(--warn) l c h / 0.6); }
-.line[data-state='error'] { background: oklch(from var(--bad) l c h / 0.6); }
-.line[data-state='cut'] {
-  background: repeating-linear-gradient(
-    90deg, var(--bad) 0 5px, transparent 5px 11px
-  );
-}
-.line[data-tracked='open'] { box-shadow: 0 0 10px var(--glow); }
-
-/* Dots exist because a delivery changed state, never because a timer came round
-   (see pulses.ts). One dot, one real event.
-   
-   Each one ends by being dealt with rather than by stopping where it ran out of
-   animation: delivered is absorbed at the system, a failed attempt comes back to
-   the queue, a parked one falls short and fades where it gave up. A dot left
-   standing on the wire says the machine is stuck, which is the opposite of what
-   is happening. */
-.dot {
+   It runs the very path the line is drawn on, handed to it as an offset-path, so
+   the motion and the drawing cannot drift apart: there is one geometry and both
+   read it. And each one ends by being dealt with rather than by stopping where it
+   ran out of animation. Delivered is absorbed at the system, a failed attempt comes
+   back to the queue, a parked one falls short and fades where it gave up. A packet
+   left standing on the wire would say the machine is stuck, which is the opposite
+   of what is happening. */
+.packet {
   position: absolute;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  margin-top: -4px;
+  top: 0;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
   border-radius: 50%;
+  offset-rotate: 0deg;
   animation-duration: 880ms;
   animation-timing-function: cubic-bezier(0.33, 0.1, 0.2, 1);
   animation-fill-mode: both;
 }
-.dot-delivered {
+.packet-delivered {
   background: var(--good);
   box-shadow: 0 0 10px oklch(from var(--good) l c h / 0.8);
-  animation-name: dot-through;
+  animation-name: packet-through;
 }
-.dot-held {
+.packet-held {
   background: var(--warn);
   box-shadow: 0 0 10px oklch(from var(--warn) l c h / 0.8);
-  animation-name: dot-back;
+  animation-name: packet-back;
 }
-.dot-parked {
+.packet-parked {
   background: var(--bad);
   box-shadow: 0 0 10px oklch(from var(--bad) l c h / 0.8);
-  animation-name: dot-short;
+  animation-name: packet-short;
 }
-/* An order arriving: it travels its wire and is taken in at the hub, which is what
-   dot-through already draws, so it borrows the keyframes and not the colour.
-   Delivered green means a system confirmed something. Worn here it would say an
-   order coming in is a delivery going out, and the two would be one restyling away
-   from each other for good. Accent is the wire's own colour: this dot is the arrival
-   itself, not a verdict on it. */
-.dot-arrival {
+/* An order arriving wears the wire's own colour. Delivered green would say that an
+   order coming in is a delivery going out, and the two would then be one restyling
+   away from each other for good. */
+.packet-arrival {
   background: var(--accent);
   box-shadow: 0 0 10px oklch(from var(--accent) l c h / 0.8);
-  animation-name: dot-through;
-}
-
-/* Every wire carries dots, and each one still stands for something that really
-   happened: a delivery that changed state, or an order that arrived, once per
-   order and not once per delivery it queues, or the dot would be counting the
-   fan-out rather than the order.
-
-   Which way a dot travels belongs to the node rather than to the column, now that
-   both columns hold systems. A delivery leaves the hub, an arrival goes to it, and
-   on the left both of those run against the reading direction.
-
-   The mail wire stays empty, and truthfully so: reading a free-text order is a
-   step that ends in the extractor, and neither of the two malformed orders it can
-   be handed ever reaches the queue. */
-.spokes[data-side='left'] .line[data-flow='out'] .dot { animation-direction: reverse; }
-
-/* Down in the foot rather than across. Same three stories, same timings, one axis
-   turned: a dot animating `left` on an upright wire would sit still. */
-.spokes[data-side='foot'] .dot { top: 0; left: 50%; margin-left: -4px; margin-top: 0; }
-.spokes[data-side='foot'] .dot-delivered { animation-name: dot-down-through; }
-.spokes[data-side='foot'] .dot-held { animation-name: dot-down-back; }
-.spokes[data-side='foot'] .dot-parked { animation-name: dot-down-short; }
-
-@keyframes dot-down-through {
-  from { top: 0; opacity: 0; transform: scale(0.6); }
-  14%  { opacity: 1; transform: scale(1); }
-  82%  { top: calc(100% - 8px); opacity: 1; transform: scale(1); }
-  to   { top: calc(100% - 8px); opacity: 0; transform: scale(2.1); }
-}
-
-@keyframes dot-down-back {
-  from { top: 0; opacity: 0; transform: scale(0.6); }
-  14%  { opacity: 1; transform: scale(1); }
-  46%  { top: calc(100% - 8px); opacity: 1; }
-  54%  { top: calc(100% - 14px); opacity: 1; }
-  88%  { top: 0; opacity: 1; }
-  to   { top: 0; opacity: 0; transform: scale(0.5); }
-}
-
-@keyframes dot-down-short {
-  from { top: 0; opacity: 0; transform: scale(0.6); }
-  14%  { opacity: 1; transform: scale(1); }
-  55%  { top: 52%; opacity: 1; }
-  70%  { top: 52%; transform: scale(1.35); }
-  to   { top: 52%; opacity: 0; transform: scale(0.7); }
+  animation-name: packet-through;
 }
 
 /* Delivered: travels the wire and is taken in at the far end. */
-@keyframes dot-through {
-  from { left: 0; opacity: 0; transform: scale(0.6); }
+@keyframes packet-through {
+  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
   14%  { opacity: 1; transform: scale(1); }
-  82%  { left: calc(100% - 8px); opacity: 1; transform: scale(1); }
-  to   { left: calc(100% - 8px); opacity: 0; transform: scale(2.1); }
+  82%  { offset-distance: 100%; opacity: 1; transform: scale(1); }
+  to   { offset-distance: 100%; opacity: 0; transform: scale(2.1); }
 }
 
 /* A failed attempt: goes out, does not get in, comes back to the queue. */
-@keyframes dot-back {
-  from { left: 0; opacity: 0; transform: scale(0.6); }
+@keyframes packet-back {
+  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
   14%  { opacity: 1; transform: scale(1); }
-  46%  { left: calc(100% - 8px); opacity: 1; }
-  54%  { left: calc(100% - 14px); opacity: 1; }
-  88%  { left: 0; opacity: 1; }
-  to   { left: 0; opacity: 0; transform: scale(0.5); }
+  46%  { offset-distance: 100%; opacity: 1; }
+  54%  { offset-distance: 94%; opacity: 1; }
+  88%  { offset-distance: 0%; opacity: 1; }
+  to   { offset-distance: 0%; opacity: 0; transform: scale(0.5); }
 }
 
 /* Parked: gets partway, gives up, fades where it stopped. */
-@keyframes dot-short {
-  from { left: 0; opacity: 0; transform: scale(0.6); }
+@keyframes packet-short {
+  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
   14%  { opacity: 1; transform: scale(1); }
-  55%  { left: 52%; opacity: 1; }
-  70%  { left: 52%; transform: scale(1.35); }
-  to   { left: 52%; opacity: 0; transform: scale(0.7); }
+  55%  { offset-distance: 52%; opacity: 1; }
+  70%  { offset-distance: 52%; transform: scale(1.35); }
+  to   { offset-distance: 52%; opacity: 0; transform: scale(0.7); }
+}
+
+/* The packet is the one thing on this page that has to move to mean anything, so
+   it is not simply hidden: it appears at the far end and fades, which still says a
+   delivery happened without anything sliding across the screen. */
+@media (prefers-reduced-motion: reduce) {
+  .packet { animation-duration: 1ms; animation-name: packet-still; }
+  @keyframes packet-still {
+    from { offset-distance: 100%; opacity: 1; }
+    to   { offset-distance: 100%; opacity: 0; }
+  }
 }
 
 /* Every system carries the menu that breaks it. Squarish tiles, because these are
@@ -782,6 +740,9 @@ body {
    the missing line would have been. */
 .target {
   position: relative;
+  /* So the head below can ask how wide this tile is rather than how wide the window
+     is. Inline-size only: the height still comes from what the tile has to say. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   /* Heading at the top, everything the tile has to say lined up under it. Anchored
@@ -911,7 +872,13 @@ body {
    is a pointer, and the specification says the visitor may well be on a phone.
    Quiet until the tile is approached, loud enough to find without being told. */
 
-.tile-menu { position: absolute; top: 8px; right: 8px; }
+/* On a tile it hangs in the corner the mark does not use. The one at the entrance
+   has no tile to hang in: it stands next to the button as a control of its own, so
+   the positioning is scoped to the tile rather than applied to every menu. Left
+   absolute for both, it anchored itself to the page and ended up in the top right
+   corner of the browser window. */
+.target .tile-menu { position: absolute; top: 8px; right: 8px; }
+.tile-menu { position: relative; }
 
 .tile-menu-toggle {
   display: grid;
@@ -1603,62 +1570,39 @@ body {
 /* Mobile -------------------------------------------------------------------- */
 
 @media (max-width: 62rem) {
-  /* Queue and diagram no longer fit side by side. Left as two columns they
-     overflow the container and draw on top of each other. */
+  /* Queue and diagram no longer fit side by side. Left as two columns they overflow
+     the container and draw on top of each other.
+
+     The same width decides the drawing. The mediator wants 320px and a row of tiles
+     beside it wants two of about 158px plus the gaps, which is roughly 880px before
+     the box's own padding. Below that the tile column gave way to nothing while the
+     tiles kept their width, so they ran over the mediator instead of wrapping.
+
+     Stacked, the mediator goes first and the systems follow, in the order the work
+     travels. What that must not become is a chain: these five deliveries go out in
+     parallel, and a layout that fits but says something false about the machine is
+     worse than one that needs a scroll. So the tiles stay side by side in pairs and
+     no one of them looks like the next one's cause. */
   .board { grid-template-columns: 1fr; }
 
   .mediator-panel { height: 17rem; }
   .mediator { grid-template-rows: none; }
 
-  /* The same width decides the drawing, and it has to: the three column grid needs
-     the middle at its 300px floor plus a tile and a wire on either side, which is
-     about 920px before the board's own padding. Below that the flanks are
-     minmax(0, 1fr) and give way to nothing while the tiles keep their width, so
-     the tiles ran over the hub instead of wrapping. At 744px that was 311px of
-     overlap and a page that scrolled sideways: the counts read "NG" and half of
-     the systems sat off the screen. Every tablet held upright lives in that band,
-     and so does every phone turned on its side.
-
-     Sources on top, then the mediator, then the systems it delivers to, in the
-     order the work travels. The wire between each pair turns upright and becomes
-     the join.
-
-     What it must not become is a chain: these five deliveries go out in parallel,
-     and a layout that fits but says something false about the system is worse than
-     one that needs a scroll. The tiles stay side by side in pairs, so no one of
-     them looks like the next one's cause. */
-  .hub {
-    grid-template-columns: 1fr;
-    grid-template-areas: "left" "hub" "right" "foot";
-    gap: 0;
-    /* Held to a readable column rather than stretched across a tablet. Two tiles
-       across 900px would be 440px each holding one word, and the pairing that
-       carries the parallel reading would read as a table instead. */
+  .machine-body {
+    grid-template-columns: minmax(0, 1fr);
+    /* Held to a readable column rather than stretched across a tablet. */
     max-width: 34rem;
     margin-inline: auto;
-  }
-  .spokes[data-side='foot'] { grid-auto-flow: row; }
-  .spokes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-
-  /* Both sides are named, because the desktop rule that swaps the wire to the
-     other side of the tile is the more specific of the two and would otherwise
-     keep winning here. */
-  .spokes[data-side='left'] .spoke,
-  .spokes[data-side='right'] .spoke {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: stretch;
+    padding-top: 0;
   }
 
-  /* Upright, and still between its tile and the hub: source tiles are written
-     before their wire and target tiles after it, so turning the column is all it
-     takes for each wire to end up on the hub side. */
-  .line { height: 20px; width: 2px; justify-self: center; }
-  .line[data-state='cut'] {
-    background: repeating-linear-gradient(
-      180deg, var(--bad) 0 5px, transparent 5px 11px
-    );
-  }
-  .dot { display: none; }
+  /* Nothing left to connect in a straight line: stacked, every tile sits under the
+     mediator rather than beside it, and a measured path between them would run back
+     up through the panel it just left. The order of the boxes carries the direction
+     here, which is what a stacked layout is for. */
+  .wires, .packets { display: none; }
+
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
   /* The tile keeps its own square only where there is room for one. */
   .target { width: 100%; aspect-ratio: auto; min-height: 8.5rem; }
@@ -1669,11 +1613,14 @@ body {
      start from. Which edge it opens from depends on which of the two columns the
      tile is in, and the tiles fill the grid in order, so the position in the row
      is the position on the screen. */
-  .tile-menu { position: static; }
-  .tile-menu-toggle { position: absolute; top: 4px; right: 4px; }
+  /* Scoped to the tile, so it beats the .target .tile-menu rule that puts the menu
+     in the tile's corner on a wide screen. Unscoped it lost on specificity and the
+     menu stayed anchored to a 30px button on a 390px screen. */
+  .target .tile-menu { position: static; }
+  .target .tile-menu-toggle { position: absolute; top: 4px; right: 4px; }
   .tile-menu-list { top: calc(100% + 6px); width: min(20rem, 84vw); }
-  .spoke:nth-child(odd) .tile-menu-list { left: 0; right: auto; }
-  .spoke:nth-child(even) .tile-menu-list { right: 0; left: auto; }
+  .system:nth-child(odd) .tile-menu-list { left: 0; right: auto; }
+  .system:nth-child(even) .tile-menu-list { right: 0; left: auto; }
 }
 
 /* Two tiles across a phone leave each of them about 146px, and a mark, a name and
@@ -1684,7 +1631,16 @@ body {
    Beside the mark is the better arrangement wherever it fits, because it reads as
    one heading rather than as the first line of the report below it. That is why
    this is the narrow case only and not the rule. */
-@media (max-width: 25rem) {
+/* The mark moves above the name when the name has no room beside it. This used to
+   hang off the window width at 25rem, which asked the wrong question: what decides
+   whether a name fits is the width of its own tile, and the tile is not a fixed
+   fraction of the window. Three tiles across at 1440px are narrower than two across
+   at 768px, so "Confirmation" overran its 77px column on a desktop while the same
+   name sat comfortably on a phone.
+   12.5rem, because "Confirmation" draws 94px at 15px and the head spends about
+   105px on the mark, the gaps and the room the menu button needs. Under that the
+   longest name we have cannot fit beside the mark, whatever the window is doing. */
+@container (max-width: 12.5rem) {
   .target-head { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-right: 0; }
   /* The button sits in the corner the mark does not use, so the name below it
      needs none of the width back. */

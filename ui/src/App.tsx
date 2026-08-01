@@ -59,17 +59,12 @@ export function App() {
             The hub carries the queue and the log, so neither needs a panel of its
             own further down the page. */}
         <section className="board">
-          {/* Above the machine, not below it. This was the fine print at the foot
-              of the control panel drawer, and then the fine print under the
-              diagram, where nobody reads it. It is the sentence that stops a
-              visitor taking the whole thing for an animation, so it goes where it
-              is read. */}
-          <p className="board-note">
-            Every action here is real. Stripe runs in test mode with real webhooks.
-            HubSpot is up. We simply stop being able to reach it, which is the most
-            common real-world outage.
-          </p>
-
+          {/* The note about test mode used to stand here, above the drawing. It was
+              the fine print at the foot of a drawer before that, and under the
+              diagram before that, and each move was towards the place it would
+              actually be read. It has arrived: it is the last line of the header,
+              beside the live badge, where a visitor is still deciding whether to
+              believe any of this. */}
           <Diagram
             extractorMode={extractorMode}
             switches={switches}

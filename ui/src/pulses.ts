@@ -19,8 +19,13 @@ import { SWITCHABLE_TARGETS, type DeliveryView, type SwitchableTarget } from '@n
 export type PulseKind = 'delivered' | 'held' | 'parked' | 'arrival';
 
 /**
- * An arrival travels the wire from the shop rather than one of the outgoing ones,
- * so a pulse can name a source as well as a system.
+ * An arrival travels the wire into the mediator rather than one of the outgoing
+ * ones, so a pulse can name the way in as well as a system.
+ *
+ * Still called `shop` now that the shop is a button at the top of the machine rather
+ * than a tile beside it. The name says where the order came from, which has not
+ * changed, and renaming it would touch the mediator and the stored contract for a
+ * word only this file and the stylesheet ever read.
  */
 export type PulseTarget = SwitchableTarget | 'shop';
 

@@ -39,7 +39,7 @@ export function NodeTile(props: {
 
   return (
     <div
-      className={node.kind === 'source' ? 'target source' : 'target'}
+      className="target"
       data-testid={`box-${node.id}`}
       data-state={state}
       data-tracked={props.tracked}

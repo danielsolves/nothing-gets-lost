@@ -53,13 +53,39 @@ describe('Stage', () => {
     expect(sent).toEqual([]);
   });
 
-  it('says where to start and that the systems are the controls', () => {
-    // The first thing to press is no longer the first thing on the screen, so this
-    // line carries the whole success criterion on its own. It is pinned.
+  it('says the systems are real and can be checked afterwards', () => {
+    // The claim the whole page rests on. A visitor deciding whether to believe any
+    // of this needs to be told, before the machine, that the records outlive the
+    // demo and that they can go and look at them.
     render(<Stage {...props} />);
-    const hint = screen.getByTestId('stage-hint');
-    expect(hint).toHaveTextContent(/shop/i);
-    expect(hint).toHaveTextContent(/menu on any system/i);
+    const intro = screen.getByTestId('stage-intro');
+    expect(intro).toHaveTextContent(/real systems/i);
+    expect(intro).toHaveTextContent(/staged|recording/i);
+    expect(intro).toHaveTextContent(/links back|go and look/i);
+  });
+
+  it('says which way the demo can be broken without pointing at a tile', () => {
+    // It used to read "Start at the shop, the first tile in the machine below".
+    // The shop is a button at the top of the machine now, so that line pointed at
+    // something already in view and named a tile that does not exist.
+    render(<Stage {...props} />);
+    expect(screen.queryByTestId('stage-hint')).not.toBeInTheDocument();
+  });
+
+  it('names whose work this is, before saying what it is', () => {
+    // The page is a piece in a portfolio and said so nowhere. A visitor arriving
+    // from the case list met a claim about orders with no idea whose claim it was.
+    render(<Stage {...props} />);
+    expect(screen.getByText(/integration engineer/i)).toBeInTheDocument();
+  });
+
+  it('leaves the pressing to the machine, so the phone reaches the button sooner', () => {
+    // Every instruction the header used to carry is now in the machine's own head,
+    // beside the button it is about. On a 375px screen the header alone was 413px
+    // and the first button sat at 766px.
+    render(<Stage {...props} />);
+    const intro = screen.getByTestId('stage-intro');
+    expect(intro).not.toHaveTextContent(/press|click/i);
   });
 
   it('never puts the recorded-operation note beside the live badge', () => {
