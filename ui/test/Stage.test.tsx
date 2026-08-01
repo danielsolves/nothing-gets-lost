@@ -35,7 +35,7 @@ describe('Stage', () => {
     // arriving from a case list is deciding whether to hire somebody.
     render(<Stage {...props} />);
     expect(screen.getByRole('heading', { level: 1 }))
-      .toHaveTextContent(/bring your business systems together/i);
+      .toHaveTextContent(/a business workflow you can trust/i);
   });
 
   it('says the systems are real and running now', () => {

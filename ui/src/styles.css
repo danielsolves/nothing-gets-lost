@@ -159,8 +159,6 @@ body {
 
 .stage h1 {
   margin: 0;
-  /* Wide enough for the heading to fall in three lines rather than five. It was 20ch
-     for a claim of six short words; this one is a sentence. */
   max-width: 26ch;
   font-size: var(--fs-display);
   line-height: 0.98;
@@ -1391,7 +1389,19 @@ body {
 
 /* Catalogue and inputs ------------------------------------------------------- */
 
-.catalog { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+/* The row height is declared rather than observed, so the window below can be five
+   of them exactly. Left to the content it was 58px today and something else the day
+   a product name wraps or a font loads differently, and the arithmetic that shows
+   five whole rows would have drifted with it. */
+.catalog {
+  --catalog-row: 58px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-rows: var(--catalog-row);
+  gap: 1px;
+}
 
 .catalog li {
   display: grid;
@@ -1971,16 +1981,15 @@ body {
   color: var(--faint);
 }
 
-/* Five products whole and a strip of the sixth. The strip is the point: a list that
-   ends flush on a row boundary looks finished, and the three products below it are
-   then only found by somebody who tries scrolling a thing that does not look
-   scrollable. Cut through the middle of a row it read as a rendering fault instead.
+/* Exactly five products, and nothing of the sixth. Five rows and the four gaps
+   between them, computed rather than written down, so the window stays whole rows
+   whatever the row turns out to measure.
 
-   This is also what sets the height of the whole builder. The right-hand column is
-   shorter than this and only stretches to match, so a row taken off here is a row
-   off the panel. */
+   This is also what sets the height of the whole builder: the right-hand column is
+   shorter and only stretches to match, so a row taken off here is a row off the
+   panel. */
 .order-basket .catalog {
-  max-height: 320px;
+  max-height: calc(var(--catalog-row) * 5 + 4px);
   overflow-y: auto;
   padding-right: 4px;
 }

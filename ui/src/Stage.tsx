@@ -22,11 +22,15 @@ export function Stage(props: { connected: boolean; viewers: number }) {
     <header className="stage">
       <p className="stage-who">Daniel Froemmig, integration engineer</p>
 
-      {/* It read "Nothing gets lost. Not even when you break it." for a long time,
-          which is the claim the machine below demonstrates rather than the thing on
-          offer. A visitor arriving from a case list is deciding whether to hire
-          somebody, so the heading says what that person does. */}
-      <h1>I bring your business systems together in one reliable workflow.</h1>
+      {/* Two beats: what the visitor already has, and what they get instead. It read
+          "Nothing gets lost. Not even when you break it." for a long time, which put
+          a challenge to the reader in the second half, and then a full sentence in
+          the first person, which described the work rather than the outcome. */}
+      {/* The result, not the work. It read "Nothing gets lost. Not even when you
+          break it.", which put a challenge to the reader in its second half, and
+          then a sentence in the first person about what gets built. What a customer
+          buys is the state afterwards. */}
+      <h1>A business workflow you can trust.</h1>
 
       {/* The problem first, then what was built for it. It read the other way round
           for a long time, opening on five systems and a queue, which is an answer to
