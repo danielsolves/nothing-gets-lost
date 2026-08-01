@@ -12,6 +12,7 @@ COPY services/egress-gate/package.json services/egress-gate/
 COPY services/extractor/package.json services/extractor/
 COPY services/ledger/package.json services/ledger/
 COPY services/mailer/package.json services/mailer/
+COPY services/mcp/package.json services/mcp/
 COPY services/mediator/package.json services/mediator/
 COPY ui/package.json ui/
 # The full install here: Vite is a devDependency and this stage is thrown away.

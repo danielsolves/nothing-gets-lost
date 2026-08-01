@@ -6,7 +6,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 # Manifests before sources: this install layer is identical in every service
-# image, so Docker builds it once and the other six reuse it from cache.
+# image, so Docker builds it once and the others reuse it from cache.
 COPY package.json package-lock.json ./
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/db/package.json packages/db/
@@ -15,6 +15,7 @@ COPY services/egress-gate/package.json services/egress-gate/
 COPY services/extractor/package.json services/extractor/
 COPY services/ledger/package.json services/ledger/
 COPY services/mailer/package.json services/mailer/
+COPY services/mcp/package.json services/mcp/
 COPY services/mediator/package.json services/mediator/
 COPY ui/package.json ui/
 RUN npm ci --omit=dev

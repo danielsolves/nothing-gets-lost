@@ -1,7 +1,7 @@
-# services/mailer/Dockerfile
-# Image for the mailer (port 3005). It needs SMTP_URL and MAIL_FROM at boot;
-# compose supplies a dead default so the demo starts without a mail account, and
-# the send then fails visibly instead of the whole stack refusing to come up.
+# services/mcp/Dockerfile
+# Image for the MCP server (port 3007). It is the only service whose database url
+# points at the read-only role, and it is given no other credential, so an open port
+# here cannot become a way in.
 FROM node:22-alpine AS deps
 WORKDIR /app
 # Manifests before sources: this install layer is identical in every service
@@ -24,11 +24,10 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
-# tsx reads the compiler options from here; without them the decorators in every
-# Nest controller fail to transform and the service exits on its first import.
+# tsx reads the compiler options from here.
 COPY tsconfig.base.json tsconfig.json ./
 COPY packages ./packages
-COPY services/mailer ./services/mailer
+COPY services/mcp ./services/mcp
 USER node
-EXPOSE 3005
-CMD ["node_modules/.bin/tsx", "services/mailer/src/main.ts"]
+EXPOSE 3007
+CMD ["node_modules/.bin/tsx", "services/mcp/src/main.ts"]

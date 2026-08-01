@@ -38,6 +38,16 @@ jobs:
       - run: docker compose up -d --build --wait
       - run: curl --fail --silent --show-error http://localhost:3001/api/state
       - run: curl --fail --silent --show-error http://localhost:5173/ -o /dev/null
+      - run: curl --fail --silent --show-error http://localhost:3007/health
+      # The port answering is not the same as the server working: the tools are
+      # listed over the real transport, which is the first thing a client does.
+      - name: List the MCP tools the way a client would
+        run: |
+          curl --fail --silent --show-error http://localhost:3007/mcp \
+            -H 'content-type: application/json' \
+            -H 'accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | grep -q backlog_list
       - if: always()
         run: docker compose logs --no-color --tail 50
       - if: always()

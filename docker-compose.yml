@@ -1,13 +1,13 @@
 # docker-compose.yml
-# The one command: `docker compose up`. Six services, the page, Postgres and a
+# The one command: `docker compose up`. Seven services, the page, Postgres and a
 # one-shot migration that finishes before anything else starts. Nothing but Docker
 # has to be installed and no variable has to be filled in first — the integrations
 # that need a key degrade visibly instead of keeping the demo from starting.
 #
-# Ports on the host: 5173 the page, 3001 the api, 5432 Postgres. The six services
-# talk to each other by service name on the private network; those names are the
-# hostnames the code and the frozen egress contract already expect, so renaming a
-# service here breaks delivery.
+# Ports on the host: 5173 the page, 3001 the api, 3007 the MCP server, 5432
+# Postgres. The services talk to each other by service name on the private network;
+# those names are the hostnames the code and the frozen egress contract already
+# expect, so renaming a service here breaks delivery.
 
 name: nothing-gets-lost
 
@@ -169,6 +169,32 @@ services:
       mediator: { condition: service_healthy }
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/api/state').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # The backlog, readable by an MCP client. It is handed the read-only url and no
+  # other credential at all: not the writing one, not a model key, not a token key.
+  # That is what makes an open port defensible here.
+  #
+  # It waits for the api rather than for the migration, only so that a machine
+  # coming up cold does not answer questions about a database nothing has written
+  # to yet.
+  mcp:
+    build: { context: ., dockerfile: services/mcp/Dockerfile }
+    # No env_file, unlike every other service. .env is where the writing database
+    # url and the keys live, and this is the one process that should not be able to
+    # pick one up by accident.
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_READONLY: postgres://ngl_ro:${DATABASE_READONLY_PASSWORD:-ngl_ro}@db:5432/ngl
+    ports: ['${MCP_PORT:-3007}:3007']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3007/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 5s
       timeout: 5s
       retries: 12
