@@ -13,13 +13,47 @@
 // witness of the proof chain. It is simply no longer the toll gate. Leave it out and
 // there is no mail step, rather than a mail addressed to nobody.
 import { useEffect, useState } from 'react';
-import {
-  DEFAULT_BASKET, type CatalogItem, type PlaceOrderResponse,
-} from '@ngl/contracts';
+import { type CatalogItem, type PlaceOrderResponse } from '@ngl/contracts';
 
-const STARTING_BASKET: Record<string, number> = Object.fromEntries(
-  DEFAULT_BASKET.map((line) => [line.sku, line.qty]),
-);
+/**
+ * A different basket every time the builder is opened.
+ *
+ * It used to be the fixed DEFAULT_BASKET, which made every order on the board the
+ * same order: the queue filled with rows that were identical apart from their
+ * number, and a visitor comparing two of them learned nothing from the comparison.
+ * Random baskets also exercise the catalogue mirror against more than two SKUs.
+ *
+ * Two to four products, one to three of each, never empty. Pure and given its
+ * randomness, so the shape can be checked without rolling dice in a test.
+ */
+export function randomBasket(
+  items: readonly CatalogItem[], random: () => number = Math.random,
+): Record<string, number> {
+  if (items.length === 0) return {};
+
+  const pick = (upto: number) => Math.floor(random() * upto);
+  const pool = [...items];
+  // Fisher-Yates, so every product has the same chance of being in the basket. A
+  // filter on random() < 0.4 would have favoured nothing in particular but could
+  // also return an empty basket, and an empty basket disables the send button the
+  // moment the panel opens.
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = pick(i + 1);
+    const here = pool[i];
+    const there = pool[j];
+    // Both are in range by construction. Narrowed rather than asserted, because an
+    // index that came back undefined would mean the arithmetic above is wrong and
+    // silently swapping in a hole is the worst way to find that out.
+    if (here === undefined || there === undefined) continue;
+    pool[i] = there;
+    pool[j] = here;
+  }
+
+  const howMany = Math.min(pool.length, 2 + pick(3));
+  const basket: Record<string, number> = {};
+  for (const item of pool.slice(0, howMany)) basket[item.sku] = 1 + pick(3);
+  return basket;
+}
 
 /** The ceiling the number field used to carry as max, kept now that it is buttons. */
 const MOST = 20;
@@ -32,7 +66,7 @@ export function OrderForm({
 }) {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [quantities, setQuantities] = useState<Record<string, number>>(STARTING_BASKET);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -44,9 +78,19 @@ export function OrderForm({
     if (!open || catalog.length > 0) return;
     void fetch('/api/catalog')
       .then((response) => response.json() as Promise<CatalogItem[]>)
-      .then(setCatalog)
+      .then((items) => {
+        setCatalog(items);
+        setQuantities(randomBasket(items));
+      })
       .catch(() => setError('The catalogue could not be loaded'));
   }, [open, catalog.length]);
+
+  // A fresh basket every time the builder is opened, not only the first time. The
+  // catalogue is kept, because it does not change and refetching it would be eight
+  // products the visitor has already been shown.
+  useEffect(() => {
+    if (open && catalog.length > 0) setQuantities(randomBasket(catalog));
+  }, [open]);
 
   const step = (sku: string, by: number) => {
     setQuantities((was) => {

@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { OrderForm } from '../src/OrderForm';
+import { OrderForm, randomBasket } from '../src/OrderForm';
 
 afterEach(cleanup);
 
@@ -119,43 +119,45 @@ describe('OrderForm', () => {
     // which reads as the demo being broken rather than as a form to fill in.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('1');
-    expect(screen.getByTestId('qty-MUG-BLUE')).toHaveTextContent('2');
+    const chosen = CATALOG
+      .map((item) => Number(screen.getByTestId(`qty-${item.sku}`).textContent))
+      .filter((qty) => qty > 0);
+    expect(chosen.length).toBeGreaterThan(0);
   });
 
   it('sends the visitor own basket and address', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.click(screen.getByTestId('more-TEAPOT'));
+    // Whatever the basket started as, plus one teapot: the assertion is about what
+    // is sent matching what is on screen, not about a fixed basket.
     fireEvent.click(screen.getByTestId('more-TEAPOT'));
     fireEvent.change(screen.getByTestId('order-name'), { target: { value: 'M. Berger' } });
     fireEvent.change(screen.getByTestId('order-email'), { target: { value: 'm@example.com' } });
     fireEvent.click(screen.getByTestId('send-order'));
 
-    expect(sent).toEqual([{
-      url: '/api/orders',
-      body: {
-        customerName: 'M. Berger',
-        customerEmail: 'm@example.com',
-        items: [{ sku: 'TEAPOT', qty: 3 }, { sku: 'MUG-BLUE', qty: 2 }],
-      },
-    }]);
+    const onScreen = CATALOG
+      .map((item) => ({ sku: item.sku, qty: Number(screen.getByTestId(`qty-${item.sku}`).textContent) }))
+      .filter((line) => line.qty > 0);
+    // Compared by sku rather than in order: the basket is built in a random order,
+    // and which line comes first is not something the server or anybody else cares
+    // about.
+    const bySku = (lines: Array<{ sku: string }>) =>
+      [...lines].sort((a, b) => a.sku.localeCompare(b.sku));
+    expect(sent).toHaveLength(1);
+    expect(sent[0].url).toBe('/api/orders');
+    const body = sent[0].body as {
+      customerName: string; customerEmail: string; items: Array<{ sku: string; qty: number }>;
+    };
+    expect(body.customerName).toBe('M. Berger');
+    expect(body.customerEmail).toBe('m@example.com');
+    expect(bySku(body.items)).toEqual(bySku(onScreen));
   });
 
-  it('sends a chosen basket with no address at all', async () => {
+  it('sends no address at all when none was given', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
-    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
     fireEvent.click(screen.getByTestId('send-order'));
-
-    expect(sent).toEqual([{
-      url: '/api/orders',
-      body: {
-        customerName: '', customerEmail: '',
-        items: [{ sku: 'TEAPOT', qty: 1 }],
-      },
-    }]);
+    expect(sent[0].body).toMatchObject({ customerName: '', customerEmail: '' });
   });
 
   it('names no route, and lets the server settle it', async () => {
@@ -188,9 +190,9 @@ describe('OrderForm', () => {
   it('will not send an empty basket, and says what is missing', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.click(screen.getByTestId('less-TEAPOT'));
-    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
-    fireEvent.click(screen.getByTestId('less-MUG-BLUE'));
+    for (const item of CATALOG) {
+      for (let i = 0; i < 3; i += 1) fireEvent.click(screen.getByTestId(`less-${item.sku}`));
+    }
     expect(screen.getByTestId('send-order')).toBeDisabled();
     expect(screen.getByTestId('order-panel')).toHaveTextContent(/put something in/i);
   });
@@ -230,10 +232,11 @@ describe('OrderForm', () => {
   it('changes a quantity by one on each press, in both directions', async () => {
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
+    const was = Number(screen.getByTestId('qty-TEAPOT').textContent);
     fireEvent.click(screen.getByTestId('more-TEAPOT'));
-    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('2');
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent(String(was + 1));
     fireEvent.click(screen.getByTestId('less-TEAPOT'));
-    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('1');
+    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent(String(was));
   });
 
   it('will not go below nothing', async () => {
@@ -241,11 +244,24 @@ describe('OrderForm', () => {
     // the floor cannot.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
-    fireEvent.click(screen.getByTestId('less-TEAPOT'));
+    for (let i = 0; i < 4; i += 1) fireEvent.click(screen.getByTestId('less-TEAPOT'));
     expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('0');
     expect(screen.getByTestId('less-TEAPOT')).toBeDisabled();
-    fireEvent.click(screen.getByTestId('less-TEAPOT'));
-    expect(screen.getByTestId('qty-TEAPOT')).toHaveTextContent('0');
+  });
+
+  it('never opens on an empty basket, whatever the dice say', () => {
+    // An empty basket disables the send button the moment the panel opens, which
+    // reads as the demo being broken rather than as a form to fill in.
+    for (const roll of [0, 0.999, 0.5, 0.25]) {
+      const basket = randomBasket(CATALOG, () => roll);
+      expect(Object.values(basket).filter((qty) => qty > 0).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('never puts more in the basket than the catalogue holds', () => {
+    expect(Object.keys(randomBasket(CATALOG, () => 0.999)).length)
+      .toBeLessThanOrEqual(CATALOG.length);
+    expect(randomBasket([], () => 0.5)).toEqual({});
   });
 
   it('names each button after the thing it changes', async () => {
