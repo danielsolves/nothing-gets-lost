@@ -573,7 +573,11 @@ body {
   border-radius: var(--r-shell);
 }
 
-.machine-head { display: grid; gap: 14px; max-width: 70ch; }
+/* The cap belongs to the prose, not to the whole head. Applied to the head it also
+   held the order builder to 70ch, which left the basket a narrow strip beside a
+   column of text that did not need the room. */
+.machine-head { display: grid; gap: 14px; }
+.machine-title, .machine-lede { max-width: 70ch; }
 
 /* One step below the page heading rather than level with it. Two headings of the
    same size in a row read as a repetition, and the visitor is left working out which
@@ -1392,16 +1396,18 @@ body {
   /* The last column takes whatever the stepper needs rather than a number written
      down here. Fixed at 84px it was narrower than the three buttons in it, so the
      overflow came out of the product name and "Large plate" broke over two lines. */
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 9px 12px;
   background: var(--surface-sunken);
 }
+.catalog .item { display: grid; gap: 1px; min-width: 0; }
+.catalog .item-name { line-height: 1.25; }
 .catalog .price {
   font-family: var(--mono);
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 12px;
+  color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1732,7 +1738,6 @@ body {
   .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
 
   .catalog li { grid-template-columns: minmax(0, 1fr) auto; }
-  .catalog .price { grid-column: 1; font-size: 12px; }
   .connection, .connection.webhook { grid-template-columns: 1fr; }
 }
 
@@ -1964,11 +1969,11 @@ body {
   color: var(--faint);
 }
 
-/* Scrolls rather than growing. Eight products push the send button below the fold
-   on a laptop, and a send button you have to go looking for is the one control on
-   this page that must never be. */
+/* Scrolls rather than growing, but tall enough that scrolling is the exception. At
+   16rem it showed four and a half products of eight, and a list cut through the
+   middle of a row reads as a rendering fault rather than as more below. */
 .order-basket .catalog {
-  max-height: 16rem;
+  max-height: 26rem;
   overflow-y: auto;
   padding-right: 4px;
 }

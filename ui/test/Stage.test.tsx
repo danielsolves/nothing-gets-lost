@@ -53,15 +53,20 @@ describe('Stage', () => {
     expect(sent).toEqual([]);
   });
 
-  it('says the systems are real and can be checked afterwards', () => {
-    // The claim the whole page rests on. A visitor deciding whether to believe any
-    // of this needs to be told, before the machine, that the records outlive the
-    // demo and that they can go and look at them.
+  it('names the problem before naming what was built for it', () => {
+    // It opened on five systems and a queue, which answers a question a visitor
+    // arriving from a case list has not been asked yet. The failed handoff comes
+    // first now, and the machine second.
     render(<Stage {...props} />);
     const intro = screen.getByTestId('stage-intro');
-    expect(intro).toHaveTextContent(/real systems/i);
-    expect(intro).toHaveTextContent(/staged|recording/i);
-    expect(intro).toHaveTextContent(/links back|go and look/i);
+    expect(intro).toHaveTextContent(/handoff fails/i);
+    expect(intro).toHaveTextContent(/nobody knows where the process stopped/i);
+  });
+
+  it('says the systems are real and running, not illustrated', () => {
+    render(<Stage {...props} />);
+    expect(screen.getByText(/five real systems/i)).toBeInTheDocument();
+    expect(screen.getByTestId('connection')).toHaveTextContent(/live/i);
   });
 
   it('says which way the demo can be broken without pointing at a tile', () => {

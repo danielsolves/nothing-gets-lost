@@ -24,14 +24,23 @@ export function Stage(props: { connected: boolean; viewers: number }) {
 
       <h1>Nothing gets lost. Not even when you break it.</h1>
 
+      {/* The problem first, then what was built for it. It read the other way round
+          for a long time, opening on five systems and a queue, which is an answer to
+          a question a visitor arriving from a case list has not been asked yet. */}
       <p className="sub" data-testid="stage-intro">
-        One order, five real systems that know nothing about each other: a Stripe
-        payment, a HubSpot deal, an invoice, a Slack message and a confirmation mail.
-        Below is the machine that carries the order between them, running right now.
-        Take any system away and the order waits, retries, and is either delivered or
-        handed to a person. It is never quietly dropped. Nothing here is staged:
-        every record was written while you watched, and each one links back to the
-        system that holds it, so you can go and look.
+        Today, many businesses rely on different systems to handle payments, customer
+        relationships, invoicing, and communication. Each system can work perfectly
+        well on its own. Problems begin when information needs to move between them:
+        if a handoff fails, orders stall, updates go missing, and nobody knows where
+        the process stopped.
+      </p>
+
+      <p className="sub">
+        In this live demonstration, I connect five real systems: Stripe, HubSpot, an
+        invoicing service, Slack, and email through one reliable workflow. Every
+        handoff is tracked, failed steps retry automatically, and anything unresolved
+        is sent to a person. Optional AI can review incoming data, flag problems, and
+        suggest the next action.
       </p>
 
       <p className="status">

@@ -135,8 +135,14 @@ export function OrderForm({
                 const qty = quantities[item.sku] ?? 0;
                 return (
                   <li key={item.sku}>
-                    <span>{item.name}</span>
-                    <span className="price">{(item.cents / 100).toFixed(2)} EUR</span>
+                    {/* The price under the name rather than beside it. Side by side,
+                        the two competed for a column that also had to hold the
+                        stepper, and the longer product names broke over two lines
+                        while the prices sat in a ragged middle column. */}
+                    <span className="item">
+                      <span className="item-name">{item.name}</span>
+                      <span className="price">{(item.cents / 100).toFixed(2)} EUR</span>
+                    </span>
                     {/* Two buttons and a number, not a number field. The native
                         spinner puts two three-pixel arrows in the corner of the box,
                         which is a target nobody hits on the first go and nothing at
