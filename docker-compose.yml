@@ -42,7 +42,7 @@ services:
     # the containers use. Bound to the loopback address on purpose: on a public host
     # a bare 5432:5432 would put Postgres on the internet, and the demo has no reason
     # to be reachable from anywhere but the machine it runs on.
-    ports: ['127.0.0.1:5432:5432']
+    ports: ['127.0.0.1:${DB_PORT:-5432}:5432']
     volumes: ['pgdata:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ngl -d ngl']
@@ -161,7 +161,10 @@ services:
       # domain this is the public https url, not localhost.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
     # Published so a reverse proxy, or a curl, can reach the api without the page.
-    ports: ['3001:3001']
+    # The host side is a variable because a shared machine has its own idea of what
+    # 3001 is for; inside the network the port never moves, so nothing else has to
+    # know. Same for the page below.
+    ports: ['${API_PORT:-3001}:3001']
     depends_on:
       mediator: { condition: service_healthy }
     healthcheck:
@@ -174,7 +177,7 @@ services:
 
   ui:
     build: { context: ., dockerfile: ui/Dockerfile }
-    ports: ['5173:8080']
+    ports: ['${UI_PORT:-5173}:8080']
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
