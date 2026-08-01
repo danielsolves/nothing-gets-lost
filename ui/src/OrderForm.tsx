@@ -190,6 +190,13 @@ export function OrderForm({
                    type="email" autoComplete="email"
                    onChange={(event) => setEmail(event.target.value)} />
 
+            {/* Under the fields rather than at the foot of the panel. It is about
+                what happens to what you just typed, so it belongs where you typed
+                it, and it reads in the same voice as the line above them. */}
+            <p className="order-why">
+              Info: Your address is used for this one order and deleted after 24 hours.
+            </p>
+
           </div>
 
           {/* The send button ends the panel, bottom left. It is what the wire into
@@ -211,9 +218,6 @@ export function OrderForm({
               {emptyBasket && (
                 <p className="order-hint">Put something in the basket to send an order.</p>
               )}
-              <p className="fine-print">
-                Your address is used for this one order and deleted after 24 hours.
-              </p>
             </div>
           </div>
         </div>

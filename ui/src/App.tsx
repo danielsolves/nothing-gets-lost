@@ -27,7 +27,7 @@ import { useStream } from './useStream';
 
 export function App() {
   const {
-    counters, switches, deliveries, orders, timeline, viewers, connected, extractorMode,
+    counters, switches, deliveries, orders, timeline, extractorMode,
   } = useStream();
   // The order the visitor just sent, and whether a confirmation mail is coming for
   // it. Without an address there is no second witness, and the proof panel has to
@@ -53,18 +53,12 @@ export function App() {
       <div className="grain" aria-hidden="true" />
 
       <main className="page">
-        <Stage connected={connected} viewers={viewers} />
+        <Stage />
 
         {/* The machine: hub in the middle, the systems it delivers to around it.
             The hub carries the queue and the log, so neither needs a panel of its
             own further down the page. */}
         <section className="board">
-          {/* The note about test mode used to stand here, above the drawing. It was
-              the fine print at the foot of a drawer before that, and under the
-              diagram before that, and each move was towards the place it would
-              actually be read. It has arrived: it is the last line of the header,
-              beside the live badge, where a visitor is still deciding whether to
-              believe any of this. */}
           <Diagram
             extractorMode={extractorMode}
             switches={switches}

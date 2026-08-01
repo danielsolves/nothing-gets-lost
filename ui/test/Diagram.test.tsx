@@ -124,18 +124,24 @@ describe('Diagram', () => {
     expect(head).toContainElement(screen.getByTestId('menu-entry'));
   });
 
-  it('offers all four faults rather than one on and off', () => {
+  it('offers the three faults rather than one on and off', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     fireEvent.click(screen.getByTestId('menu-hubspot'));
-    for (const state of ['up', 'slow', 'error', 'cut']) {
+    for (const state of ['up', 'slow', 'cut']) {
       expect(screen.getByTestId(`menu-hubspot-${state}`)).toBeInTheDocument();
     }
   });
 
-  it('takes a system down when the visitor says the system is down', () => {
+  it('does not offer to make a third party fail', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    choose('hubspot', 'error');
-    expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'error' } }]);
+    fireEvent.click(screen.getByTestId('menu-hubspot'));
+    expect(screen.queryByTestId('menu-hubspot-error')).not.toBeInTheDocument();
+  });
+
+  it('slows a system down when the visitor asks for that', () => {
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    choose('hubspot', 'slow');
+    expect(sent).toEqual([{ url: '/api/switches/hubspot', body: { state: 'slow' } }]);
   });
 
   it('cuts the line when the visitor says the line is dead', () => {
@@ -145,7 +151,7 @@ describe('Diagram', () => {
   });
 
   it('puts a broken system back', () => {
-    render(<Diagram {...base} switches={{ ...ALL_UP, slack: 'error' }} deliveries={[]} />);
+    render(<Diagram {...base} switches={{ ...ALL_UP, slack: 'cut' }} deliveries={[]} />);
     choose('slack', 'up');
     expect(sent).toEqual([{ url: '/api/switches/slack', body: { state: 'up' } }]);
   });
@@ -206,8 +212,8 @@ describe('Diagram', () => {
   });
 
   it('says in words which fault a system is in', () => {
-    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'error' }} deliveries={[]} />);
-    expect(screen.getByTestId('state-hubspot')).toHaveTextContent(/failing/i);
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={[]} />);
+    expect(screen.getByTestId('state-hubspot')).toHaveTextContent(/unreachable/i);
   });
 
   it('stays quiet about a system that is simply working', () => {

@@ -1,13 +1,12 @@
 // ui/src/machine.ts
 // Every system in the drawing, and everything the page is allowed to say about it.
 //
-// The four faults are the reason this file exists. The page used to flatten them
-// into one on/off switch, which taught a visitor the wrong lesson: that an outage is
-// a single thing. Specification section 7 has four, and the two that look alike are
-// the pair worth teaching. A system that answers 503 is down. A system behind a dead
-// line is running perfectly well and we simply cannot reach it, which the README
-// calls the most common real-world outage. So the menu says which of the two it is,
-// in words, every time.
+// The faults are the reason this file exists. The page used to flatten them into one
+// on/off switch, which taught a visitor the wrong lesson: that an outage is a single
+// thing. It is not: a call that goes through, one held up until it times out and one
+// into a dead line are three different failures with three different recoveries, and
+// the menu says which one is in force, in words, every time. See FAULTS for why the
+// gate's fourth state is not among them.
 //
 // There are no source nodes left. The shop and the order mail used to be drawn as
 // tiles beside the systems, which put three different kinds of thing in one row: two
@@ -25,7 +24,7 @@
 // vagueness, and here it can be checked without rendering anything.
 import type { ChaosKind, SwitchState, SwitchableTarget } from '@ngl/contracts';
 
-/** One of the four states the egress gate can be put into, and what it does. */
+/** One of the states a connection can be put into, and what that does. */
 export interface Fault {
   state: SwitchState;
   label: string;
@@ -51,10 +50,29 @@ export interface SystemNode {
 
 export type Node = SystemNode;
 
+/**
+ * What a visitor can do to a connection. Three, not the four the gate supports.
+ *
+ * The fourth was "Failing: the system is down and answers 503", and it was the one
+ * thing on this page we could not do. Nothing here can make Slack fail. The gate
+ * answers 503 in Slack's place, so the tile stated as fact something that was true
+ * of our own container and false of the system it named. On a page whose argument is
+ * that everything on it can be checked, that is the sentence a visitor would have
+ * been right to disbelieve.
+ *
+ * What is left is what really happens: the call goes through, or it is held up until
+ * it times out, or the line is dead. All three are done to the connection, which is
+ * the thing we actually control, and all three are what an outage looks like from
+ * the caller's side anyway.
+ *
+ * `error` stays in the contract and in the gate. Migration 001 has a CHECK constraint
+ * naming it, migrations are never edited, and a state the gate can still be put into
+ * by other means should not disappear from the vocabulary because one menu stopped
+ * offering it.
+ */
 const FAULTS: Fault[] = [
   { state: 'up', label: 'Reachable', means: 'Calls go straight through' },
   { state: 'slow', label: 'Slow', means: 'Answers eight seconds late, so the call times out' },
-  { state: 'error', label: 'Failing', means: 'The system is down and answers 503' },
   { state: 'cut', label: 'Unreachable', means: 'The line is dead. The system itself is fine' },
 ];
 

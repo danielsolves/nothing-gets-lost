@@ -12,12 +12,15 @@
 // machine, directly under this header, so the line was pointing at something already
 // in view and saying "the first tile" about a tile that no longer exists.
 //
-// What is left is one claim, one paragraph and one badge. That is also the answer to
-// there having been four different voices here: a claim in the display face, a lede,
-// a monospaced line beside the live dot, a hint, and a note about test mode further
-// down. Monospace on this page means the machine said it. Prose about the machine is
-// prose, and reads in the same face as everything else.
-export function Stage(props: { connected: boolean; viewers: number }) {
+// What is left is a name, a claim and two paragraphs. The live badge, the note about
+// test mode and the line about other visitors went with the rest: the header is what
+// somebody reads before they have decided to care, and a readout of the connection
+// state is a thing for somebody already watching.
+//
+// That also answers there having been five different voices here. Monospace on this
+// page means the machine said it. Prose about the machine is prose, and reads in the
+// same face as everything else.
+export function Stage() {
   return (
     <header className="stage">
       <p className="stage-who">Daniel Froemmig, integration engineer</p>
@@ -48,20 +51,6 @@ export function Stage(props: { connected: boolean; viewers: number }) {
         is sent to a person.
       </p>
 
-      <p className="status">
-        <span className={props.connected ? 'live' : 'offline'} data-testid="connection">
-          {props.connected ? 'live' : 'reconnecting'}
-        </span>
-        <span className="status-note">
-          Stripe runs in test mode with real webhooks. The HubSpot portal is a real
-          one. Breaking a system here stops us reaching it. It does not stop it.
-        </span>
-        {props.viewers > 1 && (
-          <span data-testid="presence">
-            Somebody else is experimenting right now. You are watching their events too.
-          </span>
-        )}
-      </p>
     </header>
   );
 }

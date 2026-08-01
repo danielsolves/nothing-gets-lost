@@ -8,14 +8,22 @@
 // down, "Unreachable" means the system is fine and the line to it is not. If those
 // two ever read the same way again, the demo has lost its point.
 import { describe, it, expect } from 'vitest';
-import { SWITCH_STATES, SWITCHABLE_TARGETS } from '@ngl/contracts';
+import { SWITCHABLE_TARGETS } from '@ngl/contracts';
 import { CHAOS_KINDS } from '@ngl/contracts';
 import { NODES, ORDER_WAYS, SYSTEMS, faultsFor } from '../src/machine';
 
 describe('faults', () => {
-  it('offers every state the gate can actually be put into', () => {
-    const offered = faultsFor('stripe').map((fault) => fault.state);
-    expect(offered).toEqual([...SWITCH_STATES]);
+  it('offers only the states this page can honestly produce', () => {
+    // The gate also has 'error', where it answers 503 in the system's place. Nothing
+    // here can make Slack fail, so a tile saying "the system is down" stated as fact
+    // something true of our container and false of the system it named.
+    expect(faultsFor('stripe').map((fault) => fault.state)).toEqual(['up', 'slow', 'cut']);
+  });
+
+  it('never offers to make a third party fail', () => {
+    for (const target of SWITCHABLE_TARGETS) {
+      expect(faultsFor(target).map((fault) => fault.state)).not.toContain('error');
+    }
   });
 
   it('says of each fault what it does, not just what it is called', () => {
@@ -24,11 +32,15 @@ describe('faults', () => {
     }
   });
 
-  it('keeps the difference between a dead system and a dead line', () => {
-    const failing = faultsFor('stripe').find((f) => f.state === 'error');
+  it('keeps the difference between a slow line and a dead one', () => {
+    // Two failures that look alike from a tile and recover completely differently:
+    // one times out and retries into a system that is answering, the other retries
+    // into nothing until the line comes back.
+    const slow = faultsFor('stripe').find((f) => f.state === 'slow');
     const unreachable = faultsFor('stripe').find((f) => f.state === 'cut');
-    expect(failing?.means).toMatch(/down/i);
+    expect(slow?.means).toMatch(/times out/i);
     expect(unreachable?.means).toMatch(/still (running|up)|is fine/i);
+    expect(slow?.means).not.toBe(unreachable?.means);
   });
 
   it('lets Invoices say that off means off, because it alone really stops', () => {
@@ -41,9 +53,11 @@ describe('faults', () => {
     expect(ledger?.means).not.toBe(slack?.means);
   });
 
-  it('gives every switchable target the full set', () => {
+  it('gives every switchable target the same set', () => {
+    // A system offering fewer ways to break it than its neighbour reads as one that
+    // is somehow less real.
     for (const target of SWITCHABLE_TARGETS) {
-      expect(faultsFor(target)).toHaveLength(SWITCH_STATES.length);
+      expect(faultsFor(target).map((f) => f.state)).toEqual(['up', 'slow', 'cut']);
     }
   });
 });
