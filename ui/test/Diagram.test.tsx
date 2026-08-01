@@ -228,9 +228,19 @@ describe('Diagram', () => {
 
   it('says what a system is doing, not merely how many are stacked up at it', () => {
     // A count is a number to interpret. The visitor watching an outage wants the
-    // verb: whether anything is moving, and when it will be tried again.
+    // verb: whether anything is still moving at that system.
     render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
-    expect(screen.getByTestId('doing-hubspot')).toHaveTextContent(/attempt 2 failed/i);
+    expect(screen.getByTestId('doing-hubspot')).toHaveTextContent(/retrying/i);
+  });
+
+  it('keeps the attempt number and the countdown off the tile', () => {
+    // Both belong to one order and are printed on its card. On a tile they hang over
+    // whichever orders happen to be at that system, with nothing to say which one
+    // they are counting.
+    render(<Diagram {...base} switches={{ ...ALL_UP, hubspot: 'cut' }} deliveries={waiting} />);
+    const doing = screen.getByTestId('doing-hubspot');
+    expect(doing).not.toHaveTextContent(/attempt \d/i);
+    expect(doing).not.toHaveTextContent(/minute|second/i);
   });
 
   it('never makes a tile repeat its own name back at the reader', () => {

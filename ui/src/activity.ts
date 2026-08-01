@@ -20,7 +20,6 @@
 // The raw error never appears in either. `lastError` is a driver's sentence about
 // a socket, worth having in the backlog entry and meaningless on a tile.
 import type { DeliveryView, SwitchableTarget, Target } from '@ngl/contracts';
-import { retryGap } from './order-time';
 
 /**
  * Three tones rather than one state per delivery: the line exists to be read at a
@@ -118,20 +117,14 @@ export function activityFor(
   if (parked.length > 1) return line(`${parked.length} orders need a human`, 'bad');
   if (worst) return line(`needs a human after ${attemptsWord(worst.attempts)}`, 'bad');
 
+  // Named, never counted down to, and never with the attempt number. Both of those
+  // belong to one order and are printed on its card, where the reader can see which
+  // order they are about. On a tile they were a countdown floating over whichever
+  // orders happened to be at that system, and the tile is the wrong place to read a
+  // number that only means something next to an order.
   const retrying = mine.filter(isRetrying);
-  const next = soonest(retrying);
-  if (next) {
-    const gap = retryGap(next.nextAt, now);
-    if (retrying.length > 1) {
-      const rest = `${retrying.length} orders waiting to retry`;
-      return line(gap ? `${rest}, next in ${gap}` : rest, 'wait');
-    }
-    // The attempt number stays even though it costs characters. It is the one
-    // thing on the tile that shows the retry count climbing rather than a
-    // delivery sitting still.
-    const failed = `attempt ${next.attempts} failed, trying again`;
-    return line(gap ? `${failed} in ${gap}` : failed, 'wait');
-  }
+  if (retrying.length === 1) return line('retrying', 'wait');
+  if (retrying.length > 1) return line(`${retrying.length} orders retrying`, 'wait');
 
   const queued = mine.filter(isQueued);
   if (queued.length === 1) return line('queued', 'wait');
@@ -142,11 +135,25 @@ export function activityFor(
   // this page exists to carry: a number that only exists because something at the
   // other end really answered. Measured on our clock either side of the call, which
   // is why it is worded as a round trip and not as their processing time.
-  const settled = lastAnswered(mine);
+  //
+  // It says so briefly. A duration is news at the moment it lands and furniture a
+  // minute later, and left up it became the tile's resting state: five systems each
+  // holding a stale number from whenever they last did something, which reads as the
+  // machine still working when nothing is happening at all.
+  const settled = lastAnswered(mine, now);
   if (settled !== null) return line(`answered in ${settled}`, 'wait');
 
   return null;
 }
+
+/**
+ * How long a freshly answered delivery stays on the tile.
+ *
+ * The board arrives once a second, so the line survives one or two frames and then
+ * goes. Long enough to be read by somebody watching the system it is on, short
+ * enough that it never becomes the thing the tile says by default.
+ */
+const ANSWER_SHOWS_FOR_MS = 2000;
 
 /**
  * The order behind the most recent settled delivery to a system, or null when that
@@ -175,8 +182,11 @@ export function lastDeliveredEvent(
  * How long the most recent settled delivery took, or null when none of them carries
  * both timestamps. Rows written before the timings existed say nothing rather than
  * guessing, because a made-up duration on this page costs more than a blank tile.
+ *
+ * Null again once the answer is older than ANSWER_SHOWS_FOR_MS. The tile is then
+ * quiet, which is the truth: nothing is happening at that system.
  */
-function lastAnswered(deliveries: DeliveryView[]): string | null {
+function lastAnswered(deliveries: DeliveryView[], now: Date): string | null {
   let best: { at: number; text: string } | null = null;
 
   for (const delivery of deliveries) {
@@ -190,7 +200,8 @@ function lastAnswered(deliveries: DeliveryView[]): string | null {
     }
   }
 
-  return best?.text ?? null;
+  if (best === null) return null;
+  return now.getTime() - best.at <= ANSWER_SHOWS_FOR_MS ? best.text : null;
 }
 
 /**

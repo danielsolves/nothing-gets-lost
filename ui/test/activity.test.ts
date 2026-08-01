@@ -69,28 +69,38 @@ describe('activityFor', () => {
     expect(activity).toEqual({ text: 'Delivering', tone: 'work' });
   });
 
-  it('says a failed attempt is coming back, and when', () => {
+  it('says a delivery is being retried, without the attempt or the countdown', () => {
+    // Both used to be here and both belong to one order, which is where they are
+    // printed. A tile is a system, and an attempt number floating over a system is a
+    // number with nothing to be about: the reader cannot tell which of the orders
+    // stacked at that system it counts.
     const activity = activityFor('hubspot', [
       d('hubspot', 'pending', { attempts: 3, nextAt: IN_4_SECONDS, lastError: 'ECONNRESET' }),
     ], NOW);
-    expect(activity).toEqual({
-      text: 'Attempt 3 failed, trying again in 4 seconds',
-      tone: 'wait',
-    });
+    expect(activity).toEqual({ text: 'Retrying', tone: 'wait' });
   });
 
-  it('reads a long backoff in minutes rather than in six hundred seconds', () => {
-    const activity = activityFor('slack', [
+  it('says the same thing however far off the next try is', () => {
+    // The countdown was also the one line on a tile that could be wrong without
+    // anything being broken: it is arithmetic against the reader's own clock.
+    const soon = activityFor('slack', [
+      d('slack', 'pending', { attempts: 5, nextAt: IN_4_SECONDS }),
+    ], NOW);
+    const later = activityFor('slack', [
       d('slack', 'pending', { attempts: 5, nextAt: IN_10_MINUTES }),
     ], NOW);
-    expect(activity?.text).toBe('Attempt 5 failed, trying again in 10 minutes');
-  });
-
-  it('drops the countdown once the next try is already due', () => {
-    const activity = activityFor('slack', [
+    const due = activityFor('slack', [
       d('slack', 'pending', { attempts: 2, nextAt: OVERDUE }),
     ], NOW);
-    expect(activity?.text).toBe('Attempt 2 failed, trying again');
+    expect(soon?.text).toBe('Retrying');
+    expect(later?.text).toBe('Retrying');
+    expect(due?.text).toBe('Retrying');
+  });
+
+  it('never prints an attempt number on a tile', () => {
+    for (const text of everyLine('hubspot')) {
+      expect(text).not.toMatch(/attempt \d/i);
+    }
   });
 
   it('leads with what needs a human over what is only waiting to retry', () => {
@@ -137,7 +147,7 @@ describe('activityFor', () => {
       d('stripe', 'pending', { attempts: 2, nextAt: IN_10_MINUTES }),
       d('stripe', 'pending', { attempts: 1, nextAt: IN_4_SECONDS }),
     ], NOW);
-    expect(retrying?.text).toBe('2 orders waiting to retry, next in 4 seconds');
+    expect(retrying?.text).toBe('2 orders retrying');
 
     const queued = activityFor('stripe', [
       d('stripe', 'pending', { attempts: 0 }), d('stripe', 'pending', { attempts: 0 }),
@@ -277,20 +287,26 @@ describe('currentWork', () => {
 });
 
 describe('the answer coming back', () => {
+  // Every case here pins `now` against the answer, because the line is not only
+  // computed from the two stamps but is also only shown for a moment after them.
+  const ANSWERED = '2026-08-01T10:00:00.312Z';
+  const JUST_AFTER = new Date('2026-08-01T10:00:01.000Z');
+
   it('says how long the system took, because the number is the evidence', () => {
     // "Delivered" is one more thing to read for no news. A duration only exists
     // because something at the other end really answered.
     const done = d('hubspot', 'done', {
-      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:00.312Z',
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: ANSWERED,
     });
-    expect(activityFor('hubspot', [done])?.text).toBe('Answered in 312 ms');
+    expect(activityFor('hubspot', [done], JUST_AFTER)?.text).toBe('Answered in 312 ms');
   });
 
   it('reads a slow hop in seconds rather than four digits of milliseconds', () => {
     const done = d('slack', 'done', {
       sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:08.400Z',
     });
-    expect(activityFor('slack', [done])?.text).toBe('Answered in 8.4 s');
+    const now = new Date('2026-08-01T10:00:09.000Z');
+    expect(activityFor('slack', [done], now)?.text).toBe('Answered in 8.4 s');
   });
 
   it('takes the most recent answer when several have settled', () => {
@@ -300,26 +316,38 @@ describe('the answer coming back', () => {
     const newer = d('hubspot', 'done', {
       sentAt: '2026-08-01T10:00:05.000Z', answeredAt: '2026-08-01T10:00:05.100Z',
     });
-    expect(activityFor('hubspot', [older, newer])?.text).toBe('Answered in 100 ms');
+    const now = new Date('2026-08-01T10:00:06.000Z');
+    expect(activityFor('hubspot', [older, newer], now)?.text).toBe('Answered in 100 ms');
+  });
+
+  it('lets the answer go once it is no longer news', () => {
+    // Left up, the duration became the tile's resting state: five systems each
+    // holding a number from whenever they last did something, which reads as a
+    // machine still working while nothing at all is happening.
+    const done = d('hubspot', 'done', {
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: ANSWERED,
+    });
+    const later = new Date('2026-08-01T10:00:30.000Z');
+    expect(activityFor('hubspot', [done], later)).toBeNull();
   });
 
   it('stays quiet about a delivery that was never timed', () => {
     // A made-up duration on this page costs more than a blank tile.
-    expect(activityFor('hubspot', [d('hubspot', 'done')])).toBeNull();
+    expect(activityFor('hubspot', [d('hubspot', 'done')], JUST_AFTER)).toBeNull();
   });
 
   it('ignores a pair of timestamps that runs backwards', () => {
     const broken = d('hubspot', 'done', {
       sentAt: '2026-08-01T10:00:05.000Z', answeredAt: '2026-08-01T10:00:00.000Z',
     });
-    expect(activityFor('hubspot', [broken])).toBeNull();
+    expect(activityFor('hubspot', [broken], JUST_AFTER)).toBeNull();
   });
 
   it('says nothing about timing while something is still moving', () => {
     const done = d('hubspot', 'done', {
-      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: '2026-08-01T10:00:00.312Z',
+      sentAt: '2026-08-01T10:00:00.000Z', answeredAt: ANSWERED,
     });
     const going = d('hubspot', 'inflight');
-    expect(activityFor('hubspot', [done, going])?.text).toBe('Delivering');
+    expect(activityFor('hubspot', [done, going], JUST_AFTER)?.text).toBe('Delivering');
   });
 });
