@@ -1,5 +1,24 @@
 name: CI
-on: [push, pull_request]
+# Once per change, not twice.
+#
+# `on: [push, pull_request]` looks like it covers two situations. On a branch with
+# an open pull request it is one situation seen twice: the push event and the
+# pull_request event both fire for the same commit, so the whole suite runs twice
+# and the checklist shows every job as a pair. That is double the minutes and
+# double the wall clock for no second opinion.
+#
+# Restricting push to main keeps the two events doing different work. A branch is
+# covered by pull_request, which is the only context that matters there, since
+# nothing reaches main except through a pull request. A merge to main is a push,
+# and that is the event the deploy workflow listens for.
+#
+# The one thing this gives up: pushing a branch with no pull request open now runs
+# nothing. Feedback starts when the pull request does, which is also when anybody
+# would look at it.
+on:
+  push:
+    branches: [main]
+  pull_request:
 jobs:
   test:
     runs-on: ubuntu-latest
