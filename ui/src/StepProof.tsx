@@ -16,6 +16,14 @@
 // The caveat is the other half of that and is not an apology. We render the HubSpot
 // answer, so a sceptic is right that we could render anything. Saying it costs
 // nothing here and is exactly what keeps the Stripe receipt worth something.
+//
+// The one button goes both ways. Opened, the answer had no way back and the button
+// went on offering a check that had already been made, so a tile grown to three
+// times its height stayed that way and pushed its row down the page for the rest of
+// the visit. A second control next to it was the alternative and was rejected: a
+// 198px tile has room for one thing to press, and the thing already there was the
+// one saying the wrong words. Closing forgets the answer rather than keeping it to
+// put back, so reopening asks again and nothing stale is ever shown.
 import { useState } from 'react';
 import type { Target, VerifyResponse } from '@ngl/contracts';
 
@@ -42,6 +50,20 @@ function askLabel(label: string, orderNumber: number | null | undefined, tile: b
   }
   return `Check it at ${label}`;
 }
+
+/**
+ * The way out, in the same words on both surfaces.
+ *
+ * The offer has to differ by surface, because each one has already said a different
+ * half of it. Putting the answer away has no such half: what folds is the answer, on
+ * a tile and in a card alike, so a second wording would be two ways of saying one
+ * thing. It is also shorter than either offer, which is what keeps the button on one
+ * line in a 198px box.
+ *
+ * "Hide" and not "Close": nothing was opened over anything. The answer is part of the
+ * step and goes back into it.
+ */
+const HIDE_LABEL = 'Hide the answer';
 
 /** The domain, for the link label. A url we cannot parse is not offered as a link. */
 function hostOf(url: string): string | null {
@@ -88,6 +110,26 @@ export function StepProof(props: {
   };
 
   const verified = answer.kind === 'answered' ? answer.verified : null;
+
+  /**
+   * One button, both directions. A separate close control would be a second thing to
+   * find on a tile that has room for one, and the button was already sitting there
+   * offering a check that had just been made.
+   *
+   * Going back to idle rather than keeping the answer to put back later. The whole
+   * claim of this panel is that it read the far system just now: a record deleted
+   * between the two presses has to come back 404, and an answer redisplayed from
+   * memory would go on saying 200 about something that is gone. Reopening therefore
+   * costs a round trip, which is the honest price of the claim.
+   *
+   * A failure is not a disclosure and does not toggle. It is a report about the
+   * press, and the next thing anybody wants after reading it is another attempt.
+   */
+  const showing = verified !== null;
+  const press = () => {
+    if (showing) setAnswer({ kind: 'idle' });
+    else ask();
+  };
   // Only a page somebody else serves is worth sending a visitor to, which is the
   // same set the service already calls indisputable. The others answer on a url too,
   // but it is an API endpoint behind a bearer token: followed by a visitor it is a
@@ -98,16 +140,21 @@ export function StepProof(props: {
   const host = openable ? hostOf(verified.requestUrl) : null;
   const tile = props.layout === 'tile';
 
+  let says = askLabel(props.label, props.orderNumber, tile);
+  if (showing) says = HIDE_LABEL;
+  if (answer.kind === 'asking') says = 'Asking…';
+
   return (
     <div className="step-proof" data-layout={props.layout ?? 'card'}>
       <button
         type="button"
         className="step-proof-ask"
         data-testid={`check-${id}`}
-        onClick={ask}
+        onClick={press}
         disabled={answer.kind === 'asking'}
+        aria-expanded={showing}
       >
-        {answer.kind === 'asking' ? 'Asking…' : askLabel(props.label, props.orderNumber, tile)}
+        {says}
       </button>
 
       {answer.kind === 'failed' && (

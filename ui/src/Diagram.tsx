@@ -32,12 +32,14 @@ import {
   type ChaosKind, type DeliveryView, type OrderView,
   type SwitchState, type SwitchableTarget,
 } from '@ngl/contracts';
-import { activityFor, lastDeliveredEvent } from './activity';
+import { lastDeliveredEvent } from './activity';
 import { NODES, ORDER_WAYS, faultsFor, type Node, type NodeId } from './machine';
 import { NodeTile } from './NodeTile';
 import { StepProof } from './StepProof';
 import { TileMenu, type MenuSection } from './TileMenu';
 import { useDeliveryPulses } from './useDeliveryPulses';
+import { useImpacts } from './useImpacts';
+import { useSpokenActivity } from './useSpokenActivity';
 import { useWires } from './useWires';
 
 interface ChaosReply { detail?: string }
@@ -46,7 +48,22 @@ const TARGETS: readonly string[] = NODES.map((node) => node.id);
 
 export function Diagram(props: {
   switches: Record<SwitchableTarget, SwitchState>;
+  /**
+   * What the drawing says in words: the tile lines, the checks, the marked path.
+   *
+   * This is the board held back while an order is still visibly travelling to the
+   * hub, not the live one. "Delivering" on a system tile is a statement about state
+   * in exactly the way the hub's counters are, and reading it live meant a tile
+   * announced a delivery for an order the visitor could still see on the wire from
+   * the button, which is the fault useArrivalHold exists to prevent.
+   */
   deliveries: DeliveryView[];
+  /**
+   * The board as it stands, for the one thing that must not wait: the dot that says
+   * an order has arrived. It is what starts the hold, so it cannot be read from
+   * behind it. Defaults to `deliveries`, which is one board and no hold.
+   */
+  live?: DeliveryView[];
   /**
    * The orders behind those deliveries, for their numbers alone. A check offered on
    * a tile has to say which order it is about: the tile shows the state of a system,
@@ -75,7 +92,14 @@ export function Diagram(props: {
    */
   extractorMode?: 'live' | 'recorded';
 }) {
-  const pulses = useDeliveryPulses(props.deliveries);
+  const pulses = useDeliveryPulses(props.live ?? props.deliveries, props.deliveries);
+  // The tile lines, each held until the dot carrying its news has reached that tile.
+  // See useSpokenActivity: the hub waits for the leg in, a system waits for its own
+  // leg out, and neither may report an outcome the drawing has not delivered yet.
+  const spoken = useSpokenActivity(props.deliveries, pulses);
+  // And the moment each dot actually reaches its tile, so the tile can show that it
+  // took the hit rather than letting the dot vanish against a box that never moves.
+  const struck = useImpacts(pulses);
   const layer = useWires(TARGETS);
 
   // Neither malformed order creates an event, so nothing about them turns up in the
@@ -193,8 +217,9 @@ export function Diagram(props: {
       node={node}
       state={props.switches[node.id]}
       inForce={faultsFor(node.id).find((f) => f.state === props.switches[node.id])}
-      doing={activityFor(node.id, props.deliveries)}
+      doing={spoken[node.id]}
       tracked={tracked(node.id)}
+      struck={struck[node.id]}
       said={said[node.id]}
       menu={menuFor(node)}
       menuLabel={`Break ${node.label} on purpose`}

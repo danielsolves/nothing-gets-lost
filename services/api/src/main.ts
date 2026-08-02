@@ -15,6 +15,10 @@ import { ChaosService } from './chaos.service';
 import { CleanupService } from './cleanup.service';
 import { CountersService } from './counters.service';
 import { DeliveriesService } from './deliveries.service';
+import { ExtractOrderController, EXTRACT_ORDER_SERVICE } from './extract-order.controller';
+import { ExtractOrderService } from './extract-order.service';
+import { HttpExtractor } from './extractor.client';
+import { McpProxyController, MCP_UPSTREAM } from './mcp-proxy.controller';
 import { MediatorIntake } from './mediator.intake';
 import { OrderViewsService } from './order-views.service';
 import { DemoOrderController } from './demo-order.controller';
@@ -49,10 +53,15 @@ const CLEANUP_INTERVAL_MS = 60 * 60_000;
 // cut connection fails the verification too instead of quietly bypassing it.
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
 
+// Where /api/mcp relays to. The service name inside the compose network, so nothing
+// has to be set for a clone to work; a host running the api outside the network sets
+// MCP_URL instead.
+const MCP_URL = process.env.MCP_URL ?? 'http://mcp:3007/mcp';
+
 @Module({
   controllers: [
     CatalogController, ChaosController, DemoOrderController,
-    OrdersController, ResetController,
+    ExtractOrderController, McpProxyController, OrdersController, ResetController,
     StateController, StreamController, StripeWebhookController,
     SwitchesController, VerifyController, WebhookTargetController,
   ],
@@ -69,6 +78,13 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
       useFactory: (intake: MediatorIntake) =>
         new OrdersService(getPool(), intake, new WebhookTargetStore(getPool())),
       inject: [EVENT_INTAKE],
+    },
+    {
+      // Its own extractor client rather than the chaos service's fetch call, and no
+      // intake: this provider can read a mail and cannot place an order, which is
+      // what makes the confirmation step structural rather than a rule.
+      provide: EXTRACT_ORDER_SERVICE,
+      useFactory: () => new ExtractOrderService(getPool(), new HttpExtractor()),
     },
     { provide: CountersService, useFactory: () => new CountersService(getPool()) },
     { provide: DeliveriesService, useFactory: () => new DeliveriesService(getPool()) },
@@ -107,6 +123,7 @@ const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
     },
     { provide: WEBHOOK_TARGET_STORE, useFactory: () => new WebhookTargetStore(getPool()) },
     { provide: RATE_LIMITER, useFactory: () => new RateLimiter(getPool()) },
+    { provide: MCP_UPSTREAM, useValue: MCP_URL },
   ],
 })
 export class ApiModule {}

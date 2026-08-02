@@ -6,3 +6,4 @@ export * from './targets';
 export * from './egress';
 export * from './stream';
 export * from './api';
+export * from './extraction';

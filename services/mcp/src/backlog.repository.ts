@@ -2,7 +2,7 @@
 // Reads the backlog, and reads nothing else.
 //
 // The pool handed in here connects as ngl_ro: read only at the role level, with a
-// two second statement timeout, and able to see five views and no table. It is the
+// two second statement timeout, and able to see six views and no table. It is the
 // only role in this project that can read the database without being able to change
 // it, and it is deliberate that the guarantee lives there rather than in this file.
 // Anyone reading this service to decide whether it can be trusted with an open port

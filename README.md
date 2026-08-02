@@ -2,8 +2,6 @@
 
 ![An order runs through five systems, HubSpot is cut with a click, waiting climbs and lost stays at zero](docs/demo.gif)
 
-[![CI](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml/badge.svg)](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml)
-
 When two systems talk to each other, things go missing. A payment arrives but the
 customer never appears in the CRM. A form is submitted but no invoice is written.
 Nobody notices until somebody asks three weeks later.
@@ -21,17 +19,19 @@ You do not have to take my word for any of it:
 | **Stripe receipt** | a page served by stripe.com, not by this demo |
 | **Confirmation mail** | lands in your inbox; the `Received` header is stamped by your provider |
 | **Your own endpoint** | give it a url and every delivery is posted there too, retries and all |
-| **The backlog** | your own MCP client reads the parked deliveries out of the database |
+| **The backlog** | point your own MCP client at `https://ngl.danielsolves.ai/mcp` and read the parked deliveries out of the database |
 
 The first three put the evidence somewhere I do not control, which is the only
 property that makes a claim worth anything. The fourth does not pretend to: the backlog is my
 database, and what the MCP server buys you is that you read the rows with your own
-client instead of reading my rendering of them. That server answers on a copy you
-run yourself, because the public host does not route `/mcp` yet.
+client instead of reading my rendering of them. That server answers on the public
+host over streamable HTTP, read only, and on a copy you run yourself.
 
-The read-back buttons against **my** HubSpot portal and **my** Slack workspace are in
-neither class. I render those answers, so you would be right not to trust them, and
-they are labelled as an indication rather than as proof in the interface.
+There is no read-back button on **my** HubSpot portal, **my** Slack workspace or
+**my** ledger. Those are read back through my own account with my own token, so the
+answer would be a page I rendered about data I hold, and a check that has to admit
+that spends the credibility of the two that do not. The button is offered on Stripe
+and on the confirmation mail, and nowhere else.
 
 A visitor could once connect their own Slack workspace and their own HubSpot portal
 and have the deliveries land there instead. That is gone, and the reasoning is in
@@ -40,6 +40,14 @@ url field above does the same job with no login, no scopes and no token of yours
 my database.
 
 ## Run it
+
+The repository is not published yet, so the clone line is the one that will work the
+day it is. Until then there is the demo itself at
+[ngl.danielsolves.ai](https://ngl.danielsolves.ai), and the MCP server on the same
+host. That is also why there is no CI badge at the top: a badge for a repository
+nobody can open is a broken image making a claim, on a page whose argument is that
+every claim on it can be checked. The workflow it will point at is
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ```bash
 git clone https://github.com/danielsolves/nothing-gets-lost
@@ -56,27 +64,29 @@ watch. Fill in `.env` when you want the real ones.
 ## How the failures work
 
 Every system in the diagram carries the control that breaks it: three dots in the
-corner of its tile, and under them the four states it can be put into. It really does
+corner of its tile, and under them the three states it can be put into. It really does
 break things:
 
 | Menu entry | What actually happens |
 |---|---|
 | Reachable | the call goes through |
 | Slow | the gate holds the request for 8s; the caller times out at 5s |
-| Failing | a real 503 |
 | Unreachable | the socket is destroyed, so the caller sees a real `ECONNRESET` |
 
-The last two look alike and mean opposite things, which is why the menu spells both
-out. **Failing** is a system that is down. **Unreachable** is a system that is running
+There is no entry for a system that is down. Nothing here can take HubSpot or Slack
+down: the gate would answer the 503 in their place, and the menu would be stating as
+fact something true of my own container and false of the system it names. What is
+left is what really happens to a connection. **Unreachable** is a system that is running
 perfectly well behind a line that is not: HubSpot, Stripe and Slack keep going, **we
 simply stop being able to reach them**, and that is the most common real outage, far
 more common than a provider going down. The invoice service is the exception: it
 closes its listening socket, so there "off" is literal, and its menu says so in its
 own words.
 
-The same menus carry the one-off mischief: the repeated payment sits on Stripe, where
-a duplicate webhook would come from, and the two malformed orders sit on the order
-mail they would arrive as.
+The Stripe menu carries the one-off mischief as well: the repeated payment sits
+there, where a duplicate webhook would come from. The two malformed orders are not
+something a system does to us, so they sit under the button that sends an order, as
+the second and third thing it can send.
 
 The mediator does not know any of this happened. It sees a failed HTTP call and does
 what it would do in production.
@@ -98,12 +108,13 @@ the panel lists, straight from the database:
 | `backlog_entry` | one of them in full, with the order and the basket behind it |
 
 ```bash
-claude mcp add --transport http ngl http://localhost:3007/mcp
+claude mcp add --transport http ngl https://ngl.danielsolves.ai/mcp
 ```
 
-That is the local url, because the public host does not route `/mcp` yet. Running
-the demo yourself also gets you the shorter route, `SELECT * FROM v_backlog`, which
-is where both tools read from.
+That is the public host, streamable HTTP and read only, and any MCP client will do.
+Running the demo yourself gets you the same server on `http://localhost:3007/mcp`,
+and the shorter route besides, `SELECT * FROM v_backlog`, which is where both tools
+read from.
 
 The server is **read only**, and not merely by convention. It is handed the `ngl_ro`
 url and no other credential at all, not even the writing one, and it is the only

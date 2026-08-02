@@ -1,5 +1,6 @@
 // services/mcp/src/tools.ts
-// The two tools this server offers, and nothing that writes.
+// The two tools that read the backlog, and nothing that writes. The order history
+// is read by two more, next door in orders.tools.ts.
 //
 // The page claims that a delivery which cannot be made is not dropped but parked for
 // a person. A claim like that is worth as much as the reader's ability to check it,

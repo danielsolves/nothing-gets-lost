@@ -8,6 +8,12 @@
 // and the interesting assertions here are the honest ones. Stripe serves its receipt
 // itself, so that is a proof. Our own portals are read back through us, and saying so
 // costs nothing and is what keeps the Stripe claim worth anything.
+//
+// The rest is about the way back out. The answer had none: it opened, the button went
+// on offering a check that had been made, and a tile stayed at three times its height
+// for the rest of the visit. The button carries both directions now, so what is
+// asserted here is that the label follows the state on either surface and that
+// closing forgets the answer rather than filing it away for later.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
@@ -144,11 +150,87 @@ describe('StepProof', () => {
     expect(await screen.findByTestId('proof-error-evt-1-stripe')).toBeInTheDocument();
   });
 
-  it('can be asked again, because the answer is about now and not about then', async () => {
+  it('offers to put the answer away once there is one to put away', async () => {
+    // The answer opened and stayed open, and the button went on offering a check
+    // that had already been made. On a tile that is a box grown to three times its
+    // height with no way back, pushing the row it stands in down the page for the
+    // rest of the visit.
+    render(<StepProof {...base} />);
+    const button = screen.getByTestId('check-evt-1-stripe');
+    expect(button).toHaveTextContent('Check it at Stripe');
+    fireEvent.click(button);
+    await screen.findByTestId('proof-evt-1-stripe');
+    expect(button).toHaveTextContent('Hide the answer');
+  });
+
+  it('folds the answer away on the next press, and offers the check again', async () => {
+    render(<StepProof {...base} />);
+    const button = screen.getByTestId('check-evt-1-stripe');
+    fireEvent.click(button);
+    await screen.findByTestId('proof-evt-1-stripe');
+
+    fireEvent.click(button);
+    expect(screen.queryByTestId('proof-evt-1-stripe')).not.toBeInTheDocument();
+    expect(button).toHaveTextContent('Check it at Stripe');
+  });
+
+  it('asks nothing on the way out, because closing is not a question', async () => {
     render(<StepProof {...base} />);
     fireEvent.click(screen.getByTestId('check-evt-1-stripe'));
     await screen.findByTestId('proof-evt-1-stripe');
     fireEvent.click(screen.getByTestId('check-evt-1-stripe'));
-    expect(asked).toHaveLength(2);
+    expect(asked).toHaveLength(1);
+  });
+
+  it('says the same thing on a tile, where the offer is about the order', async () => {
+    // The offer differs by surface: a tile has printed the system two rows above, a
+    // card is one order and lists every system. What is being put away is the answer
+    // either way, so the way out says one thing, and it is short enough to stay on
+    // one line in a 198px box.
+    render(<StepProof {...base} orderNumber={1016} layout="tile" />);
+    const button = screen.getByTestId('check-evt-1-stripe');
+    expect(button).toHaveTextContent('Check order 1016');
+    fireEvent.click(button);
+    await screen.findByTestId('proof-evt-1-stripe');
+    expect(button).toHaveTextContent('Hide the answer');
+    fireEvent.click(button);
+    expect(button).toHaveTextContent('Check order 1016');
+  });
+
+  it('tells a screen reader whether the answer is open, which the label only implies', async () => {
+    render(<StepProof {...base} />);
+    const button = screen.getByTestId('check-evt-1-stripe');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(button);
+    await screen.findByTestId('proof-evt-1-stripe');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('can be asked again, because the answer is about now and not about then', async () => {
+    // Reopening asks the system again rather than putting the kept answer back on
+    // screen. A record deleted at the far end between the two presses has to come
+    // back 404, and a panel that redisplayed what it was told earlier would go on
+    // saying 200 about a record that is gone.
+    render(<StepProof {...base} />);
+    fireEvent.click(screen.getByTestId('check-evt-1-stripe'));
+    await screen.findByTestId('proof-evt-1-stripe');
+    fireEvent.click(screen.getByTestId('check-evt-1-stripe'));
+    fireEvent.click(screen.getByTestId('check-evt-1-stripe'));
+    await screen.findByTestId('proof-evt-1-stripe');
+    expect(asked).toEqual(['/api/verify/stripe/evt-1', '/api/verify/stripe/evt-1']);
+  });
+
+  it('offers another go after a failure, not the hiding of an answer it has not got', async () => {
+    // A failure is a report about the press, not something disclosed. The next thing
+    // anybody wants after reading it is another attempt, so the button stays the offer.
+    vi.stubGlobal('fetch', async () => { throw new Error('offline'); });
+    render(<StepProof {...base} />);
+    const button = screen.getByTestId('check-evt-1-stripe');
+    fireEvent.click(button);
+    await screen.findByTestId('proof-error-evt-1-stripe');
+    expect(button).toHaveTextContent('Check it at Stripe');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
   });
 });

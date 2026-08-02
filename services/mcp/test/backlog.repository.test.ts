@@ -1,7 +1,7 @@
 // services/mcp/test/backlog.repository.test.ts
 // The reader against a real Postgres, connected as the role the service actually
 // uses. A fake pool would prove the SQL parses; only ngl_ro proves that an open MCP
-// port cannot reach past the five views, which is the claim this service rests on.
+// port cannot reach past the read-only views, which is the claim this service rests on.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';

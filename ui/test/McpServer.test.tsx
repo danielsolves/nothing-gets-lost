@@ -1,17 +1,27 @@
 // @vitest-environment jsdom
 // ui/test/McpServer.test.tsx
-// The panel that hands a reader the backlog through a client we did not write.
+// The panel that hands a reader the same records through a client we did not write,
+// and lets them run one from here first.
 //
-// What is under test is mostly copy and one derived value. The url has to follow the
-// host the page is served from, because the alternative is writing it down twice and
-// having it be wrong on one of them, on a page whose argument is that a reader can go
-// and check.
-import { describe, it, expect, afterEach } from 'vitest';
+// Two things are pinned. The first is that both addresses follow the host the page is
+// served from: writing them down would be a second place to keep in step, on a page
+// whose whole argument is that a reader can go and check, and it would be wrong on
+// every clone of this repository.
+//
+// The second is that the panel is not only prose any more. It used to name the tools
+// and stop, which asked a reader to install a client before they could learn whether
+// the server was worth installing one for.
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { McpServer } from '../src/McpServer';
 
 afterEach(cleanup);
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', async () => new Response('', { status: 200 }));
+});
+afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('McpServer', () => {
   it('names itself, because it stands beside another panel', () => {
@@ -24,11 +34,25 @@ describe('McpServer', () => {
     expect(screen.getByTestId('mcp-url')).toHaveTextContent(`${window.location.origin}/mcp`);
   });
 
-  it('names both tools, so a reader with a client knows what to ask for', () => {
+  // One line, and it is the line for the client most readers of this page already
+  // have. It is built from the same origin as the url above so the two cannot drift.
+  it('gives the one command that connects Claude to it', () => {
     render(<McpServer />);
-    const tools = screen.getByTestId('mcp-tools');
-    expect(tools).toHaveTextContent('backlog_list');
-    expect(tools).toHaveTextContent('backlog_entry');
+    expect(screen.getByTestId('mcp-install')).toHaveTextContent(
+      `claude mcp add --transport http ngl ${window.location.origin}/mcp`,
+    );
+  });
+
+  it('offers both the address and the command to be copied', () => {
+    render(<McpServer />);
+    expect(screen.getByTestId('mcp-copy')).toBeInTheDocument();
+    expect(screen.getByTestId('mcp-install-copy')).toBeInTheDocument();
+  });
+
+  it('holds a runnable console, not a list of tool names', () => {
+    render(<McpServer />);
+    expect(screen.getByTestId('mcp-run')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'orders_list' })).toBeInTheDocument();
   });
 
   it('says out loud that nothing here writes', () => {
@@ -38,8 +62,10 @@ describe('McpServer', () => {
     expect(container).toHaveTextContent(/nothing here writes/i);
   });
 
-  it('offers the url to be copied', () => {
-    render(<McpServer />);
-    expect(screen.getByTestId('mcp-copy')).toBeInTheDocument();
+  // The run button goes through this host's api, and a panel about not taking our
+  // word for things cannot be quiet about the one hop it adds.
+  it('admits that running it from here goes through us', () => {
+    const { container } = render(<McpServer />);
+    expect(container).toHaveTextContent(/\/api\/mcp/);
   });
 });

@@ -13,6 +13,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { z } from 'zod';
 import { createMcpHttpServer, TOOL_COUNT } from '../src/http';
 import type { BacklogReader } from '../src/tools';
+import type { OrderReader } from '../src/orders.tools';
 
 const ENTRY = {
   id: 7,
@@ -31,6 +32,24 @@ const backlog: BacklogReader = {
   async list() { return [ENTRY]; },
   async count() { return 1; },
   async entry(id) { return id === ENTRY.id ? { ...ENTRY, lines: [] } : null; },
+};
+
+/** Enough of an order history for the port to serve. Its own tests are next door. */
+const ORDER = {
+  orderNumber: 1007,
+  eventId: ENTRY.eventId,
+  receivedAt: '2026-08-01T08:59:00.000Z',
+  totalCents: 2400,
+  lines: [{ sku: 'MUG-BLUE', name: 'Blue mug', qty: 2, cents: 2400 }],
+  deliveries: [
+    { target: 'slack' as const, state: 'dead' as const, attempts: 6, remoteRef: null },
+  ],
+};
+
+const orders: OrderReader = {
+  async list() { return [ORDER]; },
+  async count() { return 1; },
+  async byNumber(orderNumber) { return orderNumber === ORDER.orderNumber ? ORDER : null; },
 };
 
 /** Narrowed rather than asserted: a server on a pipe has a string address. */
@@ -57,7 +76,7 @@ let server: http.Server;
 let base: string;
 
 beforeAll(async () => {
-  server = createMcpHttpServer({ backlog, rateMax: 50, rateWindowMs: 60_000 });
+  server = createMcpHttpServer({ backlog, orders, rateMax: 50, rateWindowMs: 60_000 });
   base = await listen(server);
 });
 
@@ -81,7 +100,9 @@ describe('the MCP port', () => {
     await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
 
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['backlog_entry', 'backlog_list']);
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      ['backlog_entry', 'backlog_list', 'orders_entry', 'orders_list'],
+    );
 
     const result = TEXT_RESULT.parse(
       await client.callTool({ name: 'backlog_list', arguments: {} }),
@@ -123,7 +144,7 @@ describe('the MCP port', () => {
 
   it('turns a caller away once it has had its window', async () => {
     // A separate server, so the shared one keeps its untouched allowance.
-    const strict = createMcpHttpServer({ backlog, rateMax: 2, rateWindowMs: 60_000 });
+    const strict = createMcpHttpServer({ backlog, orders, rateMax: 2, rateWindowMs: 60_000 });
     const strictBase = await listen(strict);
     const noisy = { 'x-forwarded-for': '9.9.9.9' };
 

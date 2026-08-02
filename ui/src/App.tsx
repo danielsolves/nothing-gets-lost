@@ -22,6 +22,7 @@
 // server.
 import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
+import { Built } from './Built';
 import { Diagram } from './Diagram';
 import { McpServer } from './McpServer';
 import { OrderForm } from './OrderForm';
@@ -64,8 +65,9 @@ export function App() {
           <Diagram
             extractorMode={extractorMode}
             switches={switches}
-            deliveries={deliveries}
-            orders={orders}
+            deliveries={held.deliveries}
+            live={deliveries}
+            orders={held.orders}
             openOrder={openOrder}
             orderForm={
               // Nothing listens any more. The panel that did fed on it is gone, and
@@ -88,6 +90,10 @@ export function App() {
         </section>
 
         <Outside endpoint={<Connections />} mcp={<McpServer />} />
+
+        {/* Last, after the checks. What it is built with is the question a reader
+            still has once they believe the machine, and never before. */}
+        <Built />
       </main>
     </>
   );

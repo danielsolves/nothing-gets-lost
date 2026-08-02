@@ -145,12 +145,21 @@ describe('schema guarantees', () => {
   // because we held permission to post there and none to read. The visitor OAuth is
   // gone and migration 015 drops the table, so both claims are about nothing.
 
-  it('exposes the five read-only views', async () => {
+  it('exposes the read-only views, and only those', async () => {
+    // Listed rather than counted, because the list is the point: this is everything
+    // the read-only role can be shown, and a name appearing here that nobody added on
+    // purpose is a table somebody has just published by accident.
+    //
+    // v_order_lines is the newest, and it earns its place by what it leaves out. The
+    // priced basket lives on the event payload, next to `confirmTo` and
+    // `customerEmail`, so the MCP order tools could not simply be handed the payload.
+    // The view projects four columns out of it by name and carries nothing else.
     const { rows } = await pool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.views WHERE table_schema = 'public'`,
     );
-    expect(rows.map((r) => r.table_name).sort())
-      .toEqual(['v_backlog', 'v_dead_letters', 'v_deliveries', 'v_events', 'v_orders']);
+    expect(rows.map((r) => r.table_name).sort()).toEqual([
+      'v_backlog', 'v_dead_letters', 'v_deliveries', 'v_events', 'v_order_lines', 'v_orders',
+    ]);
   });
 
   it('puts a parked delivery in the backlog with the order around it', async () => {

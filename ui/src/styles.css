@@ -407,32 +407,47 @@ body {
   line-height: 1.55;
 }
 
-.backlog-list {
-  list-style: none;
+/* The list brings nothing of its own. It is .queue, because the entries in it are
+   the queue's cards, and a second set of gaps and a second scroll height for the
+   same list of the same boxes could only ever drift away from the first.
+
+   What was here was a row: three columns, its own red box, its own font size. Two
+   notations for one thing, one tab apart. */
+
+/* The fault, standing where the queue card puts its headline. The reason a delivery
+   is here is the one thing this panel exists to carry, so it is at the top of the
+   card and it is the loudest thing on it. It used to be the tail of a grey sentence,
+   in brackets, behind the attempt count. */
+.backlog-fault {
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border-left: 2px solid var(--bad);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  background: oklch(from var(--bad) l c h / 0.09);
+}
+/* Whatever the driver said, whole, in the face the rest of the page keeps for words
+   that came from a machine. Broken anywhere rather than clipped or ellipsised: an
+   error with its ending cut off is the thing that sends a reader to the database,
+   and half a message is worse than none because it looks like the whole one. */
+.backlog-fault-why {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--bad);
+  overflow-wrap: anywhere;
+}
+.backlog-fault-how { font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+/* The handle for asking somebody who is not this page. Quiet, because it is a thing
+   to do after reading rather than a thing to read. */
+.backlog-ids {
   margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-  /* Long enough to show that the list is a list, short enough that a demo somebody
-     has been breaking for ten minutes cannot push the page apart. */
-  max-height: 16rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.55;
 }
-.backlog-row {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: baseline;
-  gap: 10px;
-  padding: 9px 12px;
-  border: 1px solid oklch(from var(--bad) l c h / 0.3);
-  border-radius: var(--r-control);
-  background: oklch(from var(--bad) l c h / 0.07);
-  font-size: 13px;
-}
-.backlog-order { font-family: var(--mono); font-weight: 600; }
-.backlog-target { font-weight: 600; }
-.backlog-note { color: var(--muted); }
 
 .backlog-check {
   margin: 0;
@@ -440,7 +455,8 @@ body {
   font-size: 12.5px;
   line-height: 1.6;
 }
-.backlog-check code {
+.backlog-check code,
+.backlog-ids code {
   font-family: var(--mono);
   font-size: 11.5px;
   padding: 1px 5px;
@@ -680,7 +696,21 @@ body {
    background below it. min-height: 0 as well, or the grid item refuses to go under
    its content height. */
 .order-fold { overflow: hidden; }
-.order-fold > * { min-height: 0; }
+/* align-self: start as well, or the fold squashes its child instead of clipping it,
+   and a box that draws itself cannot be squashed without the drawing moving.
+
+   Stretched, the builder's height was the row's height, so on the way shut its border
+   box shrank while its contents kept their places and spilled out below it. Its bottom
+   border rode up through the panel: one grey hairline travelling across the product
+   list, behind the rows, because a parent paints its border before its children. It
+   could not shrink past its own padding either, so it parked 34px down and sat there
+   for the last third of the fold.
+
+   Started rather than stretched, the child keeps its natural height the whole way and
+   the clip above takes it off the bottom, which is what the fold looked like it was
+   doing all along. Nothing is newly hidden: open, the row is the child's own height,
+   so the clip and the child's bottom edge are the same edge. */
+.order-fold > * { min-height: 0; align-self: start; }
 
 /* Inside the card now, so it brings no border, no corners and no colour of its own.
    A hairline says where the head ends; the box around both is the card. */
@@ -1113,6 +1143,38 @@ body {
 
 .target[data-tracked] { border-color: var(--accent); }
 .target[data-tracked='done'] { border-color: oklch(from var(--good) l c h / 0.7); }
+
+/* Taken in. A dot ran to the edge of a tile and disappeared against a box that never
+   moved, so the drawing showed a thing approaching a system and never a system
+   receiving one, and the arrival was the one part of the journey a visitor had to
+   infer. The tile takes the hit in the dot's own colour, which is also the difference
+   between a delivery landing and a delivery giving up.
+
+   Drawn on an overlay rather than on the tile's own border and background. The border
+   already carries the state of the connection and the tracked order, all of which are
+   lasting facts, and an animation that borrowed it would fight three rules and leave
+   the tile the wrong colour whenever it happened to be cut. This owns nothing. */
+.target[data-struck]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  --hit: var(--good);
+  animation: tile-hit 420ms ease-out both;
+}
+.target[data-struck='parked']::after { --hit: var(--bad); }
+
+@keyframes tile-hit {
+  from {
+    background: oklch(from var(--hit) l c h / 0.16);
+    box-shadow: inset 0 0 0 1px var(--hit), 0 0 14px oklch(from var(--hit) l c h / 0.4);
+  }
+  to {
+    background: oklch(from var(--hit) l c h / 0);
+    box-shadow: inset 0 0 0 1px oklch(from var(--hit) l c h / 0), 0 0 0 transparent;
+  }
+}
 
 /* The menu ------------------------------------------------------------------
    Three dots in the corner of the tile. Always rendered, never hover-gated: hover
@@ -1968,13 +2030,18 @@ body {
   line-height: 1.6;
 }
 
-/* Equal columns and equal height, so the pair reads as one offer with two halves
-   rather than as a panel and an afterthought. They stack below the breakpoint,
-   where two 26rem columns no longer fit without squeezing the url in the right one
-   into three wrapped lines. */
+/* They were equal columns while both were a paragraph and a field, and the pair read
+   as one offer with two halves. The MCP panel has since grown a console: a tool to
+   choose, arguments to fill in, and the server's answer printed as it arrived. Half a
+   row is the wrong shape for that. A raw JSON body folded into a narrow column is
+   unreadable, which takes away the reason the console exists at all, and it left the
+   endpoint panel padded out with empty space to match a height it never needed.
+
+   So the endpoint keeps its column and the MCP server takes the width. They are still
+   one offer, met in the order that costs the reader least: the short one first. */
 .outside-panels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
   align-items: stretch;
 }
@@ -2021,19 +2088,133 @@ body {
 }
 .mcp-url button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.mcp-tools { display: grid; gap: 10px; margin: 0; }
-.mcp-tools div { display: grid; gap: 2px; }
-.mcp-tools dt {
+/* The console. It replaced a definition list that named the tools and described
+   them, which was a list of things a reader could do somewhere else. The names are
+   all still here, on the buttons that run them. */
+
+.mcp-console {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface-sunken);
+}
+
+/* A wrapping row rather than a select. Four names is few enough to show at once, and
+   the names are the interesting part: a collapsed control would hide three quarters
+   of what this server offers behind a click. */
+.mcp-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.mcp-picker button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.mcp-picker button:hover { border-color: var(--accent); color: var(--accent); }
+.mcp-picker button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.mcp-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mcp-summary {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* The arguments and the run button on one wrapping line. They belong together: the
+   fields are meaningless without the button and the button is a mystery without the
+   fields, and stacking them put a heading's worth of space between the two. */
+.mcp-args {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.mcp-arg { display: grid; gap: 4px; }
+.mcp-arg > span {
+  color: var(--faint);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.mcp-arg select,
+.mcp-arg input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--text);
   font-family: var(--mono);
   font-size: 13px;
-  color: var(--accent);
 }
-.mcp-tools dd {
+.mcp-arg input { width: 7rem; }
+.mcp-arg select:focus-visible,
+.mcp-arg input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.mcp-go {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mcp-go:disabled { opacity: 0.55; cursor: progress; }
+.mcp-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mcp-answer { display: grid; gap: 8px; }
+.mcp-status,
+.mcp-failed {
   margin: 0;
-  color: var(--muted);
-  font-size: 14px;
+  max-width: 68ch;
+  font-size: 12.5px;
   line-height: 1.5;
 }
+.mcp-status { color: var(--faint); }
+.mcp-failed { color: var(--bad); }
+
+/* pre-wrap, not pre. The server's own newlines are kept, which is the part that must
+   not be touched, and a line too long for the column is soft-wrapped rather than
+   pushed onto a horizontal scrollbar. A tools/call answer is one line of event-stream
+   framing a few thousand characters long: with `pre` the box stood two lines tall and
+   the reader had to drag sideways through all of it, which is a way of showing the
+   response body that nobody reads. */
+.mcp-sent,
+.mcp-response {
+  margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.mcp-sent { max-height: 12rem; color: var(--faint); }
+.mcp-response { color: var(--text); }
 
 .mcp-note {
   margin: 0;
@@ -2041,6 +2222,15 @@ body {
   font-size: 13.5px;
   line-height: 1.5;
 }
+.mcp-note code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* A whole shell command, so it is longer than the url above it and has to be allowed
+   to break inside its box rather than to widen the panel. */
+.mcp-install code { flex-basis: 22rem; font-size: 12.5px; }
 
 @media (max-width: 52rem) {
 }
@@ -2261,3 +2451,123 @@ body {
 }
 .step-proof-own:hover { color: var(--text); }
 .step-proof-own:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+
+/* Built with -----------------------------------------------------------------
+   The foot of the page, and the only part of it that is a shape rather than a
+   paragraph. Everything above is dense text; one more block of prose at the end is
+   the least attractive place a stack could be put, and a reader scanning it for
+   five seconds would come away knowing nothing.
+
+   So: tiles, on the page's own card surface, four across where the width allows.
+   The name is loud, the figure beside it is a chip, and the line under it is one
+   line. Nothing here is pressable and nothing pretends to be: no shadow, no
+   pointer, and a hover that only lifts the border, which is the least a grid can
+   do to acknowledge a cursor without promising a click. */
+
+.built { display: grid; gap: 22px; }
+.built-intro { display: grid; gap: 6px; }
+
+.built-intro h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.built-intro p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* auto-fill and not auto-fit: with twelve tiles the last row is short, and auto-fit
+   would stretch the survivors across the full width and break the grid the eye has
+   just learned. 15rem gives four columns at the page's full width, two on a tablet
+   and one on a phone. */
+.built-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.built-item {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-items: start;
+  padding: 16px 18px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  transition: border-color 0.2s ease;
+}
+
+.built-item:hover { border-color: var(--line-strong); }
+
+.built-head-row {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.built-name {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+/* The version is the one thing in a tile the machine would say, so it keeps the
+   mono. Set faint on purpose: a reader looking for "React" must not have to read
+   "18" on the way past it. */
+.built-version {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+/* The number, or the one word that does a number's job. This is where the counts
+   that used to sit inside sentences live now. */
+.built-figure {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.built-role {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* The admission about the queue, and the only argument left in this section. Under
+   the grid and quieter than it, so it reads as a footnote to the stack rather than
+   as a thirteenth tile. */
+.built-note {
+  margin: 0;
+  max-width: 74ch;
+  color: var(--faint);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.built-note code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  color: var(--muted);
+}

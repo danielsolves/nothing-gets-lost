@@ -10,17 +10,23 @@ import http from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { registerBacklogTools, type BacklogReader } from './tools';
+import { registerOrderTools, type OrderReader } from './orders.tools';
 import { callerOf, RateLimiter } from './rate-limit';
 
 export const SERVER_NAME = 'nothing-gets-lost';
-export const TOOL_COUNT = 2;
+export const TOOL_COUNT = 4;
 
 const DEFAULT_PORT = 3007;
 const DEFAULT_RATE_MAX = 60;
 const DEFAULT_RATE_WINDOW_MS = 60_000;
 
-export interface McpHttpOptions {
+/** Everything a fresh server is built from. Two readers today, both read only. */
+export interface McpReaders {
   backlog: BacklogReader;
+  orders: OrderReader;
+}
+
+export interface McpHttpOptions extends McpReaders {
   port?: number;
   host?: string;
   rateMax?: number;
@@ -43,9 +49,10 @@ function sendJson(response: http.ServerResponse, status: number, body: unknown):
 }
 
 /** Built per request. Registration is cheap; a shared one would not be. */
-function serverFor(backlog: BacklogReader): McpServer {
+function serverFor(readers: McpReaders): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: '1.0.0' });
-  registerBacklogTools(server, backlog);
+  registerBacklogTools(server, readers.backlog);
+  registerOrderTools(server, readers.orders);
   return server;
 }
 
@@ -55,8 +62,10 @@ export function createMcpHttpServer(options: McpHttpOptions): http.Server {
     windowMs: options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS,
   });
 
+  const readers: McpReaders = { backlog: options.backlog, orders: options.orders };
+
   return http.createServer((request, response) => {
-    void handle(request, response, options.backlog, limiter).catch((error: unknown) => {
+    void handle(request, response, readers, limiter).catch((error: unknown) => {
       console.error('[mcp] request failed', error);
       if (!response.headersSent) sendJson(response, 500, { error: 'Internal error' });
       else response.end();
@@ -67,7 +76,7 @@ export function createMcpHttpServer(options: McpHttpOptions): http.Server {
 async function handle(
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  backlog: BacklogReader,
+  readers: McpReaders,
   limiter: RateLimiter,
 ): Promise<void> {
   const url = new URL(request.url ?? '/', 'http://mcp.invalid');
@@ -107,7 +116,7 @@ async function handle(
     return;
   }
 
-  const server = serverFor(backlog);
+  const server = serverFor(readers);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   try {
     await server.connect(transport);

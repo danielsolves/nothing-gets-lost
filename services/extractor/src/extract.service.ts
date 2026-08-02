@@ -6,19 +6,24 @@
 // nothing breaks when it is. That is what clients are actually afraid of.
 import { readFileSync } from 'node:fs';
 import type { Pool } from 'pg';
-import { orderSchema, SYSTEM_PROMPT, type ExtractedOrder } from './schema';
+import type { ExtractionMode, ExtractResult } from '@ngl/contracts';
+import { orderSchema, SYSTEM_PROMPT } from './schema';
 import { findUnknownSkus, loadCatalog } from './catalog.check';
 
 export interface Model {
   complete(system: string, user: string): Promise<string>;
 }
 
-export type ExtractResult =
-  | { ok: true; order: ExtractedOrder; mode: 'live' | 'recorded'; raw: unknown }
-  | {
-      ok: false; reason: 'schema' | 'catalog'; detail: string;
-      raw: unknown; mode: 'live' | 'recorded';
-    };
+/**
+ * The answer shape lives in @ngl/contracts now and is re-exported here, so the door
+ * and everything else that already imported it are untouched.
+ *
+ * It moved because the api keeps this answer instead of throwing it away, and the api
+ * cannot import it from this package: `main.ts` starts a listening server the moment
+ * it is loaded. The alternative was a hand copy of the union in the caller, which is
+ * the drift the contracts package exists to prevent.
+ */
+export type { ExtractResult };
 
 interface RecordedAnswer { match: string; answer: unknown }
 
@@ -33,6 +38,12 @@ interface RecordedAnswer { match: string; answer: unknown }
  * because the sentence beside it is written by hand, but the demonstration was not
  * the one being promised, and a demonstration that quietly does not happen is worse
  * here than anywhere: this page is asking to be checked.
+ *
+ * One recorded answer names an article that does not exist, MUG-AZURE, and it is
+ * there for the same reason. A recording stands in for the model, so it has to be
+ * wrong where a model is wrong. Without it the invented article number is a failure
+ * nobody can reach on the public site, where there is no key, and the catalogue
+ * check sits there with nothing to do in the one demonstration it exists for.
  */
 interface Fixtures { recorded: RecordedAnswer[]; unmatched: unknown }
 
@@ -47,7 +58,7 @@ export class ExtractService {
   async extract(
     text: string, options: { hallucinate?: boolean } = {},
   ): Promise<ExtractResult> {
-    const mode: 'live' | 'recorded' = this.model ? 'live' : 'recorded';
+    const mode: ExtractionMode = this.model ? 'live' : 'recorded';
     const catalog = await loadCatalog(this.pool);
 
     if (options.hallucinate) {

@@ -136,6 +136,27 @@ describe('ExtractService', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('replays an answer that invents an article, so the check has work to do', async () => {
+    // The demo runs on recorded answers, and a recording stands in for the model.
+    // So it has to be wrong where the model would be wrong, or the one failure this
+    // page most wants to show is a failure nobody can reach on the live site.
+    //
+    // Not the same thing as the `hallucinate` flag below. That returns a refusal
+    // written by hand and never runs a check at all. This one is an answer, and it
+    // is the real catalogue lookup against the real products table that stops it.
+    const service = new ExtractService(pool, null);
+    const result = await service.extract(
+      'Hello, four azure mugs to Berlin please. M. Berger, m@example.com',
+    );
+
+    expect(result.mode).toBe('recorded');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('catalog');
+      expect(result.detail).toContain('MUG-AZURE');
+    }
+  });
+
   it('produces a rejected extraction on demand for the chaos button', async () => {
     const service = new ExtractService(pool, modelReturning(GOOD));
     const result = await service.extract(MAIL, { hallucinate: true });

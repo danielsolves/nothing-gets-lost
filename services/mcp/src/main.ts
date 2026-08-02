@@ -8,6 +8,7 @@
 // that could write".
 import { Pool } from 'pg';
 import { BacklogRepository } from './backlog.repository';
+import { OrdersRepository } from './orders.repository';
 import { startMcpHttpServer } from './http';
 
 const POOL_MAX = 4;
@@ -22,10 +23,11 @@ function readonlyPool(): Pool {
 const pool = readonlyPool();
 const server = startMcpHttpServer({
   backlog: new BacklogRepository(pool),
+  orders: new OrdersRepository(pool),
   port: PORT,
 });
 
-console.log(`[mcp] backlog tools on :${PORT}/mcp`);
+console.log(`[mcp] backlog and order tools on :${PORT}/mcp`);
 
 const shutdown = (): void => {
   server.close(() => {

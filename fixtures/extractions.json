@@ -23,6 +23,14 @@
         "items": [{ "sku": "PLATE-LARGE", "qty": 4 }, { "sku": "PLATE-SMALL", "qty": 6 }],
         "notes": "deliver before Friday"
       }
+    },
+    {
+      "match": "azure mug",
+      "answer": {
+        "customer": { "name": "M. Berger", "email": "m@example.com" },
+        "items": [{ "sku": "MUG-AZURE", "qty": 4 }],
+        "notes": null
+      }
     }
   ],
   "unmatched": {
