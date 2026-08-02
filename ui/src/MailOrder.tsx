@@ -19,6 +19,20 @@
 // stand in for: a model that reads "a dozen" as 2 produces a record that is well
 // formed, in the catalogue, and wrong, and no amount of validation will ever say so.
 //
+// The control says where the mail goes, because that is the part of this that cannot
+// be seen. It read "Read this mail" for as long as the pane existed, which describes
+// a page reading its own text box, and the one thing that actually happens here, a
+// stranger's prose being handed to a language model, was named nowhere until the
+// answer came back. What was rejected is the obvious repair, "Send this to the AI":
+// the public deployment holds no model key and sends nothing to any model, so the
+// button would promise a call that the note above the answer then takes back, and
+// believe-then-correct is the exact order that note exists to prevent. So the keyless
+// case is stated beside the button, before the press, in words that are true either
+// way, and which of the two actually happened is left to the answer, where it is a
+// fact instead of a guess. Nothing here reads `extractorMode` off the stream to
+// decide: the response already carries its own mode, and a second copy of that fact,
+// fetched separately and able to disagree, would be one more thing to keep true.
+//
 // The address is left behind on purpose. It is read, it is shown, and it is not
 // posted: a public text box that mails whoever is named in it is a way to send mail
 // from this domain to anybody, with a model picking the recipient. The name and the
@@ -163,7 +177,7 @@ export function MailOrder({
             disabled={reading || text.trim() === ''}
             onClick={() => void read()}
           >
-            {reading ? 'Reading' : 'Read this mail'}
+            {reading ? 'Handing it over' : 'Hand this mail to the AI'}
           </button>
         </div>
       </div>
@@ -171,10 +185,18 @@ export function MailOrder({
       <div className="mail-about">
         <p className="order-ph">What happens to it</p>
         <p className="mail-lede">
-          A model turns this text into a typed order, and two checks decide whether
-          that order may exist: one that it has the shape of an order, one that every
-          article is really in the catalogue. Then you confirm it, because a check
-          cannot.
+          Whatever a stranger typed above is handed to an AI: a language model reads
+          the mail and proposes a typed order, with a name, article numbers and
+          quantities. Two checks then decide whether that order may exist: one that it
+          has the shape of an order, one that every article is really in the
+          catalogue. Then you confirm it, because a check cannot.
+        </p>
+        {/* Beside the button rather than under the answer. Saying it afterwards
+            would be correcting a reader who has already believed the live story. */}
+        <p className="mail-lede">
+          Where there is no model key, and the public site has none, nothing is handed
+          to any model: the AI's part is replayed from a file instead. Every reading
+          says which of the two it was before it says anything else.
         </p>
       </div>
 

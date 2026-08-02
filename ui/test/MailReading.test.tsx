@@ -98,6 +98,18 @@ describe('MailReading', () => {
     expect(mode).not.toHaveTextContent(/recorded/i);
   });
 
+  it('answers in both modes the question the button asked: was it handed over', () => {
+    // The button says the mail is handed to an AI and the panel beside it says that
+    // a deployment without a key replays a file instead. This note is where a reader
+    // finds out which of the two they just got, so it has to answer in those words
+    // and not in two unrelated ones.
+    draw({ ...PROPOSED, mode: 'live' });
+    expect(screen.getByTestId('mail-mode')).toHaveTextContent(/handed to a model/i);
+    cleanup();
+    draw(PROPOSED);
+    expect(screen.getByTestId('mail-mode')).toHaveTextContent(/nothing was handed to a model/i);
+  });
+
   it('names the catalogue check when an article does not exist, and what it found', () => {
     draw(INVENTED);
     expect(screen.getByTestId('mail-stopped')).toHaveAttribute('data-check', 'catalog');

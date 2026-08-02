@@ -18,6 +18,13 @@
 // sits in has already introduced itself, and that it hangs the wire on the confirm
 // button when the builder asks it to and on nothing at all when there is no confirm
 // button to hang it on.
+//
+// The wording of the button is asserted here for the same reason the sample mails are
+// asserted in their own file: it is load-bearing. It has to name the handoff, because
+// a stranger's prose going to a language model is the one thing on this pane a reader
+// cannot see happening, and it has to name the keyless case in the same breath, or
+// the public site, which calls no model at all, is promising something it will then
+// take back under the answer.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -261,11 +268,40 @@ describe('MailOrder', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 
-  it('keeps the reasoning the box around it does not give', () => {
-    // What was cut is what the machine's own heading says. What stays is the part
-    // nothing else on the page says: two checks, and a person after them.
+  it('says on the button itself that the mail goes to an AI', () => {
+    // It said "Read this mail", which describes a page reading its own text box. The
+    // interesting half is who reads it.
+    render(<MailOrder />);
+    expect(screen.getByTestId('read-mail')).toHaveTextContent(/hand this mail to the AI/i);
+  });
+
+  it('says the handoff is under way while it is under way', async () => {
+    // A reply that never comes, so the busy label can be read at leisure.
+    vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+    render(<MailOrder />);
+    fireEvent.click(screen.getByTestId('read-mail'));
+    await waitFor(() => expect(screen.getByTestId('read-mail')).toBeDisabled());
+    expect(screen.getByTestId('read-mail')).toHaveTextContent(/handing it over/i);
+  });
+
+  it('does not promise a model call this deployment may not make', () => {
+    // The public site holds no key and calls no model. Leaving that to the note
+    // above the answer would let a reader believe the live story first and be
+    // corrected afterwards, which is the order that note exists to avoid.
     render(<MailOrder />);
     const panel = screen.getByTestId('mail-order');
+    expect(panel).toHaveTextContent(/no model key/i);
+    expect(panel).toHaveTextContent(/replayed/i);
+  });
+
+  it('keeps the reasoning the box around it does not give, and names the reader', () => {
+    // What was cut is what the machine's own heading says. What stays is the part
+    // nothing else on the page says: two checks, and a person after them. What was
+    // missing from both is who does the reading before either of them.
+    render(<MailOrder />);
+    const panel = screen.getByTestId('mail-order');
+    expect(panel).toHaveTextContent(/handed to an AI/i);
+    expect(panel).toHaveTextContent(/proposes a typed order/i);
     expect(panel).toHaveTextContent(/two checks/i);
     expect(panel).toHaveTextContent(/because a check cannot/i);
   });

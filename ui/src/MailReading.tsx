@@ -69,13 +69,19 @@ export function MailReading({
   return (
     <div className="mail-reading" data-testid="mail-reading">
       {/* First, before the answer it is about. A reader who takes in the JSON and
-          then learns it was replayed has already believed something. */}
+          then learns it was replayed has already believed something.
+
+          Both branches answer the question the button asked. The button says the mail
+          is handed to an AI and the panel beside it says that without a key nothing is
+          handed anywhere, so this is where a reader finds out which of the two they
+          got. Answering it in some third vocabulary would leave that open. */}
       <p className="mail-mode" data-testid="mail-mode" data-mode={result.mode}>
         {result.mode === 'recorded'
-          ? 'Recorded answer. This deployment holds no model key, so the reply is '
-            + 'replayed from a file and no model was called. Everything after it is '
-            + 'real: the checks, the prices and the order.'
-          : 'Live answer. This mail went to a model and came back.'}
+          ? 'Recorded answer. This deployment holds no model key, so nothing was '
+            + 'handed to a model: the reply is replayed from a file. Everything after '
+            + 'it is real: the checks, the prices and the order.'
+          : 'Live answer. This deployment holds a model key, so the mail really was '
+            + 'handed to a model, and this is what came back.'}
       </p>
 
       <p className="mail-ph">What the model answered</p>
