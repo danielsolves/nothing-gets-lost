@@ -24,6 +24,12 @@ REMOTE=origin
 BRANCH=main
 WAIT_TIMEOUT=600
 
+# Where a visitor actually arrives. Deliberately the public address and not
+# localhost: reaching the container from the host proves the container, which
+# `--wait` has already proved. What is unproven at that point is everything between
+# a stranger and the container, and that is the part with the moving pieces.
+PUBLIC_URL=https://ngl.danielsolves.ai
+
 # Every service in docker-compose.yml that has a `build:` section, in build order.
 #
 # This list is written out by hand on purpose rather than derived at runtime.
@@ -223,6 +229,82 @@ verify_migrations() {
   fail 'schema_migrations does not match packages/db/migrations'
 }
 
+# The file running right now is a copy. `git pull` updates the one in the checkout;
+# it cannot update /usr/local/bin/ngl-deploy, so a change to this script lands in
+# the repository and then does nothing, quietly, possibly for months.
+#
+# It warns rather than failing, because failing would be a deadlock: the deploy that
+# ships a change to this script would be the one refusing to run.
+#
+# And it does NOT run the checkout's copy instead, which is the obvious fix and the
+# wrong one. authorized_keys binds the deploy key to this path precisely so that
+# what lands in main cannot change what runs as root here. Executing the repository's
+# version would hand that boundary away to anyone who can merge.
+warn_if_installed_copy_is_stale() {
+  local installed=/usr/local/bin/ngl-deploy
+  local shipped="$APP_DIR/tools/deploy/ngl-deploy"
+
+  [ -f "$installed" ] || return 0
+  [ -f "$shipped" ] || return 0
+  cmp --silent "$installed" "$shipped" && return 0
+
+  printf '\n'
+  printf 'ngl-deploy: WARNING: the installed script differs from the one in this checkout.\n' >&2
+  printf '  This deploy ran the installed copy. Whatever changed in\n' >&2
+  printf '  tools/deploy/ngl-deploy has not taken effect. To adopt it, from your own\n' >&2
+  printf '  shell on the host:\n' >&2
+  printf '    install -m 0755 %s %s\n' "$shipped" "$installed" >&2
+  printf '\n'
+}
+
+# Nine healthy containers are not a working site.
+#
+# A health check answers on the container's own port, from inside the docker
+# network. A visitor arrives through DNS, the host's nginx, a proxy_pass and a
+# certificate, and none of that is a container this script starts. Every deploy so
+# far proved the first half and assumed the second, and the assumption was checked
+# by hand afterwards, which is another way of saying it was not checked.
+#
+# It runs last, after the database has been proved to match the checkout, because a
+# page that loads while the schema is behind is the more misleading of the two
+# failures and should not be the one that reports success.
+smoke_test() {
+  local code state mcp
+
+  log "checking $PUBLIC_URL the way a visitor reaches it"
+
+  code=$(curl --silent --show-error --location --max-time 20 \
+    --output /dev/null --write-out '%{http_code}' "$PUBLIC_URL/") \
+    || fail "$PUBLIC_URL/ could not be reached at all"
+  [ "$code" = "200" ] || fail "$PUBLIC_URL/ answered $code"
+  log "page: $code"
+
+  # A page being served is not the api behind it working. This asks for the state
+  # the page reads on load and checks it carries the counters, rather than settling
+  # for any response that happens to have a 200 on it.
+  state=$(curl --silent --show-error --location --max-time 20 "$PUBLIC_URL/api/state") \
+    || fail "$PUBLIC_URL/api/state could not be reached"
+  case "$state" in
+    *'"counters"'*) log 'api: state carries the counters' ;;
+    *) fail "$PUBLIC_URL/api/state did not return the state the page reads" ;;
+  esac
+
+  # The tool the README invites strangers to point their own client at. It is here
+  # because of how it broke once: the container was healthy, the tool listed, and
+  # the call failed on a view the database did not have. Listing a tool is not
+  # calling it, and only the call touches the schema.
+  mcp=$(curl --silent --show-error --max-time 25 "$PUBLIC_URL/mcp" \
+    -H 'content-type: application/json' \
+    -H 'accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"backlog_list","arguments":{"limit":1}}}') \
+    || fail "$PUBLIC_URL/mcp could not be reached"
+  case "$mcp" in
+    *'"isError":true'*) fail "backlog_list answered with an error: $mcp" ;;
+    *'"result"'*) log 'mcp: backlog_list answered' ;;
+    *) fail "backlog_list returned no result: $mcp" ;;
+  esac
+}
+
 main() {
   printf 'ngl-deploy: starting at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   # Audit line. The key is restricted with command=, so whatever the client asked
@@ -234,9 +316,11 @@ main() {
   take_lock
   check_service_list
   sync_repo
+  warn_if_installed_copy_is_stale
   build_images
   start_stack
   verify_migrations
+  smoke_test
 
   log 'container status (--all, so the exited migrate container is visible too)'
   docker compose ps --all
