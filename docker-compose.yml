@@ -150,9 +150,15 @@ services:
     env_file: *env-file
     environment:
       <<: *db-env
-      # The read-only url is not passed here any more. It belonged to the public SQL
+      # The read-only url is not set here any more. It belonged to the public SQL
       # console, and the console has gone: the read-only role now has exactly one
       # user, the mcp service below.
+      #
+      # Not set is not the same as not present, and the comment used to claim the
+      # stronger of the two. `env_file` hands this container the whole .env, so if an
+      # operator still has DATABASE_URL_READONLY in theirs it arrives here regardless.
+      # What actually holds is that nothing in services/api reads it. That is the
+      # guarantee worth stating, because it is the one that is enforced.
       #
       # The model key is passed straight through. The page derives what it says
       # about the extraction from whether this is set, so there is no second
