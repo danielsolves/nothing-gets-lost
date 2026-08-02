@@ -5,7 +5,7 @@
 // refused to start over one would take down every delivery that never needed it.
 import { describe, it, expect } from 'vitest';
 import { TARGETS } from '@ngl/contracts';
-import { buildTargets } from '../../src/targets/index';
+import { buildTargets, webhookSigningSecret } from '../../src/targets/index';
 import { CredentialResolver } from '../../src/credentials';
 import type { CatalogueLog } from '../../src/hubspot-catalogue.log';
 
@@ -32,5 +32,37 @@ describe('buildTargets', () => {
     // credentials: an unset key has to fail the delivery that needs it, where a
     // visitor can read the reason, and not the process that carries the other five.
     expect(() => buildTargets(credentials, catalogueLog, {})).not.toThrow();
+  });
+});
+
+// `x-demo-signature` has one job: to let a visitor tell our deliveries from anybody
+// else's calls to the same url. That job survives exactly as long as the key does.
+describe('the webhook signing secret', () => {
+  it('takes the configured secret when there is one', () => {
+    expect(webhookSigningSecret({ WEBHOOK_SIGNING_SECRET: 'from-the-host' }))
+      .toBe('from-the-host');
+  });
+
+  it('does not fall back to a value that can be read out of this repository', () => {
+    // It used to fall back to the literal 'demo-signing-secret'. In a public
+    // repository that is not a key, it is a recipe: forging the header a visitor
+    // is asked to trust becomes copy and paste.
+    expect(webhookSigningSecret({})).not.toBe('demo-signing-secret');
+    expect(webhookSigningSecret({}).length).toBeGreaterThanOrEqual(32);
+  });
+
+  it('treats an empty variable as no variable', () => {
+    // .env.example ships this line empty and `env_file` turns an empty line into an
+    // empty string rather than into nothing at all, so the case a stranger actually
+    // lands in is this one and not the unset one. HMAC with the empty key is every
+    // bit as public as HMAC with a published one.
+    expect(webhookSigningSecret({ WEBHOOK_SIGNING_SECRET: '' }))
+      .toBe(webhookSigningSecret({}));
+  });
+
+  it('is one value for the whole process, so a retry signs the way the first attempt did', () => {
+    // Six attempts reach the same endpoint over ten minutes. A key that changed
+    // between them would show a receiver two senders where there is one.
+    expect(webhookSigningSecret({})).toBe(webhookSigningSecret({}));
   });
 });

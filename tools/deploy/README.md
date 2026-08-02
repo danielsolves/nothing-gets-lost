@@ -275,11 +275,21 @@ that is running, and you can stop after any of them.
 
 **1. Back up the database. First, before anything else.**
 
+Pick a backup directory first. It has to be owned by root, readable by nobody else,
+and outside the deployment directory so that no `docker compose` or git operation
+in section 8 can reach it. Which directory that is stays out of this file: the
+repository is public, and steps 1 and 2 write a full database dump and a copy of
+every production credential, so printing where they land would save an intruder the
+one part of the job that takes effort.
+
 ```bash
+BACKUP_DIR=...                      # set this to the directory you chose
+install -d -m 700 -o root -g root "$BACKUP_DIR"
+
 cd /opt/nothing-gets-lost
 docker compose exec -T db pg_dump -U ngl -d ngl \
-  | gzip > "/root/ngl-db-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
-ls -lh /root/ngl-db-*.sql.gz
+  | gzip > "$BACKUP_DIR/ngl-db-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+ls -lh "$BACKUP_DIR"
 ```
 
 The first `ngl-deploy` will apply any migration that is on disk but not yet in
@@ -288,7 +298,8 @@ The first `ngl-deploy` will apply any migration that is on disk but not yet in
 **2. Back up the live .env, root only.**
 
 ```bash
-install -m 600 /opt/nothing-gets-lost/.env "/root/ngl-env-$(date -u +%Y%m%dT%H%M%SZ).bak"
+install -m 600 /opt/nothing-gets-lost/.env \
+  "$BACKUP_DIR/ngl-env-$(date -u +%Y%m%dT%H%M%SZ).bak"
 ```
 
 This file holds the real Stripe, HubSpot and Slack tokens, the real database and
@@ -428,7 +439,8 @@ the stack (`docker compose stop`, not `down`), restore from the dump you took in
 step 1 into a fresh database, and treat that as its own incident rather than part
 of this checklist.
 
-If the `.env` is what went wrong, the copy from step 2 is in `/root`.
+If the `.env` is what went wrong, the copy from step 2 is in the backup directory you
+chose in step 1.
 
 ## 9. Installing ngl-deploy
 
@@ -476,10 +488,9 @@ df -h /var/lib/docker
 free -m
 ```
 
-Nine images are rebuilt on every deploy on a box with about 0.9 GB free and around
-45 containers from other projects. Dangling layers are the thing most likely to
-fill the disk. `prune -f` without `-a` only removes untagged layers and leaves
-every image in use alone.
+Nine images are rebuilt on every deploy on a memory and disk constrained box.
+Dangling layers are the thing most likely to fill the disk. `prune -f` without
+`-a` only removes untagged layers and leaves every image in use alone.
 
 ## 11. When it fails
 

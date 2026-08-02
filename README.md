@@ -1,5 +1,7 @@
 # Nothing Gets Lost
 
+[![CI](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/danielsolves/nothing-gets-lost/actions/workflows/ci.yml)
+
 ![An order runs through five systems, HubSpot is cut with a click, waiting climbs and lost stays at zero](docs/demo.gif)
 
 When two systems talk to each other, things go missing. A payment arrives but the
@@ -40,14 +42,6 @@ url field above does the same job with no login, no scopes and no token of yours
 my database.
 
 ## Run it
-
-The repository is not published yet, so the clone line is the one that will work the
-day it is. Until then there is the demo itself at
-[ngl.danielsolves.ai](https://ngl.danielsolves.ai), and the MCP server on the same
-host. That is also why there is no CI badge at the top: a badge for a repository
-nobody can open is a broken image making a claim, on a page whose argument is that
-every claim on it can be checked. The workflow it will point at is
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ```bash
 git clone https://github.com/danielsolves/nothing-gets-lost

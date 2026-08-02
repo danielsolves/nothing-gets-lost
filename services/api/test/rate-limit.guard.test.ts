@@ -2,7 +2,8 @@
 // The link is public, so the caps exist for strangers rather than for customers
 // (spec 11). The last two checks matter most: an address is never stored raw, and
 // a cap lifts by itself once the hour is over.
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { createHash } from 'node:crypto';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { runMigrations } from '@ngl/db';
@@ -94,5 +95,48 @@ describe('the recipient cap', () => {
       'SELECT bucket, count FROM rate_limits ORDER BY bucket',
     );
     expect(rows).toEqual([{ bucket: 'mail', count: 1 }]);
+  });
+});
+
+// The salt is what stands between `rate_limits` and a list of visitor addresses. A
+// salt a stranger can read is not a salt: the subjects here are addresses and email
+// addresses, both cheap to guess one at a time, so a known salt turns the column into
+// a lookup table. Hash the address you are curious about, look for the row.
+describe('the fallback salt', () => {
+  const configured = process.env.IP_HASH_SALT;
+
+  afterEach(() => {
+    if (configured === undefined) delete process.env.IP_HASH_SALT;
+    else process.env.IP_HASH_SALT = configured;
+  });
+
+  const hashedWith = (salt: string, subject: string): string =>
+    createHash('sha256').update(`${salt}:${subject}`).digest('hex').slice(0, 32);
+
+  it('yields to a configured salt', () => {
+    process.env.IP_HASH_SALT = 'from-the-host';
+    expect(hashIp('203.0.113.7')).toBe(hashedWith('from-the-host', '203.0.113.7'));
+  });
+
+  it('is not the constant the source used to carry', () => {
+    delete process.env.IP_HASH_SALT;
+    expect(hashIp('203.0.113.7')).not.toBe(hashedWith('nothing-gets-lost', '203.0.113.7'));
+  });
+
+  it('treats an empty variable as no variable', () => {
+    // .env.example ships this line empty and `env_file` turns an empty line into an
+    // empty string rather than into nothing at all, so this is the case a stranger
+    // who copied the example actually lands in. Salting with '' is salting with a
+    // value everybody has.
+    process.env.IP_HASH_SALT = '';
+    expect(hashIp('203.0.113.7')).not.toBe(hashedWith('', '203.0.113.7'));
+  });
+
+  it('holds still for the life of the process, so an hour window keeps counting', () => {
+    // The counter is keyed on the hash. If the salt moved between two requests the
+    // second one would land in a new row and the cap would never be reached.
+    delete process.env.IP_HASH_SALT;
+    expect(hashIp('203.0.113.7')).toBe(hashIp('203.0.113.7'));
+    expect(hashRecipient('reader@example.com')).toBe(hashRecipient('reader@example.com'));
   });
 });

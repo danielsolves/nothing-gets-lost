@@ -1,6 +1,6 @@
 # Where AI belongs in this demo
 
-This page is a decision list for one problem: this repository is good evidence of integration and reliability work and almost no evidence of the thing it is meant to sell. It names five places a model could go, ranks them, and says which two are worth building. It is written the same way as [what I deliberately did not build](what-we-deliberately-did-not-build.md), so the rejections are here too, with their reasons.
+This page is a decision list for one question: where does a model earn its place in a system whose entire argument is that it behaves the same way twice? Everything else here is deterministic on purpose, so the one component that is allowed to be wrong has to pay for the room it takes. It names five places a model could go, ranks them, and says which two are worth building. It is written the same way as [what I deliberately did not build](what-we-deliberately-did-not-build.md), so the rejections are here too, with their reasons.
 
 ## What is already in the tree
 
@@ -14,7 +14,7 @@ Three facts about that seam matter to everything below.
 
 **The hallucination is not the model's.** With `hallucinate: true` the service returns a hand written rejection naming `MUG-AZURE` and never calls the model at all. That is defensible for a button that has to work without a key, and it is not what the menu entry says: "The model returns a SKU that does not exist".
 
-There is also a defect worth fixing whatever else happens here. In recorded mode, `recordedAnswer` falls back to `fixtures[0]` when nothing matches. `GARBAGE` says "the blue ones", not "blue mug", so it matches nothing and falls back, and `fixtures[0]` is a well formed order for `MUG-BLUE` and `COASTER-OAK`, both of which are in `products`. So the menu entry that promises "Free text the model has to make sense of, and cannot" currently produces a clean successful extraction on the live site, and the page prints the same sentence either way because that sentence is hardcoded. Nothing on screen is false. The promise is not kept.
+One defect in that seam has been fixed since this page was first written, and it stays on the record because it is the trap a recorded fallback sets. `recordedAnswer` used to fall back to the first recorded answer whenever nothing matched. `GARBAGE` says "the blue ones", not "blue mug", so it matched nothing and fell back, and that first answer is a well formed order for `MUG-BLUE` and `COASTER-OAK`, both of which are in `products`. The menu entry promising "Free text the model has to make sense of, and cannot" therefore produced a clean successful extraction, and the page printed the same sentence either way because that sentence is hardcoded. Nothing on screen was false; the demonstration simply did not happen, which on a page asking to be checked is the more expensive kind of wrong. The fix is `fixtures.unmatched`: a recorded refusal that names no article, is stopped by the schema on its empty basket, and reaches the page along the same path a live model's bad answer would take. A recording stands in for the model, so it has to be wrong where the model would be wrong.
 
 ## The test each proposal has to pass
 

@@ -29,8 +29,29 @@
 // page that somebody else bills us for, by the token, and it is the one thing here
 // that a script can turn into an invoice rather than into untidy data. So it is
 // counted apart from orders and it is counted tightly.
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
+
+/**
+ * The salt when nobody set one.
+ *
+ * It used to be a constant written on the line below, which was defensible while this
+ * repository was private and worth nothing the moment it was not. `rate_limits` holds
+ * a hash of every visitor address and of every recipient a confirmation mail was asked
+ * for, and both are cheap to guess one at a time, so a published salt does not make
+ * the column harder to read, it makes it a lookup table: hash the address you are
+ * curious about and look for the row.
+ *
+ * Refusing to start without IP_HASH_SALT is the other obvious answer and it is the
+ * wrong one here. Spec 8.5 asks that a stranger who cloned this and set no environment
+ * at all still gets a running demo, and a showcase that fails on clone argues against
+ * its own point. Random, once per process, keeps the demo booting and keeps the column
+ * opaque. The price is that the hour counters start over at a restart, because the
+ * same address hashes to something else afterwards and lands in a new row: somebody
+ * who had spent their allowance gets it back at a deploy. That is cheaper than a
+ * published salt, and it never happens on the live host, where the variable is set.
+ */
+const PROCESS_SALT = randomBytes(32).toString('hex');
 
 /**
  * Per hour. `orders` is per visitor, `mail` is per visitor, `mailTo` is per recipient
@@ -62,7 +83,10 @@ export type Bucket = keyof typeof LIMITS;
  * visitor addresses would be arguing against itself.
  */
 function hashSubject(subject: string): string {
-  const salt = process.env.IP_HASH_SALT ?? 'nothing-gets-lost';
+  // Empty counts as unset. `env_file` turns an empty line in .env into an empty string
+  // rather than into nothing at all, and .env.example ships this line empty, so `??`
+  // would leave the demo salting with '' in exactly the case this fallback exists for.
+  const salt = process.env.IP_HASH_SALT || PROCESS_SALT;
   return createHash('sha256').update(`${salt}:${subject}`).digest('hex').slice(0, 32);
 }
 

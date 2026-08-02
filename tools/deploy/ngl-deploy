@@ -134,11 +134,10 @@ sync_repo() {
   fi
 }
 
-# One service per invocation. The host runs roughly 45 containers for other
-# projects and has about 0.9 GB free, and `docker compose build` with no service
-# argument hands all nine Dockerfiles to BuildKit at once, which means nine
-# concurrent `npm ci` runs. Serialising costs wall clock and buys not being OOM
-# killed halfway through.
+# One service per invocation. The host is memory constrained, and `docker compose
+# build` with no service argument hands all nine Dockerfiles to BuildKit at once,
+# which means nine concurrent `npm ci` runs. Serialising costs wall clock and buys
+# not being OOM killed halfway through.
 build_images() {
   local service
   for service in "${BUILD_SERVICES[@]}"; do
