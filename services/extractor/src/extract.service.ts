@@ -22,6 +22,20 @@ export type ExtractResult =
 
 interface RecordedAnswer { match: string; answer: unknown }
 
+/**
+ * The recorded answers, and the one for text that names nothing we sell.
+ *
+ * `unmatched` is not a spare. Without a model the answer has to come from this file,
+ * and the file used to fall back to the first recorded answer whenever nothing
+ * matched. The garbage order says "send me the blue ones", which matches no entry,
+ * so the one input the page offers as text a model cannot make sense of was handed a
+ * tidy three-mug order with two valid article numbers. Nothing on screen was false,
+ * because the sentence beside it is written by hand, but the demonstration was not
+ * the one being promised, and a demonstration that quietly does not happen is worse
+ * here than anywhere: this page is asking to be checked.
+ */
+interface Fixtures { recorded: RecordedAnswer[]; unmatched: unknown }
+
 const FIXTURES_PATH = new URL('../../../fixtures/extractions.json', import.meta.url);
 
 export class ExtractService {
@@ -94,15 +108,18 @@ export class ExtractService {
   /**
    * Without a key the demo still has to start for a stranger who just cloned it.
    * A showcase project that fails on clone proves the opposite of its own point.
+   *
+   * Text that names nothing in the catalogue gets the recorded refusal rather than
+   * the nearest recorded success. That answer is well formed and identifies no
+   * article, so it fails the schema on its empty basket and the page reports the
+   * failure through the same path a live model's would take. Which is the whole
+   * point of the mode: it stands in for the model, so it has to be wrong in the
+   * places the model would be wrong.
    */
   private recordedAnswer(text: string): string {
-    const fixtures = JSON.parse(
-      readFileSync(FIXTURES_PATH, 'utf8'),
-    ) as RecordedAnswer[];
+    const fixtures = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8')) as Fixtures;
     const lower = text.toLowerCase();
-    const hit = fixtures.find((entry) => lower.includes(entry.match.toLowerCase()))
-      ?? fixtures[0];
-    if (!hit) throw new Error('fixtures/extractions.json holds no recorded answers');
-    return JSON.stringify(hit.answer);
+    const hit = fixtures.recorded.find((entry) => lower.includes(entry.match.toLowerCase()));
+    return JSON.stringify(hit ? hit.answer : fixtures.unmatched);
   }
 }
