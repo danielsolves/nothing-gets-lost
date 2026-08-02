@@ -12,6 +12,48 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # A credential that reaches this repository cannot be taken back. Rotating it is
+  # the only real remedy, and rotating a Stripe or HubSpot token means an outage.
+  # So the check runs on every push and every pull request, and it reads the whole
+  # history rather than the diff: a secret added and removed again is still sitting
+  # in the commit that added it, and that commit is what a stranger clones.
+  #
+  # fetch-depth: 0 is what makes that possible. The default checkout is a single
+  # commit, and a scanner pointed at one commit finds nothing and reports success,
+  # which is the worst of both worlds.
+  #
+  # --redact is not optional. This log is public, and a scanner that prints the
+  # credential it found has published it a second time, to an audience that is
+  # actually looking.
+  #
+  # The image is deliberately not pinned. Pinning a scanner pins its rules, and the
+  # rules are the entire value: a version frozen today cannot recognise a token
+  # format introduced tomorrow. The risk a pin protects against, a build breaking
+  # because upstream changed, is the acceptable one here.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Refuse any credential in the tree or anywhere in the history
+        run: |
+          set -euo pipefail
+          log=$(mktemp)
+          docker run --rm --volume "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo --redact --verbose --exit-code 1 2>&1 | tee "$log"
+
+          # A scan that read nothing is not a pass, and this is not a hypothetical.
+          # Run against a mount it could not open, gitleaks printed "0 commits
+          # scanned" and then "no leaks found", and exited 0. A green tick that
+          # means the check never ran is worse than no check, because it is the one
+          # nobody looks behind. So the count is read back and an empty scan fails.
+          scanned=$(grep -o '[0-9][0-9]* commits scanned' "$log" | tail -1 | cut -d' ' -f1)
+          if [ -z "${scanned:-}" ] || [ "$scanned" -lt 1 ]; then
+            echo "gitleaks reported no commits scanned, so it proved nothing" >&2
+            exit 1
+          fi
+          echo "clean, and it really looked: $scanned commits scanned"
+
   # Its own job: the soak run takes minutes and must not slow the fast loop down.
   # The number printed in the README comes from here, so it is regenerated on
   # every push rather than being a figure somebody typed once.
