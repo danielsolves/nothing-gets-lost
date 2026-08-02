@@ -5,6 +5,7 @@
 import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { getPool } from '@ngl/db';
 import { AutoResetService } from './autoreset.service';
 import { BoardService } from './board.service';
@@ -18,6 +19,7 @@ import { MediatorIntake } from './mediator.intake';
 import { OrderViewsService } from './order-views.service';
 import { DemoOrderController } from './demo-order.controller';
 import { OrdersController, RATE_LIMITER } from './orders.controller';
+import { trustTheProxy } from './trusted-proxy';
 import { OrdersService } from './orders.service';
 import { PresenceService } from './presence.service';
 import { ResetController } from './reset.controller';
@@ -111,7 +113,12 @@ export class ApiModule {}
 
 async function bootstrap(): Promise<void> {
   // The raw body is kept because the Stripe signature is computed over the bytes.
-  const app = await NestFactory.create(ApiModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(ApiModule, { rawBody: true });
+
+  // Who the caller is, and therefore whether any cap on this service means anything.
+  // The reasoning is in trusted-proxy.ts, which is a separate file because this one
+  // starts a server when it is imported and the decision deserved a test.
+  trustTheProxy(app);
 
   // Ten quiet minutes and the world repairs itself for the next visitor (spec 3).
   const autoReset = new AutoResetService(getPool());
