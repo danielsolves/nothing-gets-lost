@@ -2179,9 +2179,10 @@ body {
 .mcp-go:disabled { opacity: 0.55; cursor: progress; }
 .mcp-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.mcp-answer { display: grid; gap: 8px; }
+.mcp-answer { display: grid; gap: 14px; }
 .mcp-status,
-.mcp-failed {
+.mcp-failed,
+.mcp-provenance {
   margin: 0;
   max-width: 68ch;
   font-size: 12.5px;
@@ -2189,6 +2190,29 @@ body {
 }
 .mcp-status { color: var(--faint); }
 .mcp-failed { color: var(--bad); }
+/* Where the number in the box came from. Quiet, and directly under the box it is
+   about, because it is a footnote to one field and not a second instruction. */
+.mcp-provenance { color: var(--faint); }
+
+/* Three blocks, stacked in the order the derivation runs: what went out, what came
+   back byte for byte, and the same bytes decoded. Each one says what it is out loud,
+   because two blocks of JSON under one heading are two answers to a reader who cannot
+   tell which is which. */
+.mcp-pane { display: grid; gap: 5px; }
+.mcp-pane-label {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.mcp-pane-caption {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--faint);
+}
 
 /* pre-wrap, not pre. The server's own newlines are kept, which is the part that must
    not be touched, and a line too long for the column is soft-wrapped rather than
@@ -2197,7 +2221,8 @@ body {
    the reader had to drag sideways through all of it, which is a way of showing the
    response body that nobody reads. */
 .mcp-sent,
-.mcp-response {
+.mcp-response,
+.mcp-decoded {
   margin: 0;
   max-height: 20rem;
   overflow-y: auto;
@@ -2214,7 +2239,29 @@ body {
   tab-size: 2;
 }
 .mcp-sent { max-height: 12rem; color: var(--faint); }
-.mcp-response { color: var(--text); }
+.mcp-response { max-height: 14rem; color: var(--text); }
+/* The one rule that says this block was made out of the one above it. It is the same
+   box in the same type, with a line down the side that the raw body does not have. */
+.mcp-decoded {
+  max-height: 26rem;
+  color: var(--text);
+  border-left: 3px solid var(--accent);
+}
+
+/* An empty answer, in words, beside the empty answer. It sits inside the answer block
+   rather than under the whole console, because it is about this reply and not about
+   the panel. */
+.mcp-empty-note {
+  margin: 0;
+  max-width: 68ch;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
 
 .mcp-note {
   margin: 0;
@@ -2325,15 +2372,15 @@ body {
    own content and one long product name would set the width of the whole machine. */
 .order-form > .order-fold { width: 100%; }
 
+/* The shell only. There are two ways of composing the same order and they are two
+   panes of this box, so what both need lives here: the border, the padding, the close
+   button in the corner and the tabs that choose between them. Each pane brings its
+   own columns, because the two are not laid out alike and pretending otherwise would
+   have made one of them wear the other's grid. */
 .order-builder {
   display: grid;
-  /* The basket takes the larger share. Split evenly, the name column came out at
-     86px and three of the eight products wrapped over two lines, which turned a
-     price list into a ragged block. The right side is prose and wraps without
-     anybody minding. */
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  grid-template-areas: "basket who" "foot foot";
-  gap: clamp(16px, 2vw, 26px);
+  gap: 14px;
+  align-content: start;
   width: 100%;
   padding: 16px;
   position: relative;
@@ -2342,11 +2389,53 @@ body {
   background: var(--surface);
 }
 
+/* The choice, at the top, because it is the first one to make. The right padding
+   clears the close button, which the "who it is for" heading used to have to do. */
+.order-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-right: 34px;
+}
+.order-tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.order-tabs button:hover { border-color: var(--line-strong); color: var(--text); }
+.order-tabs button[aria-selected='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.order-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The pane that is not chosen takes no space and no tab stop. Laid over each other
+   the way the hub's panels are, the taller of the two would have set the height of
+   both, and the article path would have grown to hold a mail it is not showing. */
+.order-pane { display: grid; min-width: 0; }
+.order-pane[hidden] { display: none; }
+
+.order-articles {
+  /* The basket takes the larger share. Split evenly, the name column came out at
+     86px and three of the eight products wrapped over two lines, which turned a
+     price list into a ragged block. The right side is prose and wraps without
+     anybody minding. */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-areas: "basket who" "foot foot";
+  gap: clamp(16px, 2vw, 26px);
+}
+
 .order-basket { grid-area: basket; }
 .order-who { grid-area: who; }
-/* Only the heading has to clear the close button. Given to the whole column, the
-   34px came out of the two fields and cut the longer placeholder off mid-word. */
-.order-who > .order-ph { padding-right: 34px; }
 .order-basket, .order-who { display: grid; gap: 10px; align-content: start; min-width: 0; }
 
 .order-close {
@@ -2407,7 +2496,7 @@ body {
 
 
 @media (max-width: 48rem) {
-  .order-builder { grid-template-columns: minmax(0, 1fr); }
+  .order-articles { grid-template-columns: minmax(0, 1fr); }
 }
 
 
@@ -2574,9 +2663,15 @@ body {
 
 
 /* An order that arrives as a mail ---------------------------------------------
-   A panel that brings its own shell rather than borrowing .outside-panel: it can be
-   mounted anywhere on the page, and a block that only looks right in one container
-   is a block that has to be moved with a stylesheet edit.
+   It brought its own shell while it was a section of its own below the machine: a
+   border, a radius and a background, so it could be mounted anywhere on the page. It
+   is a pane of the order builder now, which already draws all three, so what is left
+   here is the layout and nothing that says "box".
+
+   The mail on the left and what becomes of it on the right, the same way the article
+   pane puts the basket on the left and who it is for on the right. The answer runs
+   under both, because a reading is wider than either column and it is the thing being
+   waited for.
 
    Everything below is set so a reading is read in the order it happened: what the
    model said, what the checks made of it, what would be placed. The answer is
@@ -2584,19 +2679,20 @@ body {
    is ours. */
 .mail-order {
   display: grid;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-areas: "write about" "answer answer";
+  gap: clamp(16px, 2vw, 26px);
   align-content: start;
-  padding: clamp(18px, 2.4vw, 28px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-shell);
 }
 
-.mail-order h3 {
-  margin: 0;
-  font-size: clamp(17px, 1.7vw, 20px);
-  font-weight: 700;
-  letter-spacing: -0.015em;
+.mail-write { grid-area: write; }
+.mail-about { grid-area: about; }
+.mail-answer { grid-area: answer; }
+.mail-write, .mail-about, .mail-answer {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
 }
 
 .mail-lede {
@@ -2653,9 +2749,15 @@ body {
 
 .mail-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 
+/* One column, top to bottom, and it was tried as two. Side by side the answer and the
+   verdict fit in half the height, and the button that confirms an order ended up in
+   the right-hand column: the wire into the integration hub hangs on that button, the
+   hub is on the left, and the line came down beside the hub instead of into it. A
+   drawing that points at the wrong box is worse than a panel that is tall. */
 .mail-reading {
   display: grid;
   gap: 10px;
+  align-content: start;
   padding: 16px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
@@ -2686,10 +2788,13 @@ body {
 }
 
 /* Scrolls rather than grows. A model that answers with prose instead of JSON can
-   fill a screen, and the verdict underneath is the part being waited for. */
+   fill a screen, and the verdict underneath is the part being waited for. Eleven rems
+   and not sixteen since this moved inside the order builder: the first lines are the
+   ones a reader checks against their own mail, and five rems of them were pushing the
+   verdict off the bottom of a box that has a mail above it as well. */
 .mail-raw {
   margin: 0;
-  max-height: 16rem;
+  max-height: 11rem;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 12px 14px;
@@ -2785,3 +2890,13 @@ body {
 }
 
 .mail-order .error { margin: 0; max-width: 68ch; color: var(--bad); font-size: 14px; }
+
+/* One column on a narrow screen, the same width the article pane collapses to. It has
+   to sit after the rules above and not up with the other breakpoint: same specificity,
+   later wins, and up there it lost to the two-column rule it was meant to replace. */
+@media (max-width: 48rem) {
+  .mail-order {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "write" "about" "answer";
+  }
+}

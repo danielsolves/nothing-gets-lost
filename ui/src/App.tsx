@@ -20,11 +20,16 @@
 // us: the Stripe receipt on stripe.com, the confirmation mail in their own inbox,
 // every delivery arriving at an endpoint of theirs, and the backlog through the MCP
 // server.
+//
+// A third section has gone for a different reason. "An order that arrives as a mail"
+// was a whole section below the machine, and it is a second way of composing the same
+// order the button above it composes. Two ways to one thing, a scroll apart, hid the
+// choice between them. It is a pane of the order builder now, and the page reads:
+// claim, machine with both ways in it, the outside checks, what it is built with.
 import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
 import { Built } from './Built';
 import { Diagram } from './Diagram';
-import { MailOrder } from './MailOrder';
 import { McpServer } from './McpServer';
 import { OrderForm } from './OrderForm';
 import { Mediator } from './Mediator';
@@ -34,9 +39,7 @@ import { useArrivalHold } from './useArrivalHold';
 import { useStream } from './useStream';
 
 export function App() {
-  const {
-    counters, switches, deliveries, orders, timeline, extractorMode, viewers,
-  } = useStream();
+  const { counters, switches, deliveries, orders, timeline, viewers } = useStream();
   // One open card at a time, and open doubles as selected: the order being read is
   // the one marked in the diagram.
   const [openOrder, setOpenOrder] = useState<string | null>(null);
@@ -64,7 +67,6 @@ export function App() {
             needs a panel of its own further down the page. */}
         <section className="board">
           <Diagram
-            extractorMode={extractorMode}
             switches={switches}
             deliveries={held.deliveries}
             live={deliveries}
@@ -89,13 +91,6 @@ export function App() {
             }
           />
         </section>
-
-        {/* The other way in, and it sits after the machine rather than beside the
-            button because it only means anything to somebody who has already watched
-            an order go through. Read first, then read differently: the same five
-            systems, the same queue, and an order that a model proposed out of a plain
-            mail and a person confirmed before it was placed. */}
-        <MailOrder />
 
         <Outside endpoint={<Connections />} mcp={<McpServer />} />
 

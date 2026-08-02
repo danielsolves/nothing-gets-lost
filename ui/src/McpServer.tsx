@@ -15,6 +15,13 @@
 // reader is standing and prints the answer exactly as the server sent it, and the
 // install note is for the reader who would rather leave the page entirely.
 //
+// A paragraph used to stand under the console admitting that Run went to /api/mcp
+// rather than to the address printed here, because only the public host mapped /mcp
+// onto the MCP port. The ui container routes /mcp itself now, the relay in the api is
+// gone, and the paragraph with it: the console calls the address it prints, which is
+// what this panel always claimed and briefly was not. An explanation of a detour is
+// worth nothing next to not taking one.
+//
 // It sits beside the visitor's own endpoint because the two are the same argument
 // from opposite ends: one puts our data in a client we do not control, the other
 // puts our deliveries on a server we do not control.
@@ -39,25 +46,14 @@ export function McpServer() {
       <h3>The MCP server</h3>
 
       <p className="endpoint-lede">
-        Everything the Backlog and the queue show is also served over MCP, straight out
-        of the same database and read only. Pick a tool, set what it takes and run it:
-        what comes back is printed here as it arrived, envelope and all, so there is
-        nothing of ours between you and the answer but the wire.
+        Everything the queue and the backlog show is also served over MCP, straight out
+        of the same database and read only. Pick a tool, set what it takes and run it.
+        Run posts to the address below, and what comes back is printed as it arrived,
+        envelope and all, with the same bytes underneath it unescaped so they can be
+        read.
       </p>
 
       <McpConsole />
-
-      {/* Said where the reader has just watched a call happen, because the run button
-          adds a hop and a panel about not needing our word cannot be quiet about it.
-          The port itself is not reachable from this page in a checkout: it is on an
-          address of its own, and only the public host maps /mcp onto it. */}
-      <p className="mcp-note">
-        Run posts to <code>/api/mcp</code> on this host, which hands the bytes to the
-        MCP server and hands its answer back untouched. That hop exists because the
-        server has a port of its own and only the public host maps <code>/mcp</code> onto
-        it, and a console that worked on the live site and nowhere else would prove
-        nothing. The address below cuts us out of it.
-      </p>
 
       <div className="mcp-url">
         <code data-testid="mcp-url">{url}</code>

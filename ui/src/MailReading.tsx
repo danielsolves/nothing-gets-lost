@@ -15,6 +15,12 @@
 // panel around it owns the two requests. That is what lets every case here, including
 // the ones a visitor on the live site can only reach with a model key, be drawn in a
 // test without a server.
+//
+// The wire into the integration hub can hang on the confirm button, because on this
+// path that button is what puts an order into the machine. It is asked for rather than
+// assumed: whether this path is the one on screen is the surrounding panel's business.
+// A refusal and a placed order both carry no button, so both carry no anchor either,
+// and a wire pointing at a control that does not exist points at nothing.
 import type { ExtractOrderResponse, ExtractionCheck, OrderLine } from '@ngl/contracts';
 
 /** The two checks, in words a reader can hold against the answer above them. */
@@ -48,13 +54,15 @@ function Lines({ lines }: { lines: OrderLine[] }) {
 }
 
 export function MailReading({
-  result, placing, placed, onConfirm, onDiscard,
+  result, placing, placed, onConfirm, onDiscard, anchored = false,
 }: {
   result: ExtractOrderResponse;
   /** The confirmed order is on its way out. */
   placing: boolean;
   /** It has gone. The button leaves, because there is nothing left to press it for. */
   placed: boolean;
+  /** This path is the one on screen, so the confirm button carries the wire. */
+  anchored?: boolean;
   onConfirm: () => void;
   onDiscard: () => void;
 }) {
@@ -117,6 +125,7 @@ export function MailReading({
               <button
                 type="button"
                 className="stage-cta"
+                data-wire-anchor={anchored ? '' : undefined}
                 data-testid="confirm-order"
                 disabled={placing}
                 onClick={onConfirm}

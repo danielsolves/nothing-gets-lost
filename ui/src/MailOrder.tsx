@@ -1,11 +1,16 @@
 // ui/src/MailOrder.tsx
 // An order that arrives the way orders actually arrive: as somebody's mail.
 //
-// Everywhere else on this page an order is assembled by pressing things that can only
+// On the other pane of this box an order is assembled by pressing things that can only
 // produce a valid order. Here a stranger writes prose, a model turns it into a typed
 // record, and the two checks that already existed decide whether that record is
 // allowed to become anything. The interesting half is the refusals, so two of the
 // three example mails are refused on purpose.
+//
+// It was a section of its own under the machine until the two ways of composing an
+// order were put side by side. What went in the move is the heading and the sentence
+// that said what the box it now sits in already says. What stayed is the reasoning,
+// which nothing else on the page gives: two checks, and a person after them.
 //
 // Two requests, never one. Reading calls /api/extract-order, which cannot place
 // anything; placing calls /api/orders, which is where every order on this page is
@@ -20,8 +25,9 @@
 // basket are what an order needs, and the order is booked under the house address the
 // same way the loud button's is.
 //
-// It holds no wire anchor and takes nothing from the board, so it can be mounted
-// anywhere on the page without the diagram having to know about it.
+// The wire into the integration hub is the panel's business, not this one's. It says
+// whether this path is the one on screen and the confirm button takes the anchor if
+// there is a confirm button at all, which there is not until a mail has been read.
 import { useState } from 'react';
 import { MAX_ORDER_TEXT, type ExtractOrderResponse, type ProposedOrder } from '@ngl/contracts';
 import { MailReading } from './MailReading';
@@ -43,10 +49,12 @@ function saying(trouble: unknown): string {
 }
 
 export function MailOrder({
-  onPlaced,
+  onPlaced, anchored = false,
 }: {
   /** Told the event id of a confirmed order, for a page that wants to point at it. */
   onPlaced?: (eventId: string) => void;
+  /** This path is the one on screen, so its confirm button carries the wire. */
+  anchored?: boolean;
 }) {
   const [text, setText] = useState(sampleMail('ordinary').text);
   const [reading, setReading] = useState(false);
@@ -116,61 +124,76 @@ export function MailOrder({
   }
 
   return (
-    <section className="mail-order" data-testid="mail-order">
-      <h3>An order that arrives as a mail</h3>
-      <p className="mail-lede">
-        Write what a customer would write. A model turns it into a typed order, and
-        two checks decide whether that order may exist: one that it has the shape of
-        an order, one that every article is really in the catalogue. Then you confirm
-        it, because a check cannot.
-      </p>
+    <div className="mail-order" data-testid="mail-order">
+      {/* The mail on the left, what becomes of it on the right, the same way the
+          other pane puts the basket on the left and who it is for on the right. */}
+      <div className="mail-write">
+        <p className="order-ph">What the customer wrote</p>
 
-      <div className="mail-samples" role="group" aria-label="Example mails">
-        {SAMPLE_MAILS.map((mail) => (
-          <button
-            key={mail.id}
-            type="button"
-            data-testid={`sample-${mail.id}`}
-            onClick={() => put(mail.text)}
-          >
-            {mail.label}
-          </button>
-        ))}
-      </div>
+        {/* The two mails that get refused sit beside the ordinary one rather than
+            behind a "more examples" control. They are the demonstration. */}
+        <div className="mail-samples" role="group" aria-label="Example mails">
+          {SAMPLE_MAILS.map((mail) => (
+            <button
+              key={mail.id}
+              type="button"
+              data-testid={`sample-${mail.id}`}
+              onClick={() => put(mail.text)}
+            >
+              {mail.label}
+            </button>
+          ))}
+        </div>
 
-      <textarea
-        className="mail-text"
-        data-testid="mail-text"
-        aria-label="The order mail"
-        rows={7}
-        maxLength={MAX_ORDER_TEXT}
-        value={text}
-        onChange={(event) => put(event.target.value)}
-      />
-
-      <div className="mail-actions">
-        <button
-          type="button"
-          className="stage-cta"
-          data-testid="read-mail"
-          disabled={reading || text.trim() === ''}
-          onClick={() => void read()}
-        >
-          {reading ? 'Reading' : 'Read this mail'}
-        </button>
-      </div>
-
-      {problem && <p className="error" data-testid="mail-problem">{problem}</p>}
-
-      {result && (
-        <MailReading
-          result={result}
-          placing={placing}
-          placed={placed}
-          onConfirm={() => { if (result.ok) void place(result.proposal); }}
-          onDiscard={() => { setResult(null); setPlaced(false); setProblem(null); }}
+        <textarea
+          className="mail-text"
+          data-testid="mail-text"
+          aria-label="The order mail"
+          rows={7}
+          maxLength={MAX_ORDER_TEXT}
+          value={text}
+          onChange={(event) => put(event.target.value)}
         />
+
+        <div className="mail-actions">
+          <button
+            type="button"
+            className="stage-cta"
+            data-testid="read-mail"
+            disabled={reading || text.trim() === ''}
+            onClick={() => void read()}
+          >
+            {reading ? 'Reading' : 'Read this mail'}
+          </button>
+        </div>
+      </div>
+
+      <div className="mail-about">
+        <p className="order-ph">What happens to it</p>
+        <p className="mail-lede">
+          A model turns this text into a typed order, and two checks decide whether
+          that order may exist: one that it has the shape of an order, one that every
+          article is really in the catalogue. Then you confirm it, because a check
+          cannot.
+        </p>
+      </div>
+
+      {(problem !== null || result !== null) && (
+        <div className="mail-answer">
+          {problem && <p className="error" data-testid="mail-problem">{problem}</p>}
+
+          {result && (
+            <MailReading
+              result={result}
+              placing={placing}
+              placed={placed}
+              anchored={anchored}
+              onConfirm={() => { if (result.ok) void place(result.proposal); }}
+              onDiscard={() => { setResult(null); setPlaced(false); setProblem(null); }}
+            />
+          )}
+        </div>
       )}
-    </section>
+    </div>
   );
 }

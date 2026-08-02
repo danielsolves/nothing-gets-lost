@@ -18,7 +18,6 @@ import { DeliveriesService } from './deliveries.service';
 import { ExtractOrderController, EXTRACT_ORDER_SERVICE } from './extract-order.controller';
 import { ExtractOrderService } from './extract-order.service';
 import { HttpExtractor } from './extractor.client';
-import { McpProxyController, MCP_UPSTREAM } from './mcp-proxy.controller';
 import { MediatorIntake } from './mediator.intake';
 import { OrderViewsService } from './order-views.service';
 import { DemoOrderController } from './demo-order.controller';
@@ -53,15 +52,15 @@ const CLEANUP_INTERVAL_MS = 60 * 60_000;
 // cut connection fails the verification too instead of quietly bypassing it.
 const EGRESS_URL = process.env.EGRESS_URL ?? 'http://egress-gate:3003';
 
-// Where /api/mcp relays to. The service name inside the compose network, so nothing
-// has to be set for a clone to work; a host running the api outside the network sets
-// MCP_URL instead.
-const MCP_URL = process.env.MCP_URL ?? 'http://mcp:3007/mcp';
+// This service used to relay POST /api/mcp to the MCP server, because the browser
+// could not reach that port in a checkout and only the public host mapped /mcp onto
+// it. The ui container routes /mcp to it now, so the page calls the address it prints
+// and this service has nothing to do with the MCP server at all.
 
 @Module({
   controllers: [
     CatalogController, ChaosController, DemoOrderController,
-    ExtractOrderController, McpProxyController, OrdersController, ResetController,
+    ExtractOrderController, OrdersController, ResetController,
     StateController, StreamController, StripeWebhookController,
     SwitchesController, VerifyController, WebhookTargetController,
   ],
@@ -123,7 +122,6 @@ const MCP_URL = process.env.MCP_URL ?? 'http://mcp:3007/mcp';
     },
     { provide: WEBHOOK_TARGET_STORE, useFactory: () => new WebhookTargetStore(getPool()) },
     { provide: RATE_LIMITER, useFactory: () => new RateLimiter(getPool()) },
-    { provide: MCP_UPSTREAM, useValue: MCP_URL },
   ],
 })
 export class ApiModule {}

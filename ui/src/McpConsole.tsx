@@ -6,23 +6,28 @@
 // for, which is the wrong way round: almost nobody does the work, so the claim was
 // read as a claim and the open port might as well not have been there.
 //
-// What comes back is printed as it arrived, event-stream framing, escaped newlines
-// and all. Parsing the envelope and drawing a tidy table was the obvious kindness
-// and it was rejected, because a drawing of the answer is this page's word again and
-// the whole reason for this panel is that our word should not be needed. The request
-// is printed beside it for the same reason: with both in view a reader can repeat the
-// call from a terminal against the address above and compare the two.
+// The call goes to /mcp on this page's own origin, which is the address printed under
+// this console. It went to /api/mcp for a while, because only the outer nginx on the
+// public host mapped /mcp onto the MCP port, so a clone had the page on one port and
+// the server on another with nothing joining them. The ui container routes /mcp
+// itself now, so the relay is gone and the console calls the address it shows. That
+// was worth doing for its own sake: this panel exists so that nothing of ours stands
+// between the reader and the server, and a hop through our api was exactly something
+// of ours standing there.
 //
-// The call goes to /api/mcp on this host rather than to the MCP port directly. The
-// port answers with permissive CORS and would take the call, but it is only routed on
-// the page's own origin on the public host: on a clone started with `docker compose
-// up` the page is on one port and the server on another, with nothing mapping /mcp.
-// A console that works on the live site and is dead in every checkout would be worse
-// than none. The api hands the bytes over and hands the answer back untouched, and
-// what it fronts is a server with no tool that writes and no credential that could.
+// It arrives on orders_list. backlog_list was first, and on a healthy demo the
+// backlog is empty, so the first thing this console ever said was total: 0, which
+// reads as nothing having happened. Orders are the rows a reader recognises, and the
+// number one of them prints is the argument orders_entry takes, so the reader is
+// handed the next call by the last answer rather than asked to invent it.
+//
+// What comes back is printed as it arrived and again decoded, in McpAnswer, for the
+// reasons written there.
 import { useState } from 'react';
+import { McpAnswer } from './McpAnswer';
+import { NOTHING_KNOWN, idsIn, mergeIds, readAnswer, type KnownIds } from './mcp-answer';
 import {
-  BACKLOG_LIST, MCP_TOOLS, callRequest, initialValues,
+  MCP_TOOLS, ORDERS_LIST, callRequest, initialValues, provenance,
   type FieldValues, type McpField, type McpTool,
 } from './mcp-tools';
 
@@ -33,16 +38,19 @@ interface Answer {
 }
 
 export function McpConsole() {
-  const [tool, setTool] = useState<McpTool>(BACKLOG_LIST);
-  const [values, setValues] = useState<FieldValues>(() => initialValues(BACKLOG_LIST));
+  const [tool, setTool] = useState<McpTool>(ORDERS_LIST);
+  const [values, setValues] = useState<FieldValues>(() => initialValues(ORDERS_LIST));
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [calls, setCalls] = useState(1);
+  // Only ever numbers the server has printed on this screen. Nothing is remembered
+  // that the reader has not been shown.
+  const [known, setKnown] = useState<KnownIds>(NOTHING_KNOWN);
 
   function choose(next: McpTool): void {
     setTool(next);
-    setValues(initialValues(next));
+    setValues(initialValues(next, known));
     // The old answer belonged to the old tool. Left on screen under a new form it
     // reads as the answer to a question nobody asked.
     setAnswer(null);
@@ -60,12 +68,19 @@ export function McpConsole() {
     setRunning(true);
     setFailed(null);
     try {
-      const response = await fetch('/api/mcp', {
+      const response = await fetch('/mcp', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          // The streamable transport picks the shape of its reply from this, and
+          // refuses the call outright without it.
+          accept: 'application/json, text/event-stream',
+        },
         body: JSON.stringify(request),
       });
-      setAnswer({ status: response.status, sent, body: await response.text() });
+      const body = await response.text();
+      setAnswer({ status: response.status, sent, body });
+      setKnown((held) => mergeIds(held, idsIn(readAnswer(body).payload)));
     } catch {
       setAnswer(null);
       setFailed('The call did not get through. Nothing was reached, so there is no '
@@ -74,6 +89,8 @@ export function McpConsole() {
       setRunning(false);
     }
   }
+
+  const source = provenance(tool, known);
 
   return (
     <div className="mcp-console">
@@ -112,27 +129,16 @@ export function McpConsole() {
         </button>
       </div>
 
+      {source !== null && (
+        <p className="mcp-provenance" data-testid="mcp-provenance">{source}</p>
+      )}
+
       {failed !== null && (
         <p className="mcp-failed" data-testid="mcp-failed" role="status">{failed}</p>
       )}
 
       {answer !== null && (
-        <div className="mcp-answer">
-          <p className="mcp-status" data-testid="mcp-status">
-            POST /api/mcp answered {answer.status}. What went out first, then what came
-            back, byte for byte.
-          </p>
-          <pre className="mcp-sent" data-testid="mcp-sent" aria-label="The request that was sent">
-            {answer.sent}
-          </pre>
-          <pre
-            className="mcp-response"
-            data-testid="mcp-response"
-            aria-label="The response body, exactly as it arrived"
-          >
-            {answer.body}
-          </pre>
-        </div>
+        <McpAnswer status={answer.status} sent={answer.sent} body={answer.body} />
       )}
     </div>
   );

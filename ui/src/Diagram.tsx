@@ -21,6 +21,16 @@
 // mail were drawn as nodes beside the systems, which made two places an order comes
 // from look like two more places it goes to.
 //
+// That button carried a menu of its own for a while, headed "What to send", holding a
+// half-written order and an invented article number. Both fired a hardcoded string at
+// the extractor and printed a hand-written sentence about what came back. The order
+// builder now has a mail path in it where a visitor writes the text, reads the model's
+// own answer and sees which of the two checks stopped it, which is the same lesson
+// done properly. Two ways to one demonstration is one too many, and this was the worse
+// of them, sitting on the first control anybody meets. It is gone, and so is the
+// caveat about a replayed model that hung on its entries: that belongs on the answer
+// that was replayed, and it is there.
+//
 // And the nodes stood in three fixed columns, which is why the lines could be strips
 // of CSS. Letting the systems wrap means a line has to turn a corner, so the lines
 // are measured and drawn as one SVG over the box. That is also what the travelling
@@ -33,10 +43,10 @@ import {
   type SwitchState, type SwitchableTarget,
 } from '@ngl/contracts';
 import { lastDeliveredEvent } from './activity';
-import { NODES, ORDER_WAYS, faultsFor, type Node, type NodeId } from './machine';
+import { NODES, faultsFor, type Node, type NodeId } from './machine';
 import { NodeTile } from './NodeTile';
 import { StepProof } from './StepProof';
-import { TileMenu, type MenuSection } from './TileMenu';
+import { type MenuSection } from './TileMenu';
 import { useDeliveryPulses } from './useDeliveryPulses';
 import { useImpacts } from './useImpacts';
 import { useSpokenActivity } from './useSpokenActivity';
@@ -81,16 +91,6 @@ export function Diagram(props: {
    * seven things it feeds.
    */
   orderForm?: React.ReactNode;
-  /**
-   * Specification 8.5 wants the one replayed step said out loud. It was a banner
-   * under the whole machine, then a note on the order-mail tile, then a line beside
-   * the send button. Each move was towards the place it is true, and beside the
-   * button it was still not: it sat next to the ordinary order, which never touches
-   * the model, and read as a caveat about the whole machine.
-   *
-   * It is on the two menu entries that are read by the model, and nowhere else.
-   */
-  extractorMode?: 'live' | 'recorded';
 }) {
   const pulses = useDeliveryPulses(props.live ?? props.deliveries, props.deliveries);
   // The tile lines, each held until the dot carrying its news has reached that tile.
@@ -102,10 +102,10 @@ export function Diagram(props: {
   const struck = useImpacts(pulses);
   const layer = useWires(TARGETS);
 
-  // Neither malformed order creates an event, so nothing about them turns up in the
-  // queue or the log. What the endpoint answers is the only evidence the press did
-  // anything, and it belongs beside the button that fired it.
-  const [said, setSaid] = useState<Partial<Record<NodeId | 'entry', string>>>({});
+  // A repeated payment creates no new event, so nothing about it turns up in the queue
+  // or the log. What the endpoint answers is the only evidence the press did anything,
+  // and it belongs on the tile that fired it.
+  const [said, setSaid] = useState<Partial<Record<NodeId, string>>>({});
 
   // Opening a card in the queue lights up that order's path here, so the queue and
   // the systems read as one thing seen twice rather than as neighbours.
@@ -126,7 +126,7 @@ export function Diagram(props: {
     });
   };
 
-  const fire = (node: NodeId | 'entry', kind: ChaosKind) => {
+  const fire = (node: NodeId, kind: ChaosKind) => {
     void fetch(`/api/chaos/${kind}`, { method: 'POST' })
       .then((response) => response.json() as Promise<ChaosReply>)
       .then((reply) => setSaid((current) => ({ ...current, [node]: reply.detail })))
@@ -157,24 +157,6 @@ export function Diagram(props: {
       },
       ...mischief,
     ];
-  };
-
-  /**
-   * The two odd orders. The clean one is the button itself, so it is listed here
-   * without an action of its own: naming it is what tells a visitor that the plain
-   * press is the first of three things, rather than leaving them to guess that the
-   * menu holds the whole set.
-   */
-  const waysSection: MenuSection = {
-    heading: 'What to send',
-    items: ORDER_WAYS.filter((way) => way.kind !== null).map((way) => ({
-      id: way.id,
-      label: way.label,
-      means: props.extractorMode === 'recorded'
-        ? `${way.means}. Replayed here: no model key is configured`
-        : way.means,
-      run: () => fire('entry', way.kind as ChaosKind),
-    })),
   };
 
   /**
@@ -248,18 +230,12 @@ export function Diagram(props: {
 
         <div className="machine-entry">
           {/* Measured, so the line into the mediator hangs under this rather than
-              under the middle of the panel. */}
+              under the middle of the panel. The measuring looks inside for whichever
+              control is live, which is why the two ways of composing an order can
+              share one entrance without the line moving to the wrong thing. */}
           <span className="machine-entry-button" ref={layer.entryRef}>
             {props.orderForm}
           </span>
-          <TileMenu
-            menuLabel="Send an order that is not well formed"
-            testId="entry"
-            sections={[waysSection]}
-          />
-          {said.entry !== undefined && (
-            <span className="said" data-testid="said-entry">{said.entry}</span>
-          )}
         </div>
       </header>
 

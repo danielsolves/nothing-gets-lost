@@ -62,10 +62,12 @@ describe('McpServer', () => {
     expect(container).toHaveTextContent(/nothing here writes/i);
   });
 
-  // The run button goes through this host's api, and a panel about not taking our
-  // word for things cannot be quiet about the one hop it adds.
-  it('admits that running it from here goes through us', () => {
+  // It used to admit, in a paragraph of its own, that Run went through /api/mcp
+  // because only the public host mapped /mcp onto the MCP port. The ui container
+  // routes /mcp itself now, so the console calls the address printed above it and
+  // the paragraph describing the detour would be false.
+  it('names no detour, because there is none left', () => {
     const { container } = render(<McpServer />);
-    expect(container).toHaveTextContent(/\/api\/mcp/);
+    expect(container).not.toHaveTextContent(/\/api\/mcp/);
   });
 });

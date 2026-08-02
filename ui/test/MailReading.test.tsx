@@ -54,13 +54,15 @@ const MALFORMED: ExtractOrderResponse = {
 };
 
 function draw(result: ExtractOrderResponse, over: {
-  placing?: boolean; placed?: boolean; onConfirm?: () => void; onDiscard?: () => void;
+  placing?: boolean; placed?: boolean; anchored?: boolean;
+  onConfirm?: () => void; onDiscard?: () => void;
 } = {}) {
   render(
     <MailReading
       result={result}
       placing={over.placing ?? false}
       placed={over.placed ?? false}
+      anchored={over.anchored ?? false}
       onConfirm={over.onConfirm ?? (() => {})}
       onDiscard={over.onDiscard ?? (() => {})}
     />,
@@ -176,5 +178,28 @@ describe('MailReading', () => {
     draw(PROPOSED, { placed: true });
     expect(screen.queryByTestId('confirm-order')).not.toBeInTheDocument();
     expect(screen.getByTestId('mail-placed')).toHaveTextContent(/queue/i);
+  });
+
+  it('hangs the wire on the confirm button, but only when it is asked to', () => {
+    // The wire into the integration hub hangs on whichever control puts an order
+    // into it. On this path that is this button, and the panel around it decides
+    // whether this path is the one on screen.
+    draw(PROPOSED);
+    expect(screen.getByTestId('confirm-order')).not.toHaveAttribute('data-wire-anchor');
+    cleanup();
+    draw(PROPOSED, { anchored: true });
+    expect(screen.getByTestId('confirm-order')).toHaveAttribute('data-wire-anchor');
+  });
+
+  it('hangs it on nothing at all when there is nothing to place', () => {
+    // A refusal carries no button, so there is nothing here for a wire to point at
+    // and it must not land on the panel instead.
+    draw(INVENTED, { anchored: true });
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(0);
+  });
+
+  it('hangs it on nothing once the order has gone', () => {
+    draw(PROPOSED, { anchored: true, placed: true });
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(0);
   });
 });

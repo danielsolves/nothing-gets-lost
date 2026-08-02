@@ -12,10 +12,20 @@
 // Then the button sent a fixed basket on one press, with a quiet link beside it that
 // opened the detail, and the quiet one was the interesting one: a visitor pressed the
 // loud button and never saw what went out. It is two steps now, send button last.
+//
+// The builder holds two ways of composing the same order since, on two tabs: pick the
+// articles, or write the mail a customer would send and let a model read it. What is
+// asserted about that here is the seam, not the mail path itself, which has its own
+// file: one fold and not two, and which control the wire hangs on in each of the three
+// states the box can be in.
+//
+// Two assertions about the product list left this file when the list became a
+// component of its own. They are in OrderBasket.test.tsx, unchanged.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { OrderForm, randomBasket } from '../src/OrderForm';
+import type { ExtractOrderResponse } from '@ngl/contracts';
+import { OrderForm } from '../src/OrderForm';
 
 afterEach(cleanup);
 
@@ -23,6 +33,19 @@ const CATALOG = [
   { sku: 'TEAPOT', name: 'Cast iron teapot', cents: 4900 },
   { sku: 'MUG-BLUE', name: 'Blue mug', cents: 1200 },
 ];
+
+const READING: ExtractOrderResponse = {
+  ok: true,
+  mode: 'recorded',
+  raw: { items: [{ sku: 'MUG-BLUE', qty: 3 }] },
+  proposal: {
+    customerName: 'M. Berger',
+    customerEmail: 'm@example.com',
+    notes: null,
+    lines: [{ sku: 'MUG-BLUE', name: 'Blue mug', qty: 3, cents: 3600 }],
+    totalCents: 3600,
+  },
+};
 
 interface Sent { url: string; body: unknown }
 let sent: Sent[];
@@ -32,6 +55,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     if (url === '/api/catalog') return json(CATALOG);
     sent.push({ url, body: JSON.parse(String(init?.body ?? 'null')) });
+    if (url === '/api/extract-order') return json(READING);
     return json({ eventId: 'evt-1', orderId: 'ord-1' });
   });
 });
@@ -266,34 +290,109 @@ describe('OrderForm', () => {
     expect(screen.getByTestId('less-TEAPOT')).toBeDisabled();
   });
 
-  it('never opens on an empty basket, whatever the dice say', () => {
-    // An empty basket disables the send button the moment the panel opens, which
-    // reads as the demo being broken rather than as a form to fill in.
-    for (const roll of [0, 0.999, 0.5, 0.25]) {
-      const basket = randomBasket(CATALOG, () => roll);
-      expect(Object.values(basket).filter((qty) => qty > 0).length).toBeGreaterThan(0);
-    }
-  });
-
-  it('never puts more in the basket than the catalogue holds', () => {
-    expect(Object.keys(randomBasket(CATALOG, () => 0.999)).length)
-      .toBeLessThanOrEqual(CATALOG.length);
-    expect(randomBasket([], () => 0.5)).toEqual({});
-  });
-
-  it('names each button after the thing it changes', async () => {
-    // Two dozen buttons all called "+" is a screen reader reading out a row of
-    // plus signs. The label carries the product.
-    render(<OrderForm onPlaced={() => {}} />);
-    await openPanel();
-    expect(screen.getByLabelText('One more Cast iron teapot')).toBeInTheDocument();
-    expect(screen.getByLabelText('One fewer Blue mug')).toBeInTheDocument();
-  });
-
   it('fetches the catalogue only when somebody asks to see it', () => {
     // The folded panel stays empty until then: a visitor who never presses Create
     // order never needs eight products.
     render(<OrderForm onPlaced={() => {}} />);
     expect(screen.queryByTestId('qty-TEAPOT')).not.toBeInTheDocument();
+  });
+
+  it('offers both ways of composing the same order, in the one box', async () => {
+    // The mail path used to be a section of its own below the machine, so the two
+    // ways of making an order were a scroll apart and the choice between them was
+    // not on screen anywhere.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    const panel = screen.getByTestId('order-panel');
+    expect(panel).toContainElement(screen.getByTestId('order-tab-articles'));
+    expect(panel).toContainElement(screen.getByTestId('order-tab-mail'));
+    expect(panel).toContainElement(screen.getByTestId('mail-text'));
+  });
+
+  it('opens on the articles, and keeps the other pane out of the way', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByTestId('order-tab-articles')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('order-pane-mail')).toHaveAttribute('hidden');
+
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    expect(screen.getByTestId('order-pane-articles')).toHaveAttribute('hidden');
+    expect(screen.getByTestId('order-pane-mail')).not.toHaveAttribute('hidden');
+  });
+
+  it('unfolds once for both paths, rather than folding a fold', async () => {
+    // The builder borrows the queue card's fold so the page has one way of opening
+    // something. A pane inside it that opened again would be two.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    expect(screen.getAllByTestId('order-fold')).toHaveLength(1);
+    expect(screen.getByTestId('mail-text')).toBeInTheDocument();
+  });
+
+  it('holds a reading while the visitor looks at the articles and comes back', async () => {
+    // Both panes stay mounted. A pane thrown away when its tab loses focus throws a
+    // reading away with it, and the visitor pressed Read for that reading.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    fireEvent.click(screen.getByTestId('read-mail'));
+    await screen.findByTestId('mail-reading');
+
+    fireEvent.click(screen.getByTestId('order-tab-articles'));
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    expect(screen.getByTestId('mail-reading')).toBeInTheDocument();
+  });
+
+  it('gives the wire to the mail path only once there is something to confirm', async () => {
+    // The wire hangs on whichever control actually puts an order into the machine.
+    // On this path that is the confirm button, and until a mail has been read there
+    // is no such control: a wire to one that does not exist points at nothing.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId('read-mail'));
+    const confirm = await screen.findByTestId('confirm-order');
+    expect(confirm).toHaveAttribute('data-wire-anchor');
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(1);
+  });
+
+  it('gives it back to the send button when the visitor goes back to the articles', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    fireEvent.click(screen.getByTestId('read-mail'));
+    await screen.findByTestId('confirm-order');
+
+    fireEvent.click(screen.getByTestId('order-tab-articles'));
+    expect(screen.getByTestId('send-order')).toHaveAttribute('data-wire-anchor');
+    expect(screen.getByTestId('confirm-order')).not.toHaveAttribute('data-wire-anchor');
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(1);
+  });
+
+  it('takes the wire off both paths once the box is shut', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    fireEvent.click(screen.getByTestId('read-mail'));
+    await screen.findByTestId('confirm-order');
+
+    fireEvent.click(screen.getByTestId('close-order'));
+    expect(screen.getByTestId('create-order')).toHaveAttribute('data-wire-anchor');
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(1);
+  });
+
+  it('tells the page about an order the mail path placed, and expects no mail', async () => {
+    // Nothing is posted to the address the model read, so there is no confirmation
+    // mail on this path and a page waiting for one would wait forever.
+    const placed = vi.fn();
+    render(<OrderForm onPlaced={placed} />);
+    await openPanel();
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    fireEvent.click(screen.getByTestId('read-mail'));
+    fireEvent.click(await screen.findByTestId('confirm-order'));
+    await waitFor(() => expect(placed).toHaveBeenCalledWith('evt-1', false));
   });
 });

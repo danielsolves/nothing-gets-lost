@@ -13,9 +13,16 @@
 //
 // The second fix has since been redone. The two ways in were drawn as tiles on the
 // left, beside the systems, which made two places an order comes from look like two
-// more places it goes to. There is one entrance now, it is a button at the top of
-// the machine, and the odd orders that used to hang off the mail tile are what its
-// menu offers.
+// more places it goes to. There is one entrance now and it is a button at the top of
+// the machine.
+//
+// That button carried a menu for a while, holding two orders that were never going to
+// parse. Both fired a hardcoded string at the extractor and printed a hand-written
+// sentence about what came back. The order builder now holds a mail path where the
+// visitor writes the text, sees the model's own answer and sees which check stopped
+// it, so the menu was the worse of two ways to one demonstration and it is gone. What
+// is asserted here is that it stayed gone: the system tiles keep their menus, the way
+// in has none.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, within } from '@testing-library/react';
@@ -51,7 +58,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     sent.push({ url, body: JSON.parse(String(init?.body ?? 'null')) });
     return new Response(
-      JSON.stringify({ ok: true, detail: 'a malformed order was handed to the extractor' }),
+      JSON.stringify({ ok: true, detail: 'the repeated event was recognised and dropped' }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   });
@@ -91,29 +98,6 @@ describe('Diagram', () => {
     expect(screen.queryByTestId('box-mail')).not.toBeInTheDocument();
   });
 
-  it('says the model step is replayed on the two orders the model reads', () => {
-    // Spec 8.5 wants it said out loud. It was a banner under the whole machine,
-    // then a note on a tile that no longer exists, then a line beside the send
-    // button, where it sat next to the ordinary order and read as a caveat about
-    // the whole machine. The ordinary order never touches the model.
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
-    fireEvent.click(screen.getByTestId('menu-entry'));
-    expect(screen.getByTestId('menu-entry-garbage_payload'))
-      .toHaveTextContent(/replayed here: no model key/i);
-  });
-
-  it('keeps that caveat off the ordinary order, which never reaches the model', () => {
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="recorded" />);
-    expect(screen.getByTestId('machine-head')).not.toHaveTextContent(/model key/i);
-  });
-
-  it('says nothing about replaying when the model is really being called', () => {
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} extractorMode="live" />);
-    fireEvent.click(screen.getByTestId('menu-entry'));
-    expect(screen.getByTestId('menu-entry-garbage_payload'))
-      .not.toHaveTextContent(/replayed/i);
-  });
-
   it('puts the one way in at the top of the machine, before the systems it feeds', () => {
     // It was a button on a tile in the middle of the drawing, which meant the first
     // thing to press was not the first thing on the screen and a line above had to
@@ -121,7 +105,26 @@ describe('Diagram', () => {
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     const head = screen.getByTestId('machine-head');
     expect(head).toContainElement(screen.getByTestId('order-form'));
-    expect(head).toContainElement(screen.getByTestId('menu-entry'));
+  });
+
+  it('offers nothing beside the way in but the way in itself', () => {
+    // The menu here held two orders that were never going to parse, each one a
+    // hardcoded string fired at the extractor and a hand-written sentence about the
+    // reply. The mail path in the builder demonstrates both with the visitor's own
+    // text and the model's own answer, so this was a second and worse way to the
+    // same thing, on the first control a visitor meets.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    expect(screen.queryByTestId('menu-entry')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('said-entry')).not.toBeInTheDocument();
+  });
+
+  it('says nothing about a replayed model where no model is called', () => {
+    // Spec 8.5 wants the replayed step said out loud, and it is: on the reading
+    // itself, in the mail path, where the answer that was replayed is on screen. It
+    // was a caveat beside the send button here for a while, next to an ordinary
+    // order that never touches the model.
+    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
+    expect(screen.getByTestId('machine-head')).not.toHaveTextContent(/model key|replayed/i);
   });
 
   it('offers the three faults rather than one on and off', () => {
@@ -184,26 +187,22 @@ describe('Diagram', () => {
     expect(sent).toEqual([{ url: '/api/chaos/duplicate_webhook', body: null }]);
   });
 
-  it('hands the malformed orders to the entrance they are sent from', () => {
-    render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    choose('entry', 'garbage_payload');
-    expect(sent).toEqual([{ url: '/api/chaos/garbage_payload', body: null }]);
-  });
-
-  it('keeps the odd orders off the systems, which are not what sent them', () => {
+  it('offers no malformed order on a system, which is not what would send one', () => {
+    // They hung off an order-mail tile once and off the entrance after that. Neither
+    // is a fault of a system we call, and both are the mail path's work now.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
     fireEvent.click(screen.getByTestId('menu-hubspot'));
     expect(screen.queryByTestId('menu-hubspot-garbage_payload')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-hubspot-hallucinate')).not.toBeInTheDocument();
   });
 
-  it('repeats what came back, so pressing it is visibly not a no-op', async () => {
-    // Neither malformed order creates an event, so nothing appears in the queue or
-    // the log. Without this line the two loudest buttons on the page did nothing a
-    // visitor could see.
+  it('still says what came back from a one-off, so pressing it is not a no-op', async () => {
+    // The repeated payment creates no new event, so nothing about it turns up in the
+    // queue. What the endpoint answered is the only evidence the press did anything.
     render(<Diagram {...base} switches={ALL_UP} deliveries={[]} />);
-    choose('entry', 'hallucinate');
-    expect(await screen.findByTestId('said-entry'))
-      .toHaveTextContent(/handed to the extractor/i);
+    choose('stripe', 'duplicate_webhook');
+    expect(await screen.findByTestId('said-stripe'))
+      .toHaveTextContent(/recognised and dropped/i);
   });
 
   it('carries the state on the box, so the fault shows where it was caused', () => {

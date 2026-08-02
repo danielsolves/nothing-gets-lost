@@ -11,10 +11,16 @@
 // There are no source nodes left. The shop and the order mail used to be drawn as
 // tiles beside the systems, which put three different kinds of thing in one row: two
 // places an order comes from and five places it goes to, all shaped alike. There is
-// one way in now and it is a button, at the top of the machine where a visitor
-// starts. What used to be the mail tile survives as the second and third way to
-// press that button, because a half-written order is not another system, it is
-// another thing to send.
+// one way in now and it is a button, at the top of the machine where a visitor starts.
+//
+// There was an ORDER_WAYS list here, the two malformed orders the mail tile used to
+// carry, offered from a menu on that button. Each fired a hardcoded string at the
+// extractor and printed a sentence about the reply, and neither let the visitor see
+// what the model had actually answered. The order builder has a mail path in it now
+// where the text is the visitor's, the answer is the model's and the refusal names the
+// check that made it. The list is gone with the menu it fed. `garbage_payload` and
+// `hallucinate` stay in the contract and in the api: the endpoint still exists, and a
+// vocabulary should not shrink because one menu stopped offering it.
 //
 // So the sides are gone too. A node no longer says where it stands: the mediator is
 // on the left and the systems fill the space beside and below it, which is a fact
@@ -91,47 +97,6 @@ export function faultsFor(target: SwitchableTarget): Fault[] {
   if (target !== 'ledger') return FAULTS;
   return FAULTS.map((fault) => (fault.state === 'cut' ? LEDGER_CUT : fault));
 }
-
-/**
- * One way in, three things to send through it.
- *
- * The clean order is the plain press. The other two are what the order mail tile
- * used to carry: specification section 4 has a free-text route read by the model,
- * and the whole point of drawing it was that malformed input does not get lost
- * either. Neither creates an event, so nothing about them turns up in the queue, and
- * the reply from the endpoint is the only evidence the press did anything.
- *
- * `kind: null` is the ordinary order. It is in the same list rather than beside it
- * because to a visitor these are three variants of one action, and a list that holds
- * only the odd two would read as if the normal case lived somewhere else.
- */
-export interface OrderWay {
-  id: string;
-  label: string;
-  means: string;
-  kind: ChaosKind | null;
-}
-
-export const ORDER_WAYS: OrderWay[] = [
-  {
-    id: 'clean',
-    label: 'Send a clean order',
-    means: 'A well-formed basket, straight from the shop page',
-    kind: null,
-  },
-  {
-    id: 'garbage_payload',
-    label: 'Send a half-written order',
-    means: 'Free text the model has to make sense of, and cannot',
-    kind: 'garbage_payload',
-  },
-  {
-    id: 'hallucinate',
-    label: 'Make the AI invent an article number',
-    means: 'The model returns a SKU that does not exist. It is caught, not stored',
-    kind: 'hallucinate',
-  },
-];
 
 /**
  * Reading order. The payment leads because it is the one hop every order makes

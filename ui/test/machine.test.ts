@@ -9,8 +9,7 @@
 // two ever read the same way again, the demo has lost its point.
 import { describe, it, expect } from 'vitest';
 import { SWITCHABLE_TARGETS } from '@ngl/contracts';
-import { CHAOS_KINDS } from '@ngl/contracts';
-import { NODES, ORDER_WAYS, SYSTEMS, faultsFor } from '../src/machine';
+import { NODES, SYSTEMS, faultsFor } from '../src/machine';
 
 describe('faults', () => {
   it('offers only the states this page can honestly produce', () => {
@@ -74,39 +73,16 @@ describe('mischief', () => {
     }
   });
 
-  it('leaves the malformed orders to the way in, not to a system', () => {
-    // They used to hang off an order-mail tile. Neither is a fault of a system we
-    // call: both are things a visitor sends, so they belong to the one entrance.
+  it('offers no malformed order anywhere in the drawing', () => {
+    // They hung off an order-mail tile once, and off the entrance after that. The
+    // two of them fired a hardcoded string at the extractor and printed a sentence
+    // about the reply. The mail path in the order builder does the same
+    // demonstration with the visitor's own text, the model's own answer and the name
+    // of the check that stopped it, so this list holds neither.
     for (const node of SYSTEMS) {
       expect(node.mischief.map((m) => m.kind)).not.toContain('garbage_payload');
       expect(node.mischief.map((m) => m.kind)).not.toContain('hallucinate');
     }
-  });
-});
-
-describe('the way in', () => {
-  it('offers the clean order alongside the two odd ones', () => {
-    // Naming the plain press in the same list is what tells a visitor these are
-    // three variants of one action. A list holding only the odd two would read as
-    // if the normal case lived somewhere else.
-    expect(ORDER_WAYS.map((way) => way.id))
-      .toEqual(['clean', 'garbage_payload', 'hallucinate']);
-  });
-
-  it('marks the ordinary order as the one that breaks nothing', () => {
-    const clean = ORDER_WAYS.find((way) => way.id === 'clean');
-    expect(clean?.kind).toBeNull();
-  });
-
-  it('sends every odd order through a chaos kind the server knows', () => {
-    for (const way of ORDER_WAYS) {
-      if (way.kind === null) continue;
-      expect(CHAOS_KINDS as readonly string[]).toContain(way.kind);
-    }
-  });
-
-  it('says of each way what it does, not just what it is called', () => {
-    for (const way of ORDER_WAYS) expect(way.means.length).toBeGreaterThan(10);
   });
 });
 

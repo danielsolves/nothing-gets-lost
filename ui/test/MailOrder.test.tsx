@@ -12,6 +12,12 @@
 // The address is the one field deliberately left behind. The model read it out of a
 // text box a stranger typed into, and posting it as the confirmation address would
 // turn this panel into a way to send mail from our domain to any inbox named in it.
+//
+// It is a pane inside the order builder now rather than a section of its own, so two
+// things are asserted about the move: that it brings no heading, because the box it
+// sits in has already introduced itself, and that it hangs the wire on the confirm
+// button when the builder asks it to and on nothing at all when there is no confirm
+// button to hang it on.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -245,5 +251,49 @@ describe('MailOrder', () => {
     await screen.findByTestId('mail-placed');
     expect(screen.queryByTestId('confirm-order')).not.toBeInTheDocument();
     expect(sent.filter((call) => call.url === '/api/orders')).toHaveLength(1);
+  });
+
+  it('brings no heading, because the box it sits in has one already', () => {
+    // It had an h3 of its own while it was a section below the machine. Inside the
+    // builder the tab names it, and a second name for the same pane is one name too
+    // many.
+    render(<MailOrder />);
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
+  it('keeps the reasoning the box around it does not give', () => {
+    // What was cut is what the machine's own heading says. What stays is the part
+    // nothing else on the page says: two checks, and a person after them.
+    render(<MailOrder />);
+    const panel = screen.getByTestId('mail-order');
+    expect(panel).toHaveTextContent(/two checks/i);
+    expect(panel).toHaveTextContent(/because a check cannot/i);
+  });
+
+  it('hangs the wire on the confirm button when the builder asks for it', async () => {
+    render(<MailOrder anchored />);
+    await read();
+    expect(screen.getByTestId('confirm-order')).toHaveAttribute('data-wire-anchor');
+  });
+
+  it('hangs it on nothing while there is nothing to confirm', () => {
+    // Asked for it or not, there is no control on this path that puts an order into
+    // the machine until a mail has been read.
+    render(<MailOrder anchored />);
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(0);
+  });
+
+  it('takes it off again once the order has gone', async () => {
+    render(<MailOrder anchored />);
+    await read();
+    fireEvent.click(screen.getByTestId('confirm-order'));
+    await screen.findByTestId('mail-placed');
+    expect(document.querySelectorAll('[data-wire-anchor]')).toHaveLength(0);
+  });
+
+  it('hangs it nowhere unless it was asked to', async () => {
+    render(<MailOrder />);
+    await read();
+    expect(screen.getByTestId('confirm-order')).not.toHaveAttribute('data-wire-anchor');
   });
 });
