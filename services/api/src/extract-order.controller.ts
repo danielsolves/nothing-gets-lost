@@ -1,5 +1,5 @@
 // services/api/src/extract-order.controller.ts
-// POST /api/extract-order — free text in, a proposal or a refusal out.
+// POST /api/extract-order. Free text in, a proposal or a refusal out.
 //
 // It is the only door on this service that spends money when a stranger presses it,
 // so almost everything here is about calls that must not be made. A body that is not

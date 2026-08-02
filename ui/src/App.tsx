@@ -24,6 +24,7 @@ import { useMemo, useState } from 'react';
 import { Connections } from './Connections';
 import { Built } from './Built';
 import { Diagram } from './Diagram';
+import { MailOrder } from './MailOrder';
 import { McpServer } from './McpServer';
 import { OrderForm } from './OrderForm';
 import { Mediator } from './Mediator';
@@ -88,6 +89,13 @@ export function App() {
             }
           />
         </section>
+
+        {/* The other way in, and it sits after the machine rather than beside the
+            button because it only means anything to somebody who has already watched
+            an order go through. Read first, then read differently: the same five
+            systems, the same queue, and an order that a model proposed out of a plain
+            mail and a person confirmed before it was placed. */}
+        <MailOrder />
 
         <Outside endpoint={<Connections />} mcp={<McpServer />} />
 

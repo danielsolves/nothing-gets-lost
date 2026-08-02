@@ -23,13 +23,12 @@
 // It holds no wire anchor and takes nothing from the board, so it can be mounted
 // anywhere on the page without the diagram having to know about it.
 import { useState } from 'react';
-import {
-  MAX_ORDER_TEXT,
-  type ExtractOrderResponse, type PlaceOrderResponse, type ProposedOrder,
-} from '@ngl/contracts';
+import { MAX_ORDER_TEXT, type ExtractOrderResponse, type ProposedOrder } from '@ngl/contracts';
 import { MailReading } from './MailReading';
+import { isExtractOrderResponse, isPlaceOrderResponse } from './mail-order-answer';
 import { SAMPLE_MAILS, sampleMail } from './mail-order-samples';
 
+/** The server's own words for why it refused, which are written to be read. */
 async function refusalFrom(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
   if (typeof body === 'object' && body !== null && 'message' in body
@@ -39,12 +38,16 @@ async function refusalFrom(response: Response): Promise<string> {
   return `That did not work (${response.status}).`;
 }
 
+function saying(trouble: unknown): string {
+  return trouble instanceof Error ? trouble.message : 'That did not work.';
+}
+
 export function MailOrder({
   onPlaced,
 }: {
   /** Told the event id of a confirmed order, for a page that wants to point at it. */
   onPlaced?: (eventId: string) => void;
-} = {}) {
+}) {
   const [text, setText] = useState(sampleMail('ordinary').text);
   const [reading, setReading] = useState(false);
   const [result, setResult] = useState<ExtractOrderResponse | null>(null);
@@ -74,10 +77,13 @@ export function MailOrder({
       // A refused reading is a 200 and is the interesting case, so only the
       // endpoint's own refusals land here: a full hour, a field left blank, a book.
       if (!response.ok) throw new Error(await refusalFrom(response));
-      const answer = (await response.json()) as ExtractOrderResponse;
+      const answer: unknown = await response.json();
+      if (!isExtractOrderResponse(answer)) {
+        throw new Error('The reading came back in a shape this page cannot draw.');
+      }
       setResult(answer);
     } catch (trouble) {
-      setProblem((trouble as Error).message);
+      setProblem(saying(trouble));
     } finally {
       setReading(false);
     }
@@ -96,11 +102,14 @@ export function MailOrder({
         }),
       });
       if (!response.ok) throw new Error(await refusalFrom(response));
-      const order = (await response.json()) as PlaceOrderResponse;
+      const order: unknown = await response.json();
+      if (!isPlaceOrderResponse(order)) {
+        throw new Error('The order went out and came back unrecognisable.');
+      }
       setPlaced(true);
       onPlaced?.(order.eventId);
     } catch (trouble) {
-      setProblem((trouble as Error).message);
+      setProblem(saying(trouble));
     } finally {
       setPlacing(false);
     }
