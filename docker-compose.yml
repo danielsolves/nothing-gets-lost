@@ -116,7 +116,13 @@ services:
   extractor:
     build: { context: ., dockerfile: services/extractor/Dockerfile }
     env_file: *env-file
-    environment: *db-env
+    environment:
+      <<: *db-env
+      # The model key, named here rather than left to arrive with the rest of .env.
+      # It only arrived that way before, which worked and hid the one variable that
+      # decides whether this service calls out at all. Empty is a supported state and
+      # not a forgotten setting: the extractor then answers from fixtures (spec 8.5).
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
@@ -163,7 +169,7 @@ services:
       # The model key is passed straight through. The page derives what it says
       # about the extraction from whether this is set, so there is no second
       # label to keep in sync and no way for the two to disagree.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # Where the Stripe webhook comes back to. Behind a domain this is the public
       # https url, not localhost.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}

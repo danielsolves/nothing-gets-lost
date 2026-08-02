@@ -9,13 +9,13 @@ import { Module } from '@nestjs/common';
 import { getPool } from '@ngl/db';
 import { ExtractController, EXTRACT_SERVICE } from './extract.controller';
 import { ExtractService } from './extract.service';
-import { createModel } from './anthropic.model';
+import { createModel } from './openai.model';
 
 @Module({
   controllers: [ExtractController],
   providers: [{
     provide: EXTRACT_SERVICE,
-    useFactory: () => new ExtractService(getPool(), createModel(process.env.ANTHROPIC_API_KEY)),
+    useFactory: () => new ExtractService(getPool(), createModel(process.env.OPENAI_API_KEY)),
   }],
 })
 class ExtractorModule {}

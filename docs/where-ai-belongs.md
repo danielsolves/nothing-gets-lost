@@ -4,7 +4,7 @@ This page is a decision list for one problem: this repository is good evidence o
 
 ## What is already in the tree
 
-There is an AI seam and it is switched off. `services/extractor/` is a NestJS service on port 3006 with one door, `POST /internal/extract`. It takes free text, hands it to Claude Haiku with the eight rows of `products` in the prompt, and puts the answer through two checks: `orderSchema` in `schema.ts`, which is strict and rejects an invented `discountPercent` as hard as it rejects a missing email, and `findUnknownSkus` in `catalog.check.ts`, which rejects a SKU that is not in the table. `createModel` returns `null` when `ANTHROPIC_API_KEY` is empty, and the service then replays `fixtures/extractions.json`. The public demo runs that way today, and the page says so on the two menu entries that use it.
+There is an AI seam and it is switched off. `services/extractor/` is a NestJS service on port 3006 with one door, `POST /internal/extract`. It takes free text, hands it to a small OpenAI model with the eight rows of `products` in the prompt, and puts the answer through two checks: `orderSchema` in `schema.ts`, which is strict and rejects an invented `discountPercent` as hard as it rejects a missing email, and `findUnknownSkus` in `catalog.check.ts`, which rejects a SKU that is not in the table. `createModel` returns `null` when `OPENAI_API_KEY` is empty, and the service then replays `fixtures/extractions.json`. The public demo runs that way today, and the page says so on the two menu entries that use it.
 
 Three facts about that seam matter to everything below.
 
@@ -46,13 +46,13 @@ The **invented article** is the one the two checks catch. Keep the chaos entry, 
 
 The **plausible misreading** is the one the checks cannot catch and the most honest thing this feature can show. "A dozen coasters" read as `qty: 2` passes the schema and passes the catalogue, and there is no check in this repository that will ever catch it. That is why the confirm step exists and why it is not skippable. The page should say, next to the button, that the two checks prove the answer is well formed and that no check proves it is right, and that this is why a human presses send.
 
-The **model itself being unreachable** is the third, and it should be broken the same way everything else on this page is broken. Point the extractor at the egress gate and give the model a tile in the diagram like the other five, with the same three states. A visitor cuts the line to Anthropic and the intake refuses cleanly with "the model could not be reached", no event, no half written order, and every order already in the queue carries on untouched. That last part is the sentence a client actually wants to hear.
+The **model itself being unreachable** is the third, and it should be broken the same way everything else on this page is broken. Point the extractor at the egress gate and give the model a tile in the diagram like the other five, with the same three states. A visitor cuts the line to the model provider and the intake refuses cleanly with "the model could not be reached", no event, no half written order, and every order already in the queue carries on untouched. That last part is the sentence a client actually wants to hear.
 
 ### Size and cost
 
 Roughly 350 to 450 lines across `services/api` (one controller, one service that maps an extraction onto `OrderLine[]`), `packages/contracts`, and `ui`, plus a two phase flow so the extraction is proposed and then committed. The extractor itself barely changes. One integration test that matters: a refused extraction creates no row in `events`. A per caller cap has to become real; `rate-limit.guard.ts` already records that the `model` bucket was declared and never checked, and shipping a public textarea that calls a paid api without one would be a worse mistake than the one it documents. Two to three days.
 
-Running it is cheap. Haiku with the catalogue in the prompt is roughly 400 input and 150 output tokens per extraction, which is around a tenth of a cent. A thousand extractions a month is about a euro. The cap exists to stop abuse, not to save money.
+Running it is cheap. The model with the catalogue in the prompt is roughly 400 input and 150 output tokens per extraction. On the nano tier that is a small fraction of a cent, and a thousand extractions a month does not reach a euro. The cap exists to stop abuse, not to save money.
 
 ## 2. The MCP server as the thing being demonstrated, not a footnote
 
@@ -104,7 +104,7 @@ The risk is that the scoreboard reads 40 agreements and no disagreements and loo
 
 ### Size and cost
 
-A migration, a small advisor client in the mediator that never blocks a delivery, a tile, a panel and a query. Around 250 lines. Two days. One Haiku call per failed attempt is the cost driver, and a visitor who cuts a line generates six per delivery, so it needs a cap and it must be off in `test/load/soak.test.ts`, which pushes 10,000 events through deliberately failing targets. At demo volumes a few euros a month.
+A migration, a small advisor client in the mediator that never blocks a delivery, a tile, a panel and a query. Around 250 lines. Two days. One model call per failed attempt is the cost driver, and a visitor who cuts a line generates six per delivery, so it needs a cap and it must be off in `test/load/soak.test.ts`, which pushes 10,000 events through deliberately failing targets. At demo volumes a few euros a month.
 
 ## 4. A note about what just happened
 

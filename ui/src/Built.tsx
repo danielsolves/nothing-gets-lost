@@ -94,8 +94,10 @@ const PARTS: ReadonlyArray<Part> = [
     role: 'The backlog, served to any MCP client you point at it.',
   },
   {
-    name: 'Claude Haiku',
-    version: '4.5',
+    // The version is in the name here, the way it is for Docker Compose above: the
+    // size is half of what identifies this model and reads wrong split off into the
+    // version slot.
+    name: 'GPT-5.4 nano',
     figure: 'optional',
     role: 'Reads an order out of a plain mail. No key, recorded answers.',
   },

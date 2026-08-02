@@ -1,6 +1,6 @@
 # services/extractor/Dockerfile
 # Image for the extractor (port 3006). fixtures/ is copied in on purpose: without
-# an ANTHROPIC_API_KEY the service answers from those recorded extractions, which
+# an OPENAI_API_KEY the service answers from those recorded extractions, which
 # is what lets a stranger who just cloned the repo see the pipeline work (spec 8.5).
 FROM node:22-alpine AS deps
 WORKDIR /app
