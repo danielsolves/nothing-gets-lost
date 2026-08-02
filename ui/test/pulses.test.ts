@@ -57,6 +57,38 @@ describe('pulsesFrom', () => {
     expect(pulses).toEqual([]);
   });
 
+  it('draws an order that arrived and was delivered inside one board interval', () => {
+    // The case that made the dots come and go. Boards arrive once a second and the
+    // worker fans a batch out in a few hundred milliseconds, so an order sent just
+    // after a board is already delivered by the next one: its rows are never seen
+    // queued, every one of them is a first sighting, and the rule that ignores first
+    // sightings swallowed the whole order. Whether anything moved on screen came
+    // down to which side of the tick the order happened to land on.
+    const before = [delivery(1, 'hubspot', 'done')];
+    const after = [
+      ...before,
+      { ...delivery(2, 'stripe', 'done'), eventId: 'evt-new' },
+      { ...delivery(3, 'slack', 'done'), eventId: 'evt-new' },
+    ];
+    const pulses = pulsesFrom(before, after);
+    expect(pulses).toEqual([
+      { id: 2, target: 'shop', kind: 'arrival' },
+      { id: 2, target: 'stripe', kind: 'delivered' },
+      { id: 3, target: 'slack', kind: 'delivered' },
+    ]);
+  });
+
+  it('still ignores rows of an order that was already on the board', () => {
+    // The guard is still doing its job for everything it was written for: a row that
+    // belongs to an order this page did not watch arrive is history.
+    const before = [delivery(1, 'hubspot', 'pending', 0)];
+    const after = [...before, delivery(2, 'stripe', 'done')];
+    // Delivery 2 carries its own event id, so it reads as a new order and its
+    // arrival is announced. What must not happen is a dot for a row of `evt-1`.
+    const pulses = pulsesFrom(before, after);
+    expect(pulses.filter((pulse) => pulse.target === 'hubspot')).toEqual([]);
+  });
+
   it('draws a delivery that answers within one snapshot exactly once', () => {
     // The board arrives once a second, so a system that answers in 300 ms is never
     // seen in flight. The send stamp survives into the settled row, so the dot still
@@ -280,13 +312,20 @@ describe('pulsesFrom, on a board the page watched empty', () => {
     ]);
   });
 
-  it('still says nothing about a row it never watched move', () => {
-    // A delivery that is already confirmed the first time it is seen was not watched
-    // travelling. The order arriving is the thing that happened, and that is the dot.
+  it('draws the delivery too, on an order that was already through when first seen', () => {
+    // This used to assert the arrival alone, on the grounds that a row already
+    // confirmed the first time it is seen was not watched travelling. That reads well
+    // and was wrong about the commonest case on the page: the first order after a
+    // reset is sent, fanned out and delivered inside one board interval, so its rows
+    // are never seen queued. The page did watch that order go through. It sampled the
+    // board late, which is a fact about the sampling and not about the delivery.
     const pulses = pulsesFrom([], [delivery(1, 'hubspot', 'done')], {
       boardWasEmptied: true,
     });
-    expect(pulses).toEqual([{ id: 1, target: 'shop', kind: 'arrival' }]);
+    expect(pulses).toEqual([
+      { id: 1, target: 'shop', kind: 'arrival' },
+      { id: 1, target: 'hubspot', kind: 'delivered' },
+    ]);
   });
 
   it('has nothing to say about an empty board that stays empty', () => {

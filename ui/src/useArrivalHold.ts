@@ -8,9 +8,18 @@
 // answer for an order that was still visibly on its way, and the travel stopped
 // being the thing happening and became decoration laid over it.
 //
-// So the hub reads a board that is held until the dot has landed. Nothing else on
-// the page is: the diagram, the tiles and the dot itself all read the live list, and
-// they must, because the dot is the thing being waited for.
+// So the hub reads a board that is held until the dot has landed.
+//
+// It was the only thing that did, on the reasoning that the diagram, the tiles and
+// the dot all read the live list and must, because the dot is the thing being waited
+// for. That is true of the dot alone. The tiles say "Delivering", which is a
+// statement about state in exactly the way the hub's counters are, and left on the
+// live list a system tile announced a delivery for an order the visitor could still
+// see travelling to the hub. It was the same lie the hold exists to prevent, one
+// panel over, and the dots leaving for the systems ran ahead in the same way.
+//
+// So everything the drawing says and every dot going out reads the held board, and
+// the arrival dot reads the live one, because it is what starts the wait.
 //
 // The rule for what counts as an arrival is the one pulses.ts uses, an event id that
 // was not in the previous list, and it is written out again here rather than shared.

@@ -15,6 +15,7 @@
 import type { SwitchState } from '@ngl/contracts';
 import type { Activity } from './activity';
 import type { Fault, Node } from './machine';
+import type { PulseKind } from './pulses';
 import { SystemMark } from './SystemMark';
 import { TileMenu, type MenuSection } from './TileMenu';
 
@@ -28,6 +29,15 @@ export function NodeTile(props: {
   doing?: Activity | null;
   /** Set while the order open in the queue is passing through here. */
   tracked?: 'open' | 'done';
+  /**
+   * The dot that has just reached this tile, for as long as the hit lasts.
+   *
+   * A dot used to run to the edge of a tile and vanish, and the tile did not move, so
+   * the drawing showed a thing approaching a system and never a system taking it in.
+   * It carries the kind rather than a flag because the two arrivals a tile can take
+   * are opposite news, and the flash is in the dot's own colour.
+   */
+  struck?: PulseKind;
   /** What the last one-off action reported back. */
   said?: string;
   menu?: MenuSection[];
@@ -43,6 +53,7 @@ export function NodeTile(props: {
       data-testid={`box-${node.id}`}
       data-state={state}
       data-tracked={props.tracked}
+      data-struck={props.struck}
     >
       {/* What the tile is, kept together and kept apart from what it is doing. The
           mark used to sit above a centred name with the note under it, which made

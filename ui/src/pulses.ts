@@ -112,21 +112,36 @@ function signature(delivery: DeliveryView): string {
  * that fills it in everywhere, and every order appearing out of the middle of the
  * picture was the worse of the two.
  */
-function arrivals(
+/**
+ * The orders that turned up between these two snapshots.
+ *
+ * Read twice below, once to draw the dot coming in and once to decide whether a row
+ * being seen for the first time is news or history, and the two must agree: a row
+ * that belongs to an order this page watched arrive is work it watched begin.
+ */
+function newEvents(
   previous: DeliveryView[], current: DeliveryView[], boardWasEmptied: boolean,
-): Pulse[] {
+): Set<string> {
   // An empty previous list is the shape the list has before the first one lands, so
   // treating it as a baseline would fire an arrival for every order on the board on
   // every page load. Unless the caller watched the board empty, in which case the
   // empty list is a fact about the board rather than the absence of one, and the
   // first order after a reset is announced like any other.
-  if (previous.length === 0 && !boardWasEmptied) return [];
+  if (previous.length === 0 && !boardWasEmptied) return new Set();
 
   const known = new Set(previous.map((delivery) => delivery.eventId));
+  const fresh = new Set<string>();
+  for (const delivery of current) {
+    if (!known.has(delivery.eventId)) fresh.add(delivery.eventId);
+  }
+  return fresh;
+}
+
+function arrivals(current: DeliveryView[], fresh: Set<string>): Pulse[] {
   const standsFor = new Map<string, number>();
 
   for (const delivery of current) {
-    if (known.has(delivery.eventId)) continue;
+    if (!fresh.has(delivery.eventId)) continue;
     const lowest = standsFor.get(delivery.eventId);
     if (lowest === undefined || delivery.id < lowest) {
       standsFor.set(delivery.eventId, delivery.id);
@@ -153,22 +168,29 @@ export function pulsesFrom(
   if (previous === undefined) return [];
 
   const before = new Map(previous.map((delivery) => [delivery.id, signature(delivery)]));
+  const fresh = newEvents(previous, current, boardWasEmptied);
 
   // Arrivals first, because an order reaches the hub before anything it queues can
   // move, and a snapshot that holds both should read in that order.
-  const pulses: Pulse[] = arrivals(previous, current, boardWasEmptied);
+  const pulses: Pulse[] = arrivals(current, fresh);
 
   for (const delivery of current) {
     if (!drawn(delivery)) continue;
     const was = before.get(delivery.id);
 
-    // A row we are seeing for the first time is not a change we witnessed, it is a
-    // row we just learned about. Without this, a page load fired a dot for every
-    // delivery on the board: the list starts empty, that empty list becomes the
-    // baseline, and the first real snapshot then looks like forty things moving at
-    // once. The next genuine transition of the same row still pulses, because by
-    // then there is something to compare against.
-    if (was === undefined) continue;
+    // A row seen for the first time is usually not a change we witnessed but a row we
+    // just learned about, and firing on it made a page load look like forty things
+    // moving at once: the list starts empty, that empty list becomes the baseline, and
+    // the first real snapshot arrives looking like a burst.
+    //
+    // Unless it belongs to an order that turned up in this very snapshot. Then its
+    // rows are not history, they are the work that order just started, and the guard
+    // was swallowing the one case the animation exists for. Boards arrive once a
+    // second and the worker fans a batch out in a few hundred milliseconds, so an
+    // order sent and delivered inside one board interval was never seen queued at
+    // all: every row was a first sighting, every dot was skipped, and whether the
+    // page drew anything came down to which side of the tick the order landed on.
+    if (was === undefined && !fresh.has(delivery.eventId)) continue;
     if (was === signature(delivery)) continue;
 
     const kind = kindOf(delivery);
