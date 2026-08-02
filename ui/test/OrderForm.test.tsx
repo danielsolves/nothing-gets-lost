@@ -52,6 +52,16 @@ let sent: Sent[];
 
 beforeEach(() => {
   sent = [];
+  // jsdom implements no layout, so it ships no ResizeObserver either. The tab strip
+  // uses one to keep the bar the width of the tab it sits under, and the panels use
+  // one to take the height of the pane on screen. Nothing here measures pixels, so a
+  // stub that never fires is the honest stand-in: it lets the component mount and
+  // leaves both measurements where the first pass put them.
+  vi.stubGlobal('ResizeObserver', class {
+    observe() { /* no layout to observe */ }
+    unobserve() { /* no layout to observe */ }
+    disconnect() { /* nothing was observed */ }
+  });
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     if (url === '/api/catalog') return json(CATALOG);
     sent.push({ url, body: JSON.parse(String(init?.body ?? 'null')) });
@@ -309,15 +319,41 @@ describe('OrderForm', () => {
     expect(panel).toContainElement(screen.getByTestId('mail-text'));
   });
 
-  it('opens on the articles, and keeps the other pane out of the way', async () => {
+  it('opens on the articles, and parks the other pane off to one side', async () => {
+    // The pane that is not chosen used to be dropped out of the layout with hidden,
+    // which is a swap and not a movement: the box changed what it held between two
+    // frames. It now waits beside the box and travels in, the way the hub's panels
+    // do, so data-current is what says which one is on screen.
     render(<OrderForm onPlaced={() => {}} />);
     await openPanel();
     expect(screen.getByTestId('order-tab-articles')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('order-pane-mail')).toHaveAttribute('hidden');
+    expect(screen.getByTestId('order-pane-articles')).toHaveAttribute('data-current', 'true');
+    expect(screen.getByTestId('order-pane-mail')).toHaveAttribute('data-current', 'false');
+    expect(screen.getByTestId('order-pane-mail')).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(screen.getByTestId('order-tab-mail'));
-    expect(screen.getByTestId('order-pane-articles')).toHaveAttribute('hidden');
-    expect(screen.getByTestId('order-pane-mail')).not.toHaveAttribute('hidden');
+    expect(screen.getByTestId('order-pane-articles')).toHaveAttribute('data-current', 'false');
+    expect(screen.getByTestId('order-pane-mail')).toHaveAttribute('data-current', 'true');
+    expect(screen.getByTestId('order-pane-mail')).not.toHaveAttribute('aria-hidden');
+  });
+
+  it('wears the same tab strip as the integration hub, bar and all', async () => {
+    // The two ways in were a pair of pills while the hub below carried tabs with a
+    // sliding bar. One page, one idea, two shapes. They are one component now, so a
+    // reader who has learned what the hub's tabs do has learned these as well.
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    const bar = screen.getByTestId('order-tab-underline');
+    expect(bar).toHaveAttribute('data-for', 'articles');
+    fireEvent.click(screen.getByTestId('order-tab-mail'));
+    expect(bar).toHaveAttribute('data-for', 'mail');
+  });
+
+  it('names the two ways after what you do on them', async () => {
+    render(<OrderForm onPlaced={() => {}} />);
+    await openPanel();
+    expect(screen.getByTestId('order-tab-articles')).toHaveTextContent('Pick Articles');
+    expect(screen.getByTestId('order-tab-mail')).toHaveTextContent('Write Order Mail');
   });
 
   it('unfolds once for both paths, rather than folding a fold', async () => {

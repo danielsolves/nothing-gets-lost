@@ -20,12 +20,13 @@
 // is gone: for the whole of every visit it read "Live" in green, which is one more
 // claim the reader has to take our word for, next to numbers that already move by
 // themselves when the stream is alive.
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Counters, DeliveryView, OrderView, TimelineEntry } from '@ngl/contracts';
 import { currentWork } from './activity';
 import { Backlog } from './Backlog';
 import { backlogOf } from './backlog-rows';
 import { Queue } from './Queue';
+import { TabPanels, TabStrip, type TabSpec } from './Tabs';
 import { Timeline } from './Timeline';
 import { othersHere } from './viewers';
 
@@ -48,25 +49,37 @@ export function Mediator(props: {
   // Counted here rather than inside the panel: the tab has to say how many are
   // waiting while the panel is shut, which is the state it is in nearly always.
   const parked = backlogOf(props.deliveries, props.orders).length;
-  const tabs = useRef<HTMLDivElement>(null);
-  // Where the underline has to be. Measured rather than assumed: the two labels are
-  // different lengths, and a bar that travelled a guessed distance would arrive next
-  // to the tab instead of under it. Re-measured on resize because the labels are set
-  // in a monospace face at a fixed size but the panel around them is fluid.
-  const [bar, setBar] = useState({ left: 0, width: 0 });
 
-  useLayoutEffect(() => {
-    const list = tabs.current;
-    if (!list) return undefined;
-    const measure = () => {
-      const selected = list.querySelector<HTMLElement>('[aria-selected="true"]');
-      if (selected) setBar({ left: selected.offsetLeft, width: selected.offsetWidth });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    return () => observer.disconnect();
-  }, [tab]);
+  const tabs: TabSpec<Tab>[] = [
+    {
+      key: 'queue',
+      label: 'Order queue',
+      panel: (
+        <Queue
+          deliveries={props.deliveries}
+          orders={props.orders}
+          openOrder={props.openOrder}
+          onToggle={props.onToggleOrder}
+        />
+      ),
+    },
+    { key: 'log', label: 'Log', panel: <Timeline entries={props.timeline} /> },
+    // The third thing the mediator holds. It carries its count on the tab because a
+    // backlog behind a shut panel is a backlog nobody knows about, and this panel is
+    // shut nearly all the time: the demo delivers.
+    {
+      key: 'backlog',
+      label: 'Backlog',
+      badge: parked > 0
+        ? (
+          <span className="hub-tab-count" data-testid="hub-tab-backlog-count">
+            {parked}
+          </span>
+        )
+        : undefined,
+      panel: <Backlog deliveries={props.deliveries} orders={props.orders} />,
+    },
+  ];
 
   return (
     <section className="mediator" data-testid="mediator">
@@ -175,113 +188,26 @@ export function Mediator(props: {
         )}
       </p>
 
-      <div
-        className="mediator-tabs"
-        role="tablist"
-        aria-label="What the hub holds"
-        ref={tabs}
-      >
-        <button
-          type="button"
-          role="tab"
-          id="hub-tab-queue"
-          data-testid="hub-tab-queue"
-          aria-selected={tab === 'queue'}
-          aria-controls="hub-panel-queue"
-          onClick={() => setTab('queue')}
-        >
-          Order queue
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="hub-tab-log"
-          data-testid="hub-tab-log"
-          aria-selected={tab === 'log'}
-          aria-controls="hub-panel-log"
-          onClick={() => setTab('log')}
-        >
-          Log
-        </button>
-        {/* The third thing the mediator holds. It carries its count on the tab
-            because a backlog behind a closed tab is a backlog nobody knows about,
-            and this panel is shut nearly all the time: the demo delivers. */}
-        <button
-          type="button"
-          role="tab"
-          id="hub-tab-backlog"
-          data-testid="hub-tab-backlog"
-          aria-selected={tab === 'backlog'}
-          aria-controls="hub-panel-backlog"
-          onClick={() => setTab('backlog')}
-        >
-          Backlog
-          {parked > 0 && (
-            <span className="hub-tab-count" data-testid="hub-tab-backlog-count">
-              {parked}
-            </span>
-          )}
-        </button>
+      <TabStrip
+        tabs={tabs}
+        current={tab}
+        onPick={setTab}
+        label="What the hub holds"
+        tabPrefix="hub-tab"
+        panelPrefix="hub-panel"
+      />
 
-        {/* Decorative: the tabs already say which is selected, to a screen reader
-            and to the eye. This only makes the change legible as one movement. */}
-        <span
-          className="mediator-tab-underline"
-          data-testid="hub-tab-underline"
-          data-for={tab}
-          aria-hidden="true"
-          style={{ transform: `translateX(${bar.left}px)`, width: `${bar.width}px` }}
-        />
-      </div>
-
-      {/* Both panels, laid over each other and moved sideways, rather than one of
-          them swapped for the other. A panel that is unmounted when its tab loses
-          focus has nowhere to travel from, and the swap made the two tabs read as
-          two places instead of two views of one thing.
-
-          Its height is fixed and does not answer to what is inside it. An opened
+      {/* A window of a size that does not move, which is why this one takes its
+          height from the stylesheet rather than from the panel on screen. An opened
           card makes itself taller and pushes the cards below it down; the window
-          stays the size it was and the list scrolls. */}
-      <div className="mediator-panels" data-tab={tab}>
-        <div
-          className="mediator-panel"
-          id="hub-panel-queue"
-          data-testid="hub-panel-queue"
-          data-current={tab === 'queue' ? 'true' : 'false'}
-          aria-hidden={tab === 'queue' ? undefined : 'true'}
-          role="tabpanel"
-          aria-labelledby="hub-tab-queue"
-        >
-          <Queue
-            deliveries={props.deliveries}
-            orders={props.orders}
-            openOrder={props.openOrder}
-            onToggle={props.onToggleOrder}
-          />
-        </div>
-        <div
-          className="mediator-panel"
-          id="hub-panel-log"
-          data-testid="hub-panel-log"
-          data-current={tab === 'log' ? 'true' : 'false'}
-          aria-hidden={tab === 'log' ? undefined : 'true'}
-          role="tabpanel"
-          aria-labelledby="hub-tab-log"
-        >
-          <Timeline entries={props.timeline} />
-        </div>
-        <div
-          className="mediator-panel"
-          id="hub-panel-backlog"
-          data-testid="hub-panel-backlog"
-          data-current={tab === 'backlog' ? 'true' : 'false'}
-          aria-hidden={tab === 'backlog' ? undefined : 'true'}
-          role="tabpanel"
-          aria-labelledby="hub-tab-backlog"
-        >
-          <Backlog deliveries={props.deliveries} orders={props.orders} />
-        </div>
-      </div>
+          stays as it was and the list scrolls inside it. */}
+      <TabPanels
+        tabs={tabs}
+        current={tab}
+        fit="window"
+        tabPrefix="hub-tab"
+        panelPrefix="hub-panel"
+      />
     </section>
   );
 }

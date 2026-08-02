@@ -29,6 +29,7 @@ import { useEffect, useState } from 'react';
 import { type CatalogItem, type PlaceOrderResponse } from '@ngl/contracts';
 import { MailOrder } from './MailOrder';
 import { MOST, OrderBasket, randomBasket } from './OrderBasket';
+import { TabPanels, TabStrip, type TabSpec } from './Tabs';
 
 /** Which of the two ways of composing an order is on screen. */
 type Way = 'articles' | 'mail';
@@ -112,20 +113,87 @@ export function OrderForm({
     }
   }
 
-  /** One tab, so the two read as one control with two settings rather than as two. */
-  const tab = (which: Way, label: string) => (
-    <button
-      type="button"
-      role="tab"
-      id={`order-tab-${which}`}
-      data-testid={`order-tab-${which}`}
-      aria-selected={way === which}
-      aria-controls={`order-pane-${which}`}
-      onClick={() => setWay(which)}
-    >
-      {label}
-    </button>
-  );
+  // The same strip the integration hub wears below, down to the bar that slides
+  // between the labels. It was a pair of pills here, which made one page carry two
+  // shapes for one idea: a reader who had learned what the hub's tabs do had to
+  // learn these separately.
+  const tabs: TabSpec<Way>[] = [
+    {
+      key: 'articles',
+      label: 'Pick Articles',
+      panel: (
+        // The basket on the left, who it is for on the right. Two columns rather than
+        // one long form: what is being sent is the interesting half, and stacked under
+        // a paragraph it was the half a visitor scrolled past.
+        <div className="order-articles">
+          <div className="order-basket">
+            <p className="order-ph">What is in it</p>
+            <OrderBasket catalog={catalog} quantities={quantities} onStep={step} />
+          </div>
+
+          <div className="order-who">
+            <p className="order-ph">Who it is for</p>
+            <p className="order-why">
+              You can enter your email to receive a real confirmation and verify the
+              email integration.
+            </p>
+
+            <input placeholder="Your name (optional)" value={name} data-testid="order-name"
+                   aria-label="Your name" autoComplete="name"
+                   onChange={(event) => setName(event.target.value)} />
+            <input placeholder="Your email address (optional)" value={email}
+                   data-testid="order-email" aria-label="Your email address"
+                   type="email" autoComplete="email"
+                   onChange={(event) => setEmail(event.target.value)} />
+
+            {/* Under the fields rather than at the foot of the panel. It is about
+                what happens to what you just typed, so it belongs where you typed
+                it, and it reads in the same voice as the line above them. */}
+            <p className="order-why">
+              Info: Your address is used for this one order and deleted after 24 hours.
+            </p>
+          </div>
+
+          {/* The send button ends the pane, bottom left. It is what the wire into the
+              integration hub hangs on, and the hub is on the left, so the order leaves
+              the drawing on the side it is going to. */}
+          <div className="order-foot">
+            {/* The anchor only while this pane is the one on screen. Both panes are in
+                the markup the whole time, and a wire running to a control that is
+                folded or parked off to one side would point at nothing. */}
+            <button
+              type="button"
+              className="stage-cta"
+              data-wire-anchor={onArticles ? '' : undefined}
+              data-testid="send-order"
+              disabled={busy || emptyBasket}
+              onClick={() => void send()}
+            >
+              {busy ? 'Sending' : 'Send order'}
+            </button>
+
+            <div className="order-foot-said">
+              {emptyBasket && (
+                <p className="order-hint">Put something in the basket to send an order.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'mail',
+      label: 'Write Order Mail',
+      panel: (
+        // No address is posted on this path, so no confirmation mail is coming and
+        // nothing should be waiting for one.
+        <MailOrder
+          anchored={open && way === 'mail'}
+          onPlaced={(eventId) => onPlaced(eventId, false)}
+        />
+      ),
+    },
+  ];
 
   return (
     <div className="order-form">
@@ -178,95 +246,31 @@ export function OrderForm({
           </button>
 
           {/* The two ways in, at the top of the box, because the choice between them
-              is the first thing to make and the same tabs the hub uses below. */}
-          <div className="order-tabs" role="tablist" aria-label="How to write the order">
-            {tab('articles', 'Pick the articles')}
-            {tab('mail', 'Write the mail')}
-          </div>
+              is the first thing to make. */}
+          <TabStrip
+            tabs={tabs}
+            current={way}
+            onPick={setWay}
+            label="How to write the order"
+            tabPrefix="order-tab"
+            panelPrefix="order-pane"
+          />
 
-          {/* Both panes stay mounted and the one that is not chosen is hidden. A pane
-              thrown away when its tab loses focus takes a reading with it, and the
-              visitor pressed a button for that reading. */}
-          <div
-            className="order-pane order-articles"
-            id="order-pane-articles"
-            data-testid="order-pane-articles"
-            role="tabpanel"
-            aria-labelledby="order-tab-articles"
-            hidden={way !== 'articles'}
-          >
-            {/* The basket on the left, who it is for on the right. Two columns rather
-                than one long form: what is being sent is the interesting half, and
-                stacked under a paragraph it was the half a visitor scrolled past. */}
-            <div className="order-basket">
-              <p className="order-ph">What is in it</p>
-              <OrderBasket catalog={catalog} quantities={quantities} onStep={step} />
-            </div>
+          {/* Both panes stay mounted and the one that is not chosen waits off to the
+              side. A pane thrown away when its tab loses focus takes a reading with
+              it, and the visitor pressed a button for that reading.
 
-            <div className="order-who">
-              <p className="order-ph">Who it is for</p>
-              <p className="order-why">
-                You can enter your email to receive a real confirmation and verify the
-                email integration.
-              </p>
-
-              <input placeholder="Your name (optional)" value={name} data-testid="order-name"
-                     aria-label="Your name" autoComplete="name"
-                     onChange={(event) => setName(event.target.value)} />
-              <input placeholder="Your email address (optional)" value={email}
-                     data-testid="order-email" aria-label="Your email address"
-                     type="email" autoComplete="email"
-                     onChange={(event) => setEmail(event.target.value)} />
-
-              {/* Under the fields rather than at the foot of the panel. It is about
-                  what happens to what you just typed, so it belongs where you typed
-                  it, and it reads in the same voice as the line above them. */}
-              <p className="order-why">
-                Info: Your address is used for this one order and deleted after 24 hours.
-              </p>
-            </div>
-
-            {/* The send button ends the pane, bottom left. It is what the wire into
-                the integration hub hangs on, and the hub is on the left, so the order
-                leaves the drawing on the side it is going to. */}
-            <div className="order-foot">
-              {/* The anchor only while this pane is the one on screen. Both panes are
-                  in the markup the whole time, and a wire running to a control that
-                  is folded or hidden away would point at nothing. */}
-              <button
-                type="button"
-                className="stage-cta"
-                data-wire-anchor={onArticles ? '' : undefined}
-                data-testid="send-order"
-                disabled={busy || emptyBasket}
-                onClick={() => void send()}
-              >
-                {busy ? 'Sending' : 'Send order'}
-              </button>
-
-              <div className="order-foot-said">
-                {emptyBasket && (
-                  <p className="order-hint">Put something in the basket to send an order.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="order-pane"
-            id="order-pane-mail"
-            data-testid="order-pane-mail"
-            role="tabpanel"
-            aria-labelledby="order-tab-mail"
-            hidden={way !== 'mail'}
-          >
-            {/* No address is posted on this path, so no confirmation mail is coming
-                and nothing should be waiting for one. */}
-            <MailOrder
-              anchored={open && way === 'mail'}
-              onPlaced={(eventId) => onPlaced(eventId, false)}
-            />
-          </div>
+              This box grows to the pane on screen rather than holding a fixed frame
+              the way the hub does. The two are nothing like the same height, and laid
+              over each other unmeasured the taller would set the height of both: the
+              article path would carry the empty space of a mail it is not showing. */}
+          <TabPanels
+            tabs={tabs}
+            current={way}
+            fit="content"
+            tabPrefix="order-tab"
+            panelPrefix="order-pane"
+          />
         </div>
       </div>
 

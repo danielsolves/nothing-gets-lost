@@ -1500,18 +1500,21 @@ body {
   color: var(--faint);
 }
 
-.mediator-tabs {
+/* Two strips wear this: the integration hub, and the order box above it. They were
+   different controls doing one job, which made the page carry two shapes for one
+   idea. */
+.tab-strip {
   position: relative;
   display: flex;
   gap: 2px;
   border-bottom: 1px solid var(--line-strong);
 }
 
-/* One bar for both tabs, told where to go from the selected tab's own measurements.
-   Each tab used to carry its own bottom border, which could only switch on and off:
-   the mark vanished on one side of the panel and reappeared on the other, and the
-   two tabs read as two places rather than two views of one. */
-.mediator-tab-underline {
+/* One bar for all the tabs, told where to go from the selected tab's own
+   measurements. Each tab used to carry its own bottom border, which could only
+   switch on and off: the mark vanished on one side of the panel and reappeared on
+   the other, and the tabs read as separate places rather than views of one thing. */
+.tab-underline {
   position: absolute;
   left: 0;
   bottom: -1px;
@@ -1520,7 +1523,7 @@ body {
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.mediator-tabs button {
+.tab-strip button {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1551,9 +1554,9 @@ body {
   letter-spacing: 0;
   text-align: center;
 }
-.mediator-tabs button:hover { color: var(--muted); }
-.mediator-tabs button[aria-selected='true'] { color: var(--accent); }
-.mediator-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab-strip button:hover { color: var(--muted); }
+.tab-strip button[aria-selected='true'] { color: var(--accent); }
+.tab-strip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* A window onto a list, of a size that does not move. The queue is taken out of
    flow inside it, because in flow it did one of two wrong things: it either
@@ -1568,18 +1571,16 @@ body {
 
    overflow: hidden is also what makes the sideways travel a slide rather than two
    panels briefly side by side in a wider box. */
-.mediator-panels {
+/* overflow: hidden is what makes the sideways travel a slide rather than two panels
+   briefly side by side in a wider box. Which side each one waits on is set from the
+   markup, worked out from its position in the strip: with three tabs the middle one
+   has to be able to leave in either direction, and no static rule can say that. */
+.tab-panels {
   position: relative;
-  min-height: 17rem;
   overflow: hidden;
 }
 
-.mediator-panel {
-  position: absolute;
-  inset: 0;
-  max-height: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+.tab-panel {
   /* Off to one side, and out of reach once it gets there. visibility is what takes
      the parked panel out of the tab order: the queue is a list of buttons, and
      parked off-screen while still focusable it would swallow a dozen tab stops into
@@ -1589,21 +1590,49 @@ body {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
               visibility 0s linear 0.3s;
 }
-.mediator-panel[data-current='true'] {
+.tab-panel[data-current='true'] {
   visibility: visible;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
 }
 
-/* Each panel is parked on the side it sits on in the strip, so the movement matches
-   the direction the reader's eye just travelled. Written out per pair rather than
-   generated, because with three tabs the middle one has to be able to leave in
-   either direction and a single rule cannot say that. */
-.mediator-panels[data-tab='queue'] #hub-panel-log,
-.mediator-panels[data-tab='queue'] #hub-panel-backlog { transform: translateX(100%); }
-.mediator-panels[data-tab='log'] #hub-panel-queue { transform: translateX(-100%); }
-.mediator-panels[data-tab='log'] #hub-panel-backlog { transform: translateX(100%); }
-.mediator-panels[data-tab='backlog'] #hub-panel-queue,
-.mediator-panels[data-tab='backlog'] #hub-panel-log { transform: translateX(-100%); }
+/* A window onto a list, of a size that does not move. The queue is taken out of flow
+   inside it, because in flow it did one of two wrong things: it either stopped at a
+   height of its own and left the rest of the panel empty, or it grew and the whole
+   drawing changed shape every time an order arrived.
+
+   It was briefly made to grow while a card was open, and that was the wrong reading
+   of the same complaint: the hub stretched, left a field of empty panel under the one
+   open card, and the drawing changed shape whenever somebody opened an order. The
+   card grows; the cards below it move down; the window stays where it is and the list
+   scrolls. */
+.tab-panels[data-fit='window'] { min-height: 17rem; }
+.tab-panels[data-fit='window'] .tab-panel {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The other kind: no window, no scroll of its own, the box is as tall as the pane on
+   screen. The height is measured in the markup and eased here, so switching panes
+   grows or shrinks the box in the same movement as the slide rather than snapping to
+   the new height before the old pane has left.
+
+   The panes are stacked in one grid cell rather than taken out of flow, and that is
+   load-bearing rather than a matter of taste. Positioned absolutely they gave the box
+   no width to take from them, and the order builder collapsed to a third of the page
+   with every product name broken over two lines. Stacked, the box is as wide as its
+   widest pane and as tall as whichever one is on screen. */
+.tab-panels[data-fit='content'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-panels[data-fit='content'] .tab-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
 
 .extractor-note {
   margin: 0;
@@ -1894,7 +1923,7 @@ body {
      no one of them looks like the next one's cause. */
   .board { grid-template-columns: 1fr; }
 
-  .mediator-panel { height: 17rem; }
+  .tab-panels[data-fit='window'] .tab-panel { height: 17rem; }
   .mediator { grid-template-rows: none; }
 
   /* Four things in the head and room for three. Given a phone's width the badge
@@ -1988,7 +2017,7 @@ body {
    padding arithmetic would have to be redone the next time the wording changes.
    This is the control the whole demo asks a visitor to press first. */
 .order-form .stage-cta { min-height: 44px; }
-.mediator-tabs button { padding-block: 13px; }
+.tab-strip button { padding-block: 13px; }
 
 /* A 17px line of text is a link, not a target. It reveals the form for ordering
    something other than the default basket, which is the second thing the page
@@ -2389,42 +2418,14 @@ body {
   background: var(--surface);
 }
 
-/* The choice, at the top, because it is the first one to make. The right padding
-   clears the close button, which the "who it is for" heading used to have to do. */
-.order-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-right: 34px;
-}
-.order-tabs button {
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--line-input);
-  border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-}
-.order-tabs button:hover { border-color: var(--line-strong); color: var(--text); }
-.order-tabs button[aria-selected='true'] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.order-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* The pane that is not chosen takes no space and no tab stop. Laid over each other
-   the way the hub's panels are, the taller of the two would have set the height of
-   both, and the article path would have grown to hold a mail it is not showing. */
-.order-pane { display: grid; min-width: 0; }
-.order-pane[hidden] { display: none; }
+/* The strip is the shared one now, so the only thing left to say here is where it
+   sits. The right padding clears the close button, which the "who it is for" heading
+   used to have to do. */
+.order-builder > .tab-strip { padding-right: 34px; }
 
 .order-articles {
+  display: grid;
+  min-width: 0;
   /* The basket takes the larger share. Split evenly, the name column came out at
      86px and three of the eight products wrapped over two lines, which turned a
      price list into a ragged block. The right side is prose and wraps without
