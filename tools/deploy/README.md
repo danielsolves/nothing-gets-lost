@@ -581,9 +581,13 @@ serving the old version is a pull and a container swap, well inside five minutes
 By hand, if GitHub is the thing that is broken:
 
 ```bash
-ssh merkurdesign 'setsid nohup /usr/local/bin/ngl-deploy <sha> > /var/log/ngl-deploy.log 2>&1 < /dev/null &'
-ssh merkurdesign 'tail -f /var/log/ngl-deploy.log'
+ssh <deploy-host> 'setsid nohup /usr/local/bin/ngl-deploy <sha> > /var/log/ngl-deploy.log 2>&1 < /dev/null &'
+ssh <deploy-host> 'tail -f /var/log/ngl-deploy.log'
 ```
+
+`<deploy-host>` is whatever the operator's ssh config calls it. It is not written out
+here for the same reason nothing else about the host is: this file is public, and a
+runbook is just as usable with a placeholder.
 
 `setsid nohup` is not optional; a deploy started in the ssh session dies with the
 connection.
