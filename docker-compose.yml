@@ -31,6 +31,24 @@ x-db-env: &db-env
   NODE_ENV: production
   DATABASE_URL: postgres://ngl:${DATABASE_PASSWORD:-ngl}@db:5432/ngl
 
+# Every built service carries both an `image:` name and a `build:` section, and the
+# combination is the point.
+#
+# `docker compose up --build` still builds from source, so the promise on the front of
+# the README, clone it and bring it up, is unchanged for a stranger and for the `stack`
+# job that checks that promise on every pull request. The image name is just the tag
+# the build gets.
+#
+# On the demo host nothing is built at all. NGL_TAG is set to the commit that CI built
+# and published, `docker compose pull` fetches exactly those images, and what serves
+# traffic is byte-identical to what the tests ran against. Before this, the runner
+# built nine images and tested them, then the host built nine *different* images and
+# served those: same source, but a base image or an npm tarball could have moved in
+# between, and nobody would have known.
+#
+# It also takes the heaviest build off a host that is short on memory, and it makes a
+# rollback a matter of pointing NGL_TAG at an older commit.
+
 services:
   db:
     image: postgres:16-alpine
@@ -55,6 +73,7 @@ services:
   # can meet a half-built schema. Applied files are recorded, so a second `up` is
   # a no-op rather than a conflict.
   migrate:
+    image: ghcr.io/danielsolves/ngl-migrate:${NGL_TAG:-local}
     build: { context: ., dockerfile: packages/db/Dockerfile }
     env_file: *env-file
     environment: *db-env
@@ -63,6 +82,7 @@ services:
     restart: on-failure
 
   egress-gate:
+    image: ghcr.io/danielsolves/ngl-egress-gate:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/egress-gate/Dockerfile }
     env_file: *env-file
     environment: *db-env
@@ -80,6 +100,7 @@ services:
   # It reports unhealthy while a visitor has the ledger switched off: that is the
   # truth, and nothing restarts it — the process is alive, only its socket is shut.
   ledger:
+    image: ghcr.io/danielsolves/ngl-ledger:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/ledger/Dockerfile }
     env_file: *env-file
     environment: *db-env
@@ -94,6 +115,7 @@ services:
     restart: unless-stopped
 
   mailer:
+    image: ghcr.io/danielsolves/ngl-mailer:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/mailer/Dockerfile }
     env_file: *env-file
     environment:
@@ -114,6 +136,7 @@ services:
     restart: unless-stopped
 
   extractor:
+    image: ghcr.io/danielsolves/ngl-extractor:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/extractor/Dockerfile }
     env_file: *env-file
     environment:
@@ -134,6 +157,7 @@ services:
     restart: unless-stopped
 
   mediator:
+    image: ghcr.io/danielsolves/ngl-mediator:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/mediator/Dockerfile }
     env_file: *env-file
     environment:
@@ -152,6 +176,7 @@ services:
     restart: unless-stopped
 
   api:
+    image: ghcr.io/danielsolves/ngl-api:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/api/Dockerfile }
     env_file: *env-file
     environment:
@@ -196,6 +221,7 @@ services:
   # coming up cold does not answer questions about a database nothing has written
   # to yet.
   mcp:
+    image: ghcr.io/danielsolves/ngl-mcp:${NGL_TAG:-local}
     build: { context: ., dockerfile: services/mcp/Dockerfile }
     # No env_file, unlike every other service. .env is where the writing database
     # url and the keys live, and this is the one process that should not be able to
@@ -215,6 +241,7 @@ services:
     restart: unless-stopped
 
   ui:
+    image: ghcr.io/danielsolves/ngl-ui:${NGL_TAG:-local}
     build: { context: ., dockerfile: ui/Dockerfile }
     ports: ['${UI_PORT:-5173}:8080']
     depends_on:

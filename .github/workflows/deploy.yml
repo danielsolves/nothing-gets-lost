@@ -27,6 +27,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit to run. Empty means the head of main. Fill it in to roll back.'
+        required: false
+        default: ''
 
 # No write access is needed anywhere: nothing is committed, tagged or published.
 permissions:
@@ -77,16 +82,36 @@ jobs:
           chmod 600 "$HOME/.ssh/known_hosts"
 
       # One call, and deliberately nothing else. There is no rsync, no scp, no
-      # second command and no heredoc, because the far side ignores whatever is
+      # second command and no heredoc, because the far side does not run what is
       # requested here: authorized_keys pins this key to ngl-deploy with
-      # `command="..."`. The word below is documentation for whoever reads the log;
-      # sshd discards it and puts it in SSH_ORIGINAL_COMMAND, which ngl-deploy
-      # echoes once as an audit line.
+      # `command="..."`, and sshd puts the request in SSH_ORIGINAL_COMMAND instead.
+      #
+      # ngl-deploy reads one thing out of it, an optional commit for a rollback, and
+      # refuses anything that is not an ancestor of main. So this key can replay code
+      # that was merged and passed all four required checks, and nothing else: not an
+      # arbitrary registry tag, not an unreviewed commit, not another program.
+      # The rollback input is checked here rather than trusted. It reaches a remote
+      # command line, and it arrives from a form field, so it is pinned to the only
+      # shape a commit can have before it goes anywhere. The far side checks it again
+      # and refuses anything that is not an ancestor of main; this is the near half of
+      # the same rule, and it also keeps the value out of a `run:` expansion, which is
+      # where workflow inputs turn into script injection.
+      - name: Check the requested commit
+        env:
+          REQUESTED: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          if [ -n "${REQUESTED:-}" ] && ! printf '%s' "$REQUESTED" | grep -Eq '^[0-9a-f]{7,40}$'; then
+            echo "not a commit sha: $REQUESTED" >&2
+            exit 1
+          fi
+
       - name: Deploy
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          REQUESTED: ${{ inputs.commit }}
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/deploy_key" \
@@ -99,4 +124,4 @@ jobs:
               -o ServerAliveInterval=30 \
               -p "$DEPLOY_PORT" \
               "$DEPLOY_USER@$DEPLOY_HOST" \
-              ngl-deploy
+              "ngl-deploy ${REQUESTED:-}"
