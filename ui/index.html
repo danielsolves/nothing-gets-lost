@@ -22,9 +22,40 @@
           href="/fonts/space-grotesk-latin.woff2" />
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="/fonts/jetbrains-mono-latin.woff2" />
+    <!-- Runs before first paint, on purpose. Setting this from React would let the
+         page render in one theme and then swap, which is the flash everybody
+         recognises and nobody likes.
+
+         The cookie is written by the theme switch on danielsolves.ai, scoped to the
+         parent domain so it reaches this subdomain. localStorage cannot be used for
+         this: it is scoped to the origin that wrote it, and this is a different one.
+         No cookie means nobody has chosen, and the operating system decides, which
+         is what the media query in styles.css already does. -->
+    <script>
+      (function () {
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)danielsolves\.theme=(dark|light)/);
+          if (m) document.documentElement.setAttribute('data-theme', m[1]);
+        } catch (e) {
+          /* Cookies refused. The operating system decides, which is a fine answer. */
+        }
+      })();
+    </script>
   </head>
   <body>
+    <!-- The same navigation the rest of danielsolves.ai carries, rendered from a copy
+         of the same file, so a visitor who arrives here from the portfolio does not
+         feel handed off to somewhere else.
+
+         `base` makes every link absolute: a relative one would point into this
+         origin, where none of those pages exist. `active` is passed explicitly
+         because a foreign path says nothing about which page of the main site is
+         showing. `lang-switch="off"` because this page has no German. -->
+    <site-nav base="https://danielsolves.ai/"
+              active="nothing-gets-lost"
+              lang-switch="off"></site-nav>
     <div id="root"></div>
+    <script src="/site-nav.js" defer></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
