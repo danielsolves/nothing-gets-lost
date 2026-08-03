@@ -44,7 +44,7 @@ const PARTS: ReadonlyArray<Part> = [
   },
   {
     name: 'Vite',
-    version: '5',
+    version: '7',
     figure: 'nginx',
     role: 'Builds the page, which is then served as static files.',
   },
@@ -78,7 +78,7 @@ const PARTS: ReadonlyArray<Part> = [
   },
   {
     name: 'Vitest',
-    version: '2',
+    version: '4',
     figure: '10,000 events',
     role: 'Unit, integration, and a soak run that ends on zero lost.',
   },
