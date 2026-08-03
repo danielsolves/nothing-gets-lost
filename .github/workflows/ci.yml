@@ -19,12 +19,18 @@ on:
   push:
     branches: [main]
   pull_request:
+
+# Nothing here commits, tags or publishes. Declaring it in the file rather than
+# relying on the repository default means a settings change elsewhere cannot widen
+# what these jobs are allowed to do.
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run lint
@@ -52,7 +58,7 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - name: Refuse any credential in the tree or anywhere in the history
         run: |
@@ -80,12 +86,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx vitest run --config vitest.load.config.ts
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: load-test-result
           path: docs/load-test-result.txt
@@ -95,7 +101,7 @@ jobs:
   stack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose up -d --build --wait
       - run: curl --fail --silent --show-error http://localhost:3001/api/state
       - run: curl --fail --silent --show-error http://localhost:5173/ -o /dev/null
