@@ -38,6 +38,28 @@ export async function startHarness() {
   const container: StartedPostgreSqlContainer =
     await new PostgreSqlContainer('postgres:16-alpine').start();
   const pool = new Pool({ connectionString: container.getConnectionUri() });
+
+  /**
+   * pg emits errors on behalf of pooled clients that have no listener of their own,
+   * and an emitted error with no listener at all ends the run.
+   *
+   * That is how a green suite turned red on 2026-08-03 without a line of production
+   * code changing. `pool.end()` resolves once every client has been released, but the
+   * sockets are still closing when `container.stop()` kills Postgres a moment later,
+   * and every backend still attached is handed a FATAL 57P01. Vitest reported it as an
+   * unhandled error and failed the whole file.
+   *
+   * Only the shutdown window is exempt, and only for the codes a deliberate shutdown
+   * actually produces. Anything else, and anything at all before `stop()` is called,
+   * is a real error and is rethrown so it still fails the run.
+   */
+  let stopping = false;
+  const SHUTDOWN_CODES = new Set(['57P01', 'ECONNRESET', 'EPIPE']);
+  pool.on('error', (err: Error & { code?: string }) => {
+    if (stopping && err.code !== undefined && SHUTDOWN_CODES.has(err.code)) return;
+    throw err;
+  });
+
   await runMigrations(pool);
 
   const queue = new QueueRepository(pool);
@@ -78,6 +100,10 @@ export async function startHarness() {
 
   return {
     pool, queue, intake, completion, worker, targets, drain,
-    async stop() { await pool.end(); await container.stop(); },
+    async stop() {
+      stopping = true;
+      await pool.end();
+      await container.stop();
+    },
   };
 }
