@@ -87,8 +87,18 @@
   --grain-opacity: 0.035;
 }
 
+/* The light palette lives twice, and that is not a copy-paste slip.
+ *
+ * A media query cannot be widened with an attribute selector, so a page that wants
+ * to honour a chosen theme as well as the operating system's needs both rules. The
+ * `:not([data-theme="dark"])` is what lets an explicit dark choice win on a machine
+ * set to light, which is the case that breaks if you only write the attribute rule.
+ *
+ * The choice arrives in a cookie on .danielsolves.ai rather than in localStorage,
+ * because localStorage is per origin and this page is a different one from the site
+ * that carries the switch. index.html reads it before first paint. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     color-scheme: light;
     --bg: oklch(0.985 0.003 260);
     --surface: oklch(1 0 0 / 0.86);
@@ -108,6 +118,27 @@
     --aurora-opacity: 0.18;
     --grain-opacity: 0.02;
   }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: oklch(0.985 0.003 260);
+  --surface: oklch(1 0 0 / 0.86);
+  --surface-sunken: oklch(0.965 0.004 260 / 0.9);
+  --line: oklch(0.25 0.02 260 / 0.12);
+  --line-strong: oklch(0.25 0.02 260 / 0.2);
+  --line-input: oklch(0.25 0.02 260 / 0.36);
+  --wash: oklch(0.25 0.02 260 / 0.045);
+  --text: oklch(0.22 0.02 260);
+  --muted: oklch(0.44 0.02 260);
+  --faint: oklch(0.5 0.02 260);
+  --accent: oklch(0.58 0.13 195);
+  --on-accent: oklch(0.99 0 0);
+  --good: oklch(0.52 0.14 155);
+  --warn: oklch(0.55 0.13 75);
+  --bad: oklch(0.53 0.2 25);
+  --aurora-opacity: 0.18;
+  --grain-opacity: 0.02;
 }
 
 * { box-sizing: border-box; }
