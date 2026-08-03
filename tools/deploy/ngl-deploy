@@ -4,13 +4,15 @@
 # where: installed on the deploy host as /usr/local/bin/ngl-deploy. It is the only
 #   command the GitHub deploy key is permitted to run, forced by the `command="..."`
 #   prefix in authorized_keys. See tools/deploy/README.md.
-# what: fast-forward /opt/nothing-gets-lost to origin/main, rebuild every image
-#   including the one-shot migrator, bring the stack up, then prove the database
-#   actually moved before reporting success.
-# why: a green `migrate` container proves the migrator found nothing new IN ITS OWN
-#   IMAGE. It does not prove the database is current. Those two only coincide when
-#   the image was rebuilt after the pull, so the rebuild is explicit here and the
-#   proof is a query against schema_migrations rather than an exit code.
+# what: fast-forward /opt/nothing-gets-lost to origin/main, pull the images CI built
+#   for that commit, bring the stack up, then prove the database actually moved
+#   before reporting success.
+# why: nothing is built here. CI builds the nine images once, the tests run against
+#   those exact images, and the host pulls them, so what serves traffic is byte
+#   identical to what was tested rather than the same source built a second time.
+#   A green `migrate` container still proves only that the migrator found nothing
+#   new IN ITS OWN IMAGE, not that the database is current, so the proof stays a
+#   query against schema_migrations rather than an exit code.
 
 set -euo pipefail
 
@@ -30,18 +32,17 @@ WAIT_TIMEOUT=600
 # a stranger and the container, and that is the part with the moving pieces.
 PUBLIC_URL=https://ngl.danielsolves.ai
 
-# Every service in docker-compose.yml that has a `build:` section, in build order.
+# Every service whose image CI publishes, which is every service in
+# docker-compose.yml carrying a `build:` section.
 #
 # This list is written out by hand on purpose rather than derived at runtime.
 # `docker compose ps` does not list `migrate`, because migrate exits the moment it
 # has finished, and that is precisely how it was left out of a rebuild once before.
 #
-# Order matters twice over. `migrate` is first because it is the cheapest image and
-# the one whose staleness breaks the deploy, so it should be the first thing to
-# fail; its dependency stage is byte-identical to every other service Dockerfile,
-# so building it first fills the layer cache the other eight reuse. `ui` is last
-# because it is the only Vite build and the hungriest for memory.
-BUILD_SERVICES=(
+# Nothing is built here any more, so the order no longer decides what survives a
+# memory limit. It is kept because it is the order the images are pulled and
+# reported in, and it still reads the way they are started.
+PUBLISHED_SERVICES=(
   migrate
   egress-gate
   ledger
@@ -53,10 +54,10 @@ BUILD_SERVICES=(
   ui
 )
 
-# Build targets plus `db`, which is a pulled image (postgres:16-alpine) and has
-# nothing to build. Verified against docker-compose.yml on every run so that a
-# service added to compose but not added to BUILD_SERVICES stops the deploy instead
-# of quietly never being rebuilt.
+# Published services plus `db`, which comes straight from Docker Hub
+# (postgres:16-alpine) and is never built or published by us. Verified against
+# docker-compose.yml on every run so that a service added to compose but not added
+# here stops the deploy instead of quietly never being pulled.
 EXPECTED_SERVICES=(api db egress-gate extractor ledger mailer mcp mediator migrate ui)
 
 log() {
@@ -97,17 +98,17 @@ preflight() {
     || fail "$APP_DIR/.env is missing. Refusing to deploy: the stack would silently start on demo credentials"
 }
 
-# Guards against the explicit BUILD_SERVICES list drifting away from compose.
+# Guards against the explicit PUBLISHED_SERVICES list drifting away from compose.
 check_service_list() {
   local actual expected
   actual="$(docker compose config --services | sort | tr '\n' ' ')"
   expected="$(printf '%s\n' "${EXPECTED_SERVICES[@]}" | sort | tr '\n' ' ')"
 
   if [ "$actual" != "$expected" ]; then
-    printf 'ngl-deploy: docker-compose.yml no longer matches the build list.\n' >&2
+    printf 'ngl-deploy: docker-compose.yml no longer matches the published list.\n' >&2
     printf '  compose has: %s\n' "$actual" >&2
     printf '  expected   : %s\n' "$expected" >&2
-    fail 'update BUILD_SERVICES and EXPECTED_SERVICES in /usr/local/bin/ngl-deploy'
+    fail 'update PUBLISHED_SERVICES and EXPECTED_SERVICES in /usr/local/bin/ngl-deploy'
   fi
 }
 
@@ -133,23 +134,62 @@ sync_repo() {
   AFTER_REV="$(git rev-parse HEAD)"
 
   if [ "$BEFORE_REV" = "$AFTER_REV" ]; then
-    log "already at $(git rev-parse --short HEAD), rebuilding anyway"
+    log "already at $(git rev-parse --short HEAD), redeploying anyway"
   else
     log "moved $(git rev-parse --short "$BEFORE_REV") -> $(git rev-parse --short "$AFTER_REV")"
     git --no-pager log --oneline "$BEFORE_REV..$AFTER_REV"
   fi
 }
 
-# One service per invocation. The host is memory constrained, and `docker compose
-# build` with no service argument hands all nine Dockerfiles to BuildKit at once,
-# which means nine concurrent `npm ci` runs. Serialising costs wall clock and buys
-# not being OOM killed halfway through.
-build_images() {
-  local service
-  for service in "${BUILD_SERVICES[@]}"; do
-    log "building $service"
-    docker compose build "$service"
-  done
+# Which commit's images to run.
+#
+# The default is the head of the branch we just fast-forwarded to, which is the
+# whole point of the pull. The override exists for exactly one reason, a rollback,
+# and it is the only thing this key can be asked for that is not "run the newest
+# main".
+#
+# It is validated as an ancestor of the branch. The deploy key can therefore only
+# ever put back something that was merged here and built by CI behind all four
+# required checks. It cannot name an arbitrary tag in the registry, and it cannot
+# name a commit that never passed anything.
+resolve_tag() {
+  local requested="${SSH_ORIGINAL_COMMAND:-}"
+  # sshd hands over the whole requested command; a rollback asks for
+  # `ngl-deploy <commit>`, so the program name comes off first.
+  requested="${requested#ngl-deploy}"
+  requested="${requested#"${requested%%[![:space:]]*}"}"
+
+  if [ -z "$requested" ]; then
+    NGL_TAG="$(git rev-parse HEAD)"
+    log "deploying ${NGL_TAG:0:7}, the head of $BRANCH"
+    export NGL_TAG
+    return
+  fi
+
+  git rev-parse --verify --quiet "${requested}^{commit}" >/dev/null \
+    || fail "requested commit '$requested' is not in this repository"
+  local full
+  full="$(git rev-parse "${requested}^{commit}")"
+  git merge-base --is-ancestor "$full" "$REMOTE/$BRANCH" \
+    || fail "requested commit '$requested' is not an ancestor of $REMOTE/$BRANCH; only merged code can be deployed"
+
+  NGL_TAG="$full"
+  export NGL_TAG
+  log "rolling back to ${NGL_TAG:0:7} on request"
+}
+
+# Nothing is built on this host any more. CI built these exact images, the tests ran
+# against them, and pulling them is what makes "what was tested" and "what serves
+# traffic" the same bytes rather than the same source built twice.
+#
+# It also takes the `ui` build, the only Vite build and the hungriest for memory,
+# off a host that has repeatedly been short of it.
+pull_images() {
+  log "pulling images for ${NGL_TAG:0:7}"
+  # A missing tag fails here, before anything is stopped, which is the right place
+  # for it: the running stack is untouched until every image is on disk.
+  docker compose pull --quiet \
+    || fail "could not pull every image for ${NGL_TAG:0:7}; did CI publish this commit?"
 }
 
 start_stack() {
@@ -307,9 +347,11 @@ smoke_test() {
 
 main() {
   printf 'ngl-deploy: starting at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-  # Audit line. The key is restricted with command=, so whatever the client asked
-  # for was discarded; recording it makes a stolen key being probed visible.
-  printf 'ngl-deploy: requested command (ignored): %q\n' "${SSH_ORIGINAL_COMMAND:-none}"
+  # Audit line. The key is restricted with command=, so the client cannot choose a
+  # program; the one thing it may now say is which merged commit to run, and
+  # resolve_tag is where that is read and checked. Recording the raw request keeps a
+  # stolen key being probed visible.
+  printf 'ngl-deploy: requested command: %q\n' "${SSH_ORIGINAL_COMMAND:-none}"
 
   preflight
   cd "$APP_DIR"
@@ -317,7 +359,8 @@ main() {
   check_service_list
   sync_repo
   warn_if_installed_copy_is_stale
-  build_images
+  resolve_tag
+  pull_images
   start_stack
   verify_migrations
   smoke_test
@@ -326,7 +369,7 @@ main() {
   docker compose ps --all
 
   printf 'ngl-deploy: OK, %s is live at %s\n' \
-    "$(git rev-parse --short HEAD)" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    "${NGL_TAG:0:7}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 }
 
 main "$@"

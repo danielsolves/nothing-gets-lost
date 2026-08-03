@@ -19,7 +19,8 @@ on its own changes nothing a visitor can see.
 9. [Installing ngl-deploy](#9-installing-ngl-deploy)
 10. [Day to day](#10-day-to-day)
 11. [When it fails](#11-when-it-fails)
-12. [What is deliberately not here](#12-what-is-deliberately-not-here)
+12. [Rolling back](#12-rolling-back)
+13. [What is deliberately not here](#13-what-is-deliberately-not-here)
 
 ---
 
@@ -551,7 +552,87 @@ and another deploy. Rolling a migration back is not something this pipeline does
 because migrations here are one-way by design and each one is applied in its own
 transaction.
 
-## 12. What is deliberately not here
+## 12. Rolling back
+
+A deploy that made things worse has to be undoable by somebody who is tired and in a
+hurry. This section is the whole procedure. Read it once now, so that reading it
+under pressure is a reminder rather than a discovery.
+
+### What makes a rollback possible at all
+
+Nothing is built on the host. CI builds the nine images once, tags each with the
+commit, and pushes them to `ghcr.io/danielsolves/ngl-<service>`. Every commit that
+ever reached `main` therefore has a complete, immutable set of images sitting in the
+registry. Rolling back is pointing at an older set. It is not a rebuild, and it
+cannot drift: the bytes that ran last week are the bytes that run again.
+
+### The procedure
+
+```
+GitHub → Actions → Deploy → Run workflow
+  commit: <the sha you want back>
+→ approve at the production gate
+```
+
+`ngl-deploy` validates that the commit is an ancestor of `origin/main`, sets
+`NGL_TAG` to it, pulls those images and brings the stack up. From the click to
+serving the old version is a pull and a container swap, well inside five minutes.
+
+By hand, if GitHub is the thing that is broken:
+
+```bash
+ssh merkurdesign 'setsid nohup /usr/local/bin/ngl-deploy <sha> > /var/log/ngl-deploy.log 2>&1 < /dev/null &'
+ssh merkurdesign 'tail -f /var/log/ngl-deploy.log'
+```
+
+`setsid nohup` is not optional; a deploy started in the ssh session dies with the
+connection.
+
+### Why the deploy key may name a commit at all
+
+Section 4 says the key can run one command and nothing else. It now also carries one
+argument, and that is a real widening, so it is bounded on the far side rather than
+trusted: `ngl-deploy` refuses any commit that is not an ancestor of `origin/main`.
+The key can therefore replay something that was merged and passed all four required
+checks, and nothing else. It cannot name an arbitrary registry tag, and it cannot
+name a commit that was never reviewed.
+
+### The order, when several things go back at once
+
+**`ui` first, then the services behind it.** An old front end against a new back end
+usually works, because the calls it makes are the ones that existed before. A new
+front end against an old back end breaks, because it calls endpoints that are not
+there yet. Rolling the whole stack to one commit does this correctly by itself; the
+order only matters if you are ever tempted to move one service alone.
+
+### When a rollback is not enough
+
+**Any deploy that ran a destructive migration cannot be undone by images alone.**
+Migrations are append-only here, never edited, so going back to older code leaves the
+newer schema in place. Additive changes are harmless that way. Removals are not: old
+code that still writes a dropped column will fail.
+
+That is why destructive changes are split across two deploys, and it is worth stating
+as a rule rather than a habit:
+
+> **Expand and contract.** Never remove a column, a table or a view in the same deploy
+> that stops using it. Deploy the code that no longer needs it first. Remove it in a
+> later deploy, once you are confident the first one stays. Between the two, a
+> rollback is a single click; after a combined deploy, it is a database recovery.
+
+If a destructive migration has already run and the code has to go back, the schema
+has to be repaired by hand first. There is no button for that, and there should not
+be one.
+
+### The one thing left to do
+
+**This procedure has not been executed in anger yet.** Do it once, deliberately, on a
+quiet afternoon: deploy the current commit, then roll back to its parent, then roll
+forward again. A rollback path nobody has walked is a plan, not a capability.
+
+---
+
+## 13. What is deliberately not here
 
 No Stripe key, no HubSpot token, no Slack token, no SMTP account, no Anthropic key
 and no database password is stored in GitHub, in any workflow, in any secret or in

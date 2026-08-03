@@ -119,3 +119,56 @@ jobs:
         run: docker compose logs --no-color --tail 50
       - if: always()
         run: docker compose down -v
+
+  # Build once, here, and let the host pull the result. Before this the runner built
+  # nine images and tested them, then the host built nine *different* images from the
+  # same source and served those. Same commit, but a base image or an npm tarball can
+  # move between the two builds, so what faced the public was never the thing the
+  # tests ran against.
+  #
+  # Only on a push to main, and only behind all four checks: an image in the registry
+  # is a thing the deploy can reach, so nothing untested should ever get a tag.
+  #
+  # The images are tagged with the commit and nothing else. No rolling `latest`: the
+  # deploy names the commit it wants, and a rollback is the same command with an older
+  # one. A moving tag would take that away and put "whatever was newest" back in.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, soak, stack, secrets]
+    runs-on: ubuntu-latest
+    # The only job in this file that writes anything, and it writes packages, not code.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Sign in to the registry
+        run: |
+          echo '${{ secrets.GITHUB_TOKEN }}' \
+            | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+      - name: Build and publish the nine images
+        env:
+          NGL_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker compose build
+          docker compose push
+      # A push that half succeeded would leave the deploy able to pull some services at
+      # this commit and not others, which is worse than not publishing at all. So the
+      # tags are read back from the registry before the job goes green.
+      - name: Prove every service is really there
+        env:
+          NGL_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for svc in migrate egress-gate ledger mailer extractor mediator api mcp ui; do
+            ref="ghcr.io/danielsolves/ngl-$svc:$NGL_TAG"
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "ok   $ref"
+            else
+              echo "MISSING $ref" >&2
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || { echo 'the registry is missing images this commit needs' >&2; exit 1; }
