@@ -1,0 +1,14 @@
+{
+  // ui/tsconfig.test.json
+  // Extends the browser project rather than the base one, so the DOM library and
+  // the jsx transform stay described in a single place.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Tests index into rendered lists and grouped results constantly and assert
+    // on the item right after. Production code keeps the flag, because that is
+    // where a missing item is a real bug rather than a failing assertion one
+    // line later.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["test/**/*.ts", "test/**/*.tsx"]
+}

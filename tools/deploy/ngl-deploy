@@ -1,0 +1,375 @@
+#!/usr/bin/env bash
+# tools/deploy/ngl-deploy
+#
+# where: installed on the deploy host as /usr/local/bin/ngl-deploy. It is the only
+#   command the GitHub deploy key is permitted to run, forced by the `command="..."`
+#   prefix in authorized_keys. See tools/deploy/README.md.
+# what: fast-forward /opt/nothing-gets-lost to origin/main, pull the images CI built
+#   for that commit, bring the stack up, then prove the database actually moved
+#   before reporting success.
+# why: nothing is built here. CI builds the nine images once, the tests run against
+#   those exact images, and the host pulls them, so what serves traffic is byte
+#   identical to what was tested rather than the same source built a second time.
+#   A green `migrate` container still proves only that the migrator found nothing
+#   new IN ITS OWN IMAGE, not that the database is current, so the proof stays a
+#   query against schema_migrations rather than an exit code.
+
+set -euo pipefail
+
+# C collation everywhere. The shell sorts the migration filenames on disk and
+# Postgres sorts the applied ones; both sides have to agree on what "last" means.
+export LC_ALL=C
+
+APP_DIR=/opt/nothing-gets-lost
+MIGRATIONS_SUBDIR=packages/db/migrations
+REMOTE=origin
+BRANCH=main
+WAIT_TIMEOUT=600
+
+# Where a visitor actually arrives. Deliberately the public address and not
+# localhost: reaching the container from the host proves the container, which
+# `--wait` has already proved. What is unproven at that point is everything between
+# a stranger and the container, and that is the part with the moving pieces.
+PUBLIC_URL=https://ngl.danielsolves.ai
+
+# Every service whose image CI publishes, which is every service in
+# docker-compose.yml carrying a `build:` section.
+#
+# This list is written out by hand on purpose rather than derived at runtime.
+# `docker compose ps` does not list `migrate`, because migrate exits the moment it
+# has finished, and that is precisely how it was left out of a rebuild once before.
+#
+# Nothing is built here any more, so the order no longer decides what survives a
+# memory limit. It is kept because it is the order the images are pulled and
+# reported in, and it still reads the way they are started.
+PUBLISHED_SERVICES=(
+  migrate
+  egress-gate
+  ledger
+  mailer
+  extractor
+  mediator
+  api
+  mcp
+  ui
+)
+
+# Published services plus `db`, which comes straight from Docker Hub
+# (postgres:16-alpine) and is never built or published by us. Verified against
+# docker-compose.yml on every run so that a service added to compose but not added
+# here stops the deploy instead of quietly never being pulled.
+EXPECTED_SERVICES=(api db egress-gate extractor ledger mailer mcp mediator migrate ui)
+
+log() {
+  printf '==> %s\n' "$*"
+}
+
+fail() {
+  printf 'ngl-deploy: FAILED: %s\n' "$*" >&2
+  exit 1
+}
+
+# Only one deploy at a time. The lock is taken on the deployment directory itself
+# via a read-only file descriptor, so there is no lock file to create at install
+# time and no directory that has to be writable by the deploy user.
+take_lock() {
+  exec 9<"$APP_DIR"
+  flock --nonblock 9 \
+    || fail "another ngl-deploy is already running against $APP_DIR"
+}
+
+preflight() {
+  command -v docker >/dev/null 2>&1 || fail 'docker is not on PATH'
+  command -v git >/dev/null 2>&1 || fail 'git is not on PATH'
+  command -v flock >/dev/null 2>&1 || fail 'flock is not on PATH (install util-linux)'
+  docker compose version >/dev/null 2>&1 \
+    || fail 'the docker compose v2 plugin is not available to this user'
+
+  [ -d "$APP_DIR" ] || fail "$APP_DIR does not exist"
+  [ -d "$APP_DIR/.git" ] \
+    || fail "$APP_DIR is not a git clone. Follow the one-time migration in tools/deploy/README.md before enabling the pipeline"
+  [ -f "$APP_DIR/docker-compose.yml" ] || fail "$APP_DIR/docker-compose.yml is missing"
+
+  # compose declares .env as optional so that a stranger's fresh clone still boots.
+  # On this host its absence is not a fallback, it is an outage in slow motion: the
+  # stack would come up on the demo database password with no Stripe, HubSpot,
+  # Slack or SMTP credential and would look healthy while doing it.
+  [ -f "$APP_DIR/.env" ] \
+    || fail "$APP_DIR/.env is missing. Refusing to deploy: the stack would silently start on demo credentials"
+}
+
+# Guards against the explicit PUBLISHED_SERVICES list drifting away from compose.
+check_service_list() {
+  local actual expected
+  actual="$(docker compose config --services | sort | tr '\n' ' ')"
+  expected="$(printf '%s\n' "${EXPECTED_SERVICES[@]}" | sort | tr '\n' ' ')"
+
+  if [ "$actual" != "$expected" ]; then
+    printf 'ngl-deploy: docker-compose.yml no longer matches the published list.\n' >&2
+    printf '  compose has: %s\n' "$actual" >&2
+    printf '  expected   : %s\n' "$expected" >&2
+    fail 'update PUBLISHED_SERVICES and EXPECTED_SERVICES in /usr/local/bin/ngl-deploy'
+  fi
+}
+
+sync_repo() {
+  local branch dirty
+
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  [ "$branch" = "$BRANCH" ] \
+    || fail "$APP_DIR is on branch '$branch', expected '$BRANCH'"
+
+  # Tracked files only. .env is gitignored, so it never shows up here and a pull
+  # can never touch it.
+  dirty="$(git status --porcelain --untracked-files=no)"
+  if [ -n "$dirty" ]; then
+    printf 'ngl-deploy: local modifications to tracked files in %s:\n' "$APP_DIR" >&2
+    printf '%s\n' "$dirty" >&2
+    fail 'refusing to deploy over uncommitted changes; resolve them by hand first'
+  fi
+
+  BEFORE_REV="$(git rev-parse HEAD)"
+  log "pulling $REMOTE/$BRANCH (fast-forward only)"
+  git pull --ff-only "$REMOTE" "$BRANCH"
+  AFTER_REV="$(git rev-parse HEAD)"
+
+  if [ "$BEFORE_REV" = "$AFTER_REV" ]; then
+    log "already at $(git rev-parse --short HEAD), redeploying anyway"
+  else
+    log "moved $(git rev-parse --short "$BEFORE_REV") -> $(git rev-parse --short "$AFTER_REV")"
+    git --no-pager log --oneline "$BEFORE_REV..$AFTER_REV"
+  fi
+}
+
+# Which commit's images to run.
+#
+# The default is the head of the branch we just fast-forwarded to, which is the
+# whole point of the pull. The override exists for exactly one reason, a rollback,
+# and it is the only thing this key can be asked for that is not "run the newest
+# main".
+#
+# It is validated as an ancestor of the branch. The deploy key can therefore only
+# ever put back something that was merged here and built by CI behind all four
+# required checks. It cannot name an arbitrary tag in the registry, and it cannot
+# name a commit that never passed anything.
+resolve_tag() {
+  local requested="${SSH_ORIGINAL_COMMAND:-}"
+  # sshd hands over the whole requested command; a rollback asks for
+  # `ngl-deploy <commit>`, so the program name comes off first.
+  requested="${requested#ngl-deploy}"
+  requested="${requested#"${requested%%[![:space:]]*}"}"
+
+  if [ -z "$requested" ]; then
+    NGL_TAG="$(git rev-parse HEAD)"
+    log "deploying ${NGL_TAG:0:7}, the head of $BRANCH"
+    export NGL_TAG
+    return
+  fi
+
+  git rev-parse --verify --quiet "${requested}^{commit}" >/dev/null \
+    || fail "requested commit '$requested' is not in this repository"
+  local full
+  full="$(git rev-parse "${requested}^{commit}")"
+  git merge-base --is-ancestor "$full" "$REMOTE/$BRANCH" \
+    || fail "requested commit '$requested' is not an ancestor of $REMOTE/$BRANCH; only merged code can be deployed"
+
+  NGL_TAG="$full"
+  export NGL_TAG
+  log "rolling back to ${NGL_TAG:0:7} on request"
+}
+
+# Nothing is built on this host any more. CI built these exact images, the tests ran
+# against them, and pulling them is what makes "what was tested" and "what serves
+# traffic" the same bytes rather than the same source built twice.
+#
+# It also takes the `ui` build, the only Vite build and the hungriest for memory,
+# off a host that has repeatedly been short of it.
+pull_images() {
+  log "pulling images for ${NGL_TAG:0:7}"
+  # A missing tag fails here, before anything is stopped, which is the right place
+  # for it: the running stack is untouched until every image is on disk.
+  docker compose pull --quiet \
+    || fail "could not pull every image for ${NGL_TAG:0:7}; did CI publish this commit?"
+}
+
+start_stack() {
+  log 'starting the stack and waiting for health'
+  docker compose up -d --wait --wait-timeout "$WAIT_TIMEOUT"
+}
+
+# Runs psql inside the db container. The password is read from the container's own
+# environment by the inner shell, so it is never an argument of any process on the
+# host and never reaches this script's output. The SQL is passed as a positional
+# parameter rather than interpolated into the inner script.
+psql_query() {
+  docker compose exec -T db sh -c '
+    PGPASSWORD="$POSTGRES_PASSWORD" exec psql \
+      --no-psqlrc --quiet --no-align --tuples-only \
+      --set ON_ERROR_STOP=1 \
+      --host 127.0.0.1 \
+      --username "$POSTGRES_USER" \
+      --dbname "$POSTGRES_DB" \
+      --command "$1"
+  ' ngl-deploy "$1"
+}
+
+# The point of the whole script. `migrate` exiting 0 is not evidence, so the
+# database is asked directly what it has applied and the answer is compared with
+# what is on disk in this checkout.
+verify_migrations() {
+  local -a files=()
+  local path present applied_last applied_count on_disk_last on_disk_count
+  local applied_all missing extra
+
+  shopt -s nullglob
+  for path in "$MIGRATIONS_SUBDIR"/*.sql; do
+    files+=("$(basename "$path")")
+  done
+  shopt -u nullglob
+
+  [ "${#files[@]}" -gt 0 ] \
+    || fail "no .sql files found in $APP_DIR/$MIGRATIONS_SUBDIR"
+
+  on_disk_count="${#files[@]}"
+  on_disk_last="${files[on_disk_count - 1]}"
+
+  present="$(psql_query "SELECT to_regclass('public.schema_migrations') IS NOT NULL")"
+  [ "$present" = "t" ] \
+    || fail 'schema_migrations does not exist: the migrator never ran against this database'
+
+  applied_count="$(psql_query 'SELECT count(*) FROM schema_migrations')"
+  applied_last="$(psql_query 'SELECT filename FROM schema_migrations ORDER BY filename COLLATE "C" DESC LIMIT 1')"
+
+  log "migrations on disk: $on_disk_count, last is $on_disk_last"
+  log "migrations applied : $applied_count, last is $applied_last"
+
+  if [ "$applied_last" = "$on_disk_last" ] && [ "$applied_count" = "$on_disk_count" ]; then
+    log 'database matches the checkout'
+    return 0
+  fi
+
+  applied_all="$(psql_query 'SELECT filename FROM schema_migrations ORDER BY filename COLLATE "C"')"
+  # sed drops the blank line printf produces when the table is present but empty.
+  missing="$(comm -23 <(printf '%s\n' "${files[@]}") <(printf '%s\n' "$applied_all" | sed '/^$/d'))"
+  extra="$(comm -13 <(printf '%s\n' "${files[@]}") <(printf '%s\n' "$applied_all" | sed '/^$/d'))"
+
+  printf 'ngl-deploy: the database did not move to match this checkout.\n' >&2
+  if [ -n "$missing" ]; then
+    printf '  on disk but never applied:\n' >&2
+    printf '%s\n' "$missing" | sed 's/^/    /' >&2
+  fi
+  if [ -n "$extra" ]; then
+    printf '  applied but absent from this checkout (the checkout went backwards):\n' >&2
+    printf '%s\n' "$extra" | sed 's/^/    /' >&2
+  fi
+  printf '  The usual cause is a migrate image that was not rebuilt: the .sql files\n' >&2
+  printf '  are baked into it, so a git pull alone only puts them on the host disk.\n' >&2
+  printf '  Inspect from your own shell on the host, not from here:\n' >&2
+  printf '    cd %s && docker compose logs migrate\n' "$APP_DIR" >&2
+  fail 'schema_migrations does not match packages/db/migrations'
+}
+
+# The file running right now is a copy. `git pull` updates the one in the checkout;
+# it cannot update /usr/local/bin/ngl-deploy, so a change to this script lands in
+# the repository and then does nothing, quietly, possibly for months.
+#
+# It warns rather than failing, because failing would be a deadlock: the deploy that
+# ships a change to this script would be the one refusing to run.
+#
+# And it does NOT run the checkout's copy instead, which is the obvious fix and the
+# wrong one. authorized_keys binds the deploy key to this path precisely so that
+# what lands in main cannot change what runs as root here. Executing the repository's
+# version would hand that boundary away to anyone who can merge.
+warn_if_installed_copy_is_stale() {
+  local installed=/usr/local/bin/ngl-deploy
+  local shipped="$APP_DIR/tools/deploy/ngl-deploy"
+
+  [ -f "$installed" ] || return 0
+  [ -f "$shipped" ] || return 0
+  cmp --silent "$installed" "$shipped" && return 0
+
+  printf '\n'
+  printf 'ngl-deploy: WARNING: the installed script differs from the one in this checkout.\n' >&2
+  printf '  This deploy ran the installed copy. Whatever changed in\n' >&2
+  printf '  tools/deploy/ngl-deploy has not taken effect. To adopt it, from your own\n' >&2
+  printf '  shell on the host:\n' >&2
+  printf '    install -m 0755 %s %s\n' "$shipped" "$installed" >&2
+  printf '\n'
+}
+
+# Nine healthy containers are not a working site.
+#
+# A health check answers on the container's own port, from inside the docker
+# network. A visitor arrives through DNS, the host's nginx, a proxy_pass and a
+# certificate, and none of that is a container this script starts. Every deploy so
+# far proved the first half and assumed the second, and the assumption was checked
+# by hand afterwards, which is another way of saying it was not checked.
+#
+# It runs last, after the database has been proved to match the checkout, because a
+# page that loads while the schema is behind is the more misleading of the two
+# failures and should not be the one that reports success.
+smoke_test() {
+  local code state mcp
+
+  log "checking $PUBLIC_URL the way a visitor reaches it"
+
+  code=$(curl --silent --show-error --location --max-time 20 \
+    --output /dev/null --write-out '%{http_code}' "$PUBLIC_URL/") \
+    || fail "$PUBLIC_URL/ could not be reached at all"
+  [ "$code" = "200" ] || fail "$PUBLIC_URL/ answered $code"
+  log "page: $code"
+
+  # A page being served is not the api behind it working. This asks for the state
+  # the page reads on load and checks it carries the counters, rather than settling
+  # for any response that happens to have a 200 on it.
+  state=$(curl --silent --show-error --location --max-time 20 "$PUBLIC_URL/api/state") \
+    || fail "$PUBLIC_URL/api/state could not be reached"
+  case "$state" in
+    *'"counters"'*) log 'api: state carries the counters' ;;
+    *) fail "$PUBLIC_URL/api/state did not return the state the page reads" ;;
+  esac
+
+  # The tool the README invites strangers to point their own client at. It is here
+  # because of how it broke once: the container was healthy, the tool listed, and
+  # the call failed on a view the database did not have. Listing a tool is not
+  # calling it, and only the call touches the schema.
+  mcp=$(curl --silent --show-error --max-time 25 "$PUBLIC_URL/mcp" \
+    -H 'content-type: application/json' \
+    -H 'accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"backlog_list","arguments":{"limit":1}}}') \
+    || fail "$PUBLIC_URL/mcp could not be reached"
+  case "$mcp" in
+    *'"isError":true'*) fail "backlog_list answered with an error: $mcp" ;;
+    *'"result"'*) log 'mcp: backlog_list answered' ;;
+    *) fail "backlog_list returned no result: $mcp" ;;
+  esac
+}
+
+main() {
+  printf 'ngl-deploy: starting at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  # Audit line. The key is restricted with command=, so the client cannot choose a
+  # program; the one thing it may now say is which merged commit to run, and
+  # resolve_tag is where that is read and checked. Recording the raw request keeps a
+  # stolen key being probed visible.
+  printf 'ngl-deploy: requested command: %q\n' "${SSH_ORIGINAL_COMMAND:-none}"
+
+  preflight
+  cd "$APP_DIR"
+  take_lock
+  check_service_list
+  sync_repo
+  warn_if_installed_copy_is_stale
+  resolve_tag
+  pull_images
+  start_stack
+  verify_migrations
+  smoke_test
+
+  log 'container status (--all, so the exited migrate container is visible too)'
+  docker compose ps --all
+
+  printf 'ngl-deploy: OK, %s is live at %s\n' \
+    "${NGL_TAG:0:7}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+}
+
+main "$@"

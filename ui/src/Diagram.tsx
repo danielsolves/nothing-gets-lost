@@ -1,0 +1,296 @@
+// ui/src/Diagram.tsx
+// The machine: a heading and the one way in at the top, the mediator on the left,
+// and the systems it delivers to filling the space beside and below it.
+//
+// This is the interface, not a picture of one. Breaking something used to mean
+// scrolling past the whole page and opening a drawer called "Control panel", while
+// the success criterion in specification section 1 is that a stranger breaks
+// something on purpose within sixty seconds. So the tile you want to break carries
+// the menu that breaks it, and the consequence lands on that same tile.
+//
+// Corrections to earlier versions of that idea, all worth keeping written down:
+//
+// The tile was a toggle, which flattened the four faults of specification section 7
+// into on and off. The pair worth teaching is exactly the pair it lost: a system
+// that answers 503 is down, and a system behind a dead line is running perfectly
+// well. The menu names both.
+//
+// The drawing had outgoing lines only, so every order appeared out of the middle of
+// the picture. There is a way in now and it is a button, at the top, where a visitor
+// starts reading. It is one button rather than two tiles: the shop and the order
+// mail were drawn as nodes beside the systems, which made two places an order comes
+// from look like two more places it goes to.
+//
+// That button carried a menu of its own for a while, headed "What to send", holding a
+// half-written order and an invented article number. Both fired a hardcoded string at
+// the extractor and printed a hand-written sentence about what came back. The order
+// builder now has a mail path in it where a visitor writes the text, reads the model's
+// own answer and sees which of the two checks stopped it, which is the same lesson
+// done properly. Two ways to one demonstration is one too many, and this was the worse
+// of them, sitting on the first control anybody meets. It is gone, and so is the
+// caveat about a replayed model that hung on its entries: that belongs on the answer
+// that was replayed, and it is there.
+//
+// And the nodes stood in three fixed columns, which is why the lines could be strips
+// of CSS. Letting the systems wrap means a line has to turn a corner, so the lines
+// are measured and drawn as one SVG over the box. That is also what the travelling
+// dots now run along, so the drawing and the motion cannot disagree about where a
+// delivery goes.
+import { useState } from 'react';
+import {
+  isIndisputable,
+  type ChaosKind, type DeliveryView, type OrderView,
+  type SwitchState, type SwitchableTarget,
+} from '@ngl/contracts';
+import { lastDeliveredEvent } from './activity';
+import { NODES, faultsFor, type Node, type NodeId } from './machine';
+import { NodeTile } from './NodeTile';
+import { StepProof } from './StepProof';
+import { type MenuSection } from './TileMenu';
+import { useDeliveryPulses } from './useDeliveryPulses';
+import { useImpacts } from './useImpacts';
+import { useSpokenActivity } from './useSpokenActivity';
+import { useWires } from './useWires';
+
+interface ChaosReply { detail?: string }
+
+const TARGETS: readonly string[] = NODES.map((node) => node.id);
+
+export function Diagram(props: {
+  switches: Record<SwitchableTarget, SwitchState>;
+  /**
+   * What the drawing says in words: the tile lines, the checks, the marked path.
+   *
+   * This is the board held back while an order is still visibly travelling to the
+   * hub, not the live one. "Delivering" on a system tile is a statement about state
+   * in exactly the way the hub's counters are, and reading it live meant a tile
+   * announced a delivery for an order the visitor could still see on the wire from
+   * the button, which is the fault useArrivalHold exists to prevent.
+   */
+  deliveries: DeliveryView[];
+  /**
+   * The board as it stands, for the one thing that must not wait: the dot that says
+   * an order has arrived. It is what starts the hold, so it cannot be read from
+   * behind it. Defaults to `deliveries`, which is one board and no hold.
+   */
+  live?: DeliveryView[];
+  /**
+   * The orders behind those deliveries, for their numbers alone. A check offered on
+   * a tile has to say which order it is about: the tile shows the state of a system,
+   * and a button under it that said only "Check it at Stripe" left the visitor to
+   * assume it meant the one they just sent, which it does, unprovably.
+   */
+  orders?: OrderView[];
+  /** The order opened in the queue, if any. Its path is marked here. */
+  openOrder?: string | null;
+  /** The hub itself, passed in so this file stays layout and wiring. */
+  hub: React.ReactNode;
+  /**
+   * The one way in. It sits at the top of the machine rather than on a tile of its
+   * own, because there is one entrance and a visitor should meet it before the
+   * seven things it feeds.
+   */
+  orderForm?: React.ReactNode;
+}) {
+  const pulses = useDeliveryPulses(props.live ?? props.deliveries, props.deliveries);
+  // The tile lines, each held until the dot carrying its news has reached that tile.
+  // See useSpokenActivity: the hub waits for the leg in, a system waits for its own
+  // leg out, and neither may report an outcome the drawing has not delivered yet.
+  const spoken = useSpokenActivity(props.deliveries, pulses);
+  // And the moment each dot actually reaches its tile, so the tile can show that it
+  // took the hit rather than letting the dot vanish against a box that never moves.
+  const struck = useImpacts(pulses);
+  const layer = useWires(TARGETS);
+
+  // A repeated payment creates no new event, so nothing about it turns up in the queue
+  // or the log. What the endpoint answers is the only evidence the press did anything,
+  // and it belongs on the tile that fired it.
+  const [said, setSaid] = useState<Partial<Record<NodeId, string>>>({});
+
+  // Opening a card in the queue lights up that order's path here, so the queue and
+  // the systems read as one thing seen twice rather than as neighbours.
+  const tracked = (target: SwitchableTarget): 'open' | 'done' | undefined => {
+    if (!props.openOrder) return undefined;
+    const step = props.deliveries.find(
+      (delivery) => delivery.eventId === props.openOrder && delivery.target === target,
+    );
+    if (!step) return undefined;
+    return step.state === 'done' ? 'done' : 'open';
+  };
+
+  const setFault = (target: SwitchableTarget, state: SwitchState) => {
+    void fetch(`/api/switches/${target}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ state }),
+    });
+  };
+
+  const fire = (node: NodeId, kind: ChaosKind) => {
+    void fetch(`/api/chaos/${kind}`, { method: 'POST' })
+      .then((response) => response.json() as Promise<ChaosReply>)
+      .then((reply) => setSaid((current) => ({ ...current, [node]: reply.detail })))
+      .catch(() => setSaid((current) => ({ ...current, [node]: 'that did not go through' })));
+  };
+
+  const menuFor = (node: Node): MenuSection[] => {
+    const mischief = node.mischief.length === 0
+      ? []
+      : [{
+        items: node.mischief.map((one) => ({
+          id: one.kind,
+          label: one.label,
+          run: () => fire(node.id, one.kind),
+        })),
+      }];
+
+    return [
+      {
+        heading: 'How it behaves',
+        items: faultsFor(node.id).map((fault) => ({
+          id: fault.state,
+          label: fault.label,
+          means: fault.means,
+          chosen: fault.state === props.switches[node.id],
+          run: () => setFault(node.id, fault.state),
+        })),
+      },
+      ...mischief,
+    ];
+  };
+
+  /**
+   * The check sits on the tile because that is what somebody points at when they ask
+   * whether a system is real. It was only in the queue card for a while, two clicks
+   * deep, where the question is never asked.
+   *
+   * Offered on two of the five tiles, and the test is not whether a check is possible
+   * but whether its answer is worth anything. Stripe serves the receipt itself and
+   * the confirmation mail lands in the reader's own inbox. HubSpot, Slack and the
+   * ledger are read back through our own account with our own token, so the button
+   * there promised a check and delivered a page we rendered about data we hold. It
+   * ended in a printed apology, and a button that has to apologise for its own answer
+   * takes more credibility from the two real checks than it adds anywhere.
+   *
+   * What replaces it is not on the tile: it is their own endpoint and the MCP server,
+   * both of which put the record somewhere we do not run.
+   *
+   * Nothing to offer until that system has delivered something either: a check
+   * against a call that was never made answers 404 about nothing.
+   */
+  const proofFor = (node: Node) => {
+    if (!isIndisputable(node.id)) return undefined;
+    const eventId = lastDeliveredEvent(node.id, props.deliveries);
+    if (eventId === null) return undefined;
+    const order = props.orders?.find((row) => row.eventId === eventId);
+    return (
+      <StepProof
+        eventId={eventId}
+        orderNumber={order?.number ?? null}
+        target={node.id}
+        label={node.label}
+        layout="tile"
+      />
+    );
+  };
+
+  const tile = (node: Node) => (
+    <NodeTile
+      node={node}
+      state={props.switches[node.id]}
+      inForce={faultsFor(node.id).find((f) => f.state === props.switches[node.id])}
+      doing={spoken[node.id]}
+      tracked={tracked(node.id)}
+      struck={struck[node.id]}
+      said={said[node.id]}
+      menu={menuFor(node)}
+      menuLabel={`Break ${node.label} on purpose`}
+      extra={proofFor(node)}
+    />
+  );
+
+  return (
+    <div className="machine" data-testid="diagram">
+      <header className="machine-head" data-testid="machine-head">
+        {/* An invitation rather than a label. "One order, five real systems" named
+            what is below, which the drawing already does; this says what the
+            visitor is meant to do about it, and it is the answer to the heading at
+            the top of the page: that one asks to be trusted, this one does not. */}
+        <h2 className="machine-title">See it work for yourself.</h2>
+        {/* The whole sixty seconds in three sentences: send one, break something,
+            send another. Specification section 1 wants a stranger to break something
+            on purpose inside a minute, and this is the only place on the page that
+            tells them they are allowed to. */}
+        <p className="machine-lede">
+          Create a test order and watch it move through every system. Then use any
+          system’s menu to take its connection offline and send another order. Watch
+          the workflow hold it safely, retry automatically, and continue when the
+          connection returns.
+        </p>
+
+        <div className="machine-entry">
+          {/* Measured, so the line into the mediator hangs under this rather than
+              under the middle of the panel. The measuring looks inside for whichever
+              control is live, which is why the two ways of composing an order can
+              share one entrance without the line moving to the wrong thing. */}
+          <span className="machine-entry-button" ref={layer.entryRef}>
+            {props.orderForm}
+          </span>
+        </div>
+      </header>
+
+      <div className="machine-body" ref={layer.frameRef}>
+        {/* One drawing for every line, sized to the box it covers. Behind the tiles
+            in paint order and transparent to the pointer, so a line can never eat a
+            click meant for the system it points at. */}
+        <svg
+          className="wires"
+          aria-hidden="true"
+          width={layer.size.width}
+          height={layer.size.height}
+          viewBox={`0 0 ${layer.size.width} ${layer.size.height}`}
+        >
+          {layer.wires.map((wire) => (
+            <path
+              key={wire.target}
+              d={wire.d}
+              className="wire"
+              data-testid={`line-${wire.target}`}
+              data-flow={wire.target === 'shop' ? 'in' : 'out'}
+              data-state={props.switches[wire.target as SwitchableTarget]}
+              data-tracked={tracked(wire.target as SwitchableTarget)}
+            />
+          ))}
+        </svg>
+
+        {/* The packets are ordinary elements rather than SVG ones, handed the same
+            path as a motion path. SMIL inside a node React has just inserted starts
+            counting from the document timeline and so plays its first frames in the
+            past; an element with offset-path starts when it is painted, which is the
+            moment the delivery actually changed. */}
+        <div className="packets" aria-hidden="true">
+          {layer.wires.map((wire) => pulses
+            .filter((pulse) => pulse.target === wire.target)
+            .map((pulse) => (
+              <span
+                key={pulse.key}
+                className={`packet packet-${pulse.kind}`}
+                data-testid={`packet-${wire.target}`}
+                style={{ offsetPath: `path("${wire.d}")` }}
+              />
+            )))}
+        </div>
+
+        <div className="machine-hub" ref={layer.hubRef}>{props.hub}</div>
+
+        <ul className="systems">
+          {NODES.map((node) => (
+            <li className="system" key={node.id} ref={layer.tileRef(node.id)}>
+              {tile(node)}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}

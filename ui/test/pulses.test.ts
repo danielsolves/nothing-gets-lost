@@ -1,0 +1,341 @@
+// ui/test/pulses.test.ts
+// A dot on the diagram must mean something happened. Specification section 7 forbids
+// stage props at the point of proof, and an animation that runs on a timer whether or
+// not anything moved would be the worst possible place to put one: right where the
+// visitor is deciding whether to believe the page.
+//
+// So every dot comes from a delivery changing state, and this is the rule that decides
+// it. Pure function over two snapshots, no clock, no stream, no browser.
+import { describe, it, expect } from 'vitest';
+import type { DeliveryView } from '@ngl/contracts';
+import { pulsesFrom } from '../src/pulses';
+
+const SENT = '2026-08-02T10:00:00.000Z';
+
+/**
+ * `sentAt` follows the state the way the mediator writes it: a row is stamped as the
+ * call goes out, so anything that has been picked up carries one and a row still
+ * queued does not. The dots are timed by that stamp, so a fixture leaving it null on
+ * an in-flight row would be describing a board that cannot occur.
+ */
+const delivery = (
+  id: number, target: DeliveryView['target'], state: DeliveryView['state'], attempts = 1,
+): DeliveryView => ({
+  id, target, state, attempts,
+  eventId: `evt-${id}`, nextAt: null, lastError: null, remoteRef: null, remoteAt: null,
+  sentAt: state === 'pending' && attempts === 0 ? null : SENT,
+  answeredAt: null,
+});
+
+describe('pulsesFrom', () => {
+  it('sends a dot when the call goes out, not when it comes back', () => {
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'pending', 0)],
+      [delivery(1, 'hubspot', 'inflight', 1)],
+    );
+    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
+  });
+
+  it('does not send a second dot when that call is confirmed', () => {
+    // The dot for this attempt has already travelled. Drawing another one on the
+    // answer would say the hub called twice, and it would put the movement a round
+    // trip after the thing it stands for.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'inflight')],
+      [delivery(1, 'hubspot', 'done')],
+    );
+    expect(pulses).toEqual([]);
+  });
+
+  it('says nothing when an attempt fails, because no call is going out', () => {
+    // The failure is news, and the tile, the wire and the queue all carry it in
+    // words. What this layer draws is a call leaving, and none is.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'inflight', 1)],
+      [delivery(1, 'hubspot', 'pending', 1)],
+    );
+    expect(pulses).toEqual([]);
+  });
+
+  it('draws an order that arrived and was delivered inside one board interval', () => {
+    // The case that made the dots come and go. Boards arrive once a second and the
+    // worker fans a batch out in a few hundred milliseconds, so an order sent just
+    // after a board is already delivered by the next one: its rows are never seen
+    // queued, every one of them is a first sighting, and the rule that ignores first
+    // sightings swallowed the whole order. Whether anything moved on screen came
+    // down to which side of the tick the order happened to land on.
+    const before = [delivery(1, 'hubspot', 'done')];
+    const after = [
+      ...before,
+      { ...delivery(2, 'stripe', 'done'), eventId: 'evt-new' },
+      { ...delivery(3, 'slack', 'done'), eventId: 'evt-new' },
+    ];
+    const pulses = pulsesFrom(before, after);
+    expect(pulses).toEqual([
+      { id: 2, target: 'shop', kind: 'arrival' },
+      { id: 2, target: 'stripe', kind: 'delivered' },
+      { id: 3, target: 'slack', kind: 'delivered' },
+    ]);
+  });
+
+  it('still ignores rows of an order that was already on the board', () => {
+    // The guard is still doing its job for everything it was written for: a row that
+    // belongs to an order this page did not watch arrive is history.
+    const before = [delivery(1, 'hubspot', 'pending', 0)];
+    const after = [...before, delivery(2, 'stripe', 'done')];
+    // Delivery 2 carries its own event id, so it reads as a new order and its
+    // arrival is announced. What must not happen is a dot for a row of `evt-1`.
+    const pulses = pulsesFrom(before, after);
+    expect(pulses.filter((pulse) => pulse.target === 'hubspot')).toEqual([]);
+  });
+
+  it('draws a delivery that answers within one snapshot exactly once', () => {
+    // The board arrives once a second, so a system that answers in 300 ms is never
+    // seen in flight. The send stamp survives into the settled row, so the dot still
+    // fires on the frame that learns the call went out.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'pending', 0)],
+      [delivery(1, 'hubspot', 'done', 1)],
+    );
+    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
+  });
+
+  it('stops the dot short when a delivery is parked for a human', () => {
+    const pulses = pulsesFrom(
+      [delivery(1, 'slack', 'inflight')],
+      [delivery(1, 'slack', 'dead')],
+    );
+    expect(pulses).toEqual([{ id: 1, target: 'slack', kind: 'parked' }]);
+  });
+
+  it('says nothing about a delivery that did not move', () => {
+    const same = [delivery(1, 'hubspot', 'done')];
+    expect(pulsesFrom(same, same)).toEqual([]);
+  });
+
+  it('needs a previous state to compare against, or a reload looks like traffic', () => {
+    // On mount the delivery list is empty, so the empty array became the baseline
+    // and the first real snapshot arrived looking like forty simultaneous changes.
+    // A row seen for the first time is not a change we witnessed.
+    const pulses = pulsesFrom([], [
+      delivery(1, 'hubspot', 'done'),
+      delivery(2, 'stripe', 'done'),
+      delivery(3, 'slack', 'pending', 3),
+    ]);
+    expect(pulses).toEqual([]);
+  });
+
+  it('fires once that same row is seen changing', () => {
+    const first = [delivery(1, 'hubspot', 'pending', 0)];
+    expect(pulsesFrom([], first)).toEqual([]);
+
+    const moved = [{ ...first[0], state: 'done' as const, attempts: 1, sentAt: SENT }];
+    expect(pulsesFrom(first, moved)).toEqual([
+      { id: first[0].id, target: 'hubspot', kind: 'delivered' },
+    ]);
+  });
+
+  it('does not fire on the first render, when everything looks new', () => {
+    // Arriving mid-experiment must not spray a dot for every delivery on the board.
+    const pulses = pulsesFrom(undefined, [
+      delivery(1, 'hubspot', 'done'), delivery(2, 'stripe', 'done'),
+    ]);
+    expect(pulses).toEqual([]);
+  });
+
+  it('ignores a queued delivery that has not been tried yet', () => {
+    const pulses = pulsesFrom([], [delivery(1, 'hubspot', 'pending', 0)]);
+    expect(pulses).toEqual([]);
+  });
+
+  it('fires once per delivery when several go out at the same time', () => {
+    // The everyday case now that the worker fans a batch out rather than working it
+    // one row at a time: four calls leave together and four dots leave together.
+    const a = delivery(1, 'hubspot', 'pending', 0);
+    const b = delivery(2, 'stripe', 'pending', 0);
+    const pulses = pulsesFrom(
+      [a, b],
+      [
+        { ...a, state: 'inflight', attempts: 1, sentAt: SENT },
+        { ...b, state: 'inflight', attempts: 1, sentAt: SENT },
+      ],
+    );
+    expect(pulses).toHaveLength(2);
+    expect(pulses.map((p) => p.target).sort()).toEqual(['hubspot', 'stripe']);
+  });
+
+  it('fires again when the same delivery is tried a second time', () => {
+    // Same row, same state name, one more attempt. The visitor watching a cut line
+    // needs to see each retry go out, not one dot for the whole outage.
+    const pulses = pulsesFrom(
+      [delivery(1, 'hubspot', 'pending', 1)],
+      [delivery(1, 'hubspot', 'pending', 2)],
+    );
+    expect(pulses).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
+  });
+
+  it('says nothing about a delivery that vanished', () => {
+    // Reset empties the board. That is not five deliveries succeeding at once.
+    expect(pulsesFrom([delivery(1, 'hubspot', 'inflight')], [])).toEqual([]);
+  });
+
+  it('ignores a target the diagram does not draw', () => {
+    // custom_webhook is the visitor's own endpoint and has no box to travel to.
+    const pulses = pulsesFrom(
+      [delivery(1, 'custom_webhook', 'inflight')],
+      [delivery(1, 'custom_webhook', 'done')],
+    );
+    expect(pulses).toEqual([]);
+  });
+});
+
+// The diagram now draws where an order comes from, and nothing travelled along the
+// wire from the shop, so an order still appeared to begin inside the hub. An arrival
+// is not a state change of any one delivery, it is a whole order turning up, and the
+// only evidence of it in this data is an event id that was not there a moment ago.
+describe('pulsesFrom, when an order arrives', () => {
+  const order = (
+    eventId: string, firstId: number, targets: DeliveryView['target'][],
+  ): DeliveryView[] => targets.map((target, index) => ({
+    ...delivery(firstId + index, target, 'pending', 0), eventId,
+  }));
+
+  const onBoard = order('evt-old', 1, ['hubspot']);
+
+  it('sends a dot down the shop wire when a new order turns up', () => {
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...order('evt-new', 10, ['hubspot'])]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('sends one dot per order, not one per delivery the order queues', () => {
+    // One order fans out to four systems at once. Four dots on the incoming wire
+    // would say four orders arrived, which is a lie about the thing being measured.
+    const arriving = order('evt-new', 10, ['hubspot', 'stripe', 'slack', 'mailer']);
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...arriving]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('sends a dot for each of two orders arriving together', () => {
+    const pulses = pulsesFrom(onBoard, [
+      ...onBoard,
+      ...order('evt-a', 10, ['hubspot', 'stripe']),
+      ...order('evt-b', 20, ['hubspot', 'stripe']),
+    ]);
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 20, target: 'shop', kind: 'arrival' },
+    ]);
+  });
+
+  it('picks the same delivery to stand for the order however the rows are ordered', () => {
+    const arriving = order('evt-new', 10, ['hubspot', 'stripe']);
+    const forwards = pulsesFrom(onBoard, [...onBoard, ...arriving]);
+    const backwards = pulsesFrom(onBoard, [...onBoard, ...[...arriving].reverse()]);
+    expect(backwards).toEqual(forwards);
+  });
+
+  it('counts an order in even when nothing it queued is drawn', () => {
+    // The wire that matters here is the one into the hub. Which systems the order
+    // then fans out to has no bearing on whether it arrived.
+    const pulses = pulsesFrom(onBoard, [...onBoard, ...order('evt-new', 10, ['custom_webhook'])]);
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('says nothing about an order that was already on the board', () => {
+    // Its deliveries moving is not the order arriving a second time.
+    const before = order('evt-1', 1, ['hubspot']);
+    const after = [{ ...before[0], state: 'done' as const, attempts: 1, sentAt: SENT }];
+    expect(pulsesFrom(before, after)).toEqual([{ id: 1, target: 'hubspot', kind: 'delivered' }]);
+  });
+
+  it('reports the arrival alongside a delivery that went out in the same snapshot', () => {
+    const queued = delivery(1, 'hubspot', 'pending', 0);
+    const pulses = pulsesFrom(
+      [queued],
+      [
+        { ...queued, state: 'inflight' as const, attempts: 1, sentAt: SENT },
+        ...order('evt-new', 10, ['stripe']),
+      ],
+    );
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 1, target: 'hubspot', kind: 'delivered' },
+    ]);
+  });
+
+  it('does not announce arrivals on the first render', () => {
+    expect(pulsesFrom(undefined, order('evt-1', 1, ['hubspot', 'stripe']))).toEqual([]);
+  });
+
+  it('stays quiet after an empty snapshot, or a reload is a burst of arrivals', () => {
+    // The list is empty on mount, so an empty previous snapshot is indistinguishable
+    // from not having looked yet, and every order on the board would read as new.
+    const pulses = pulsesFrom([], [
+      ...order('evt-1', 1, ['hubspot']), ...order('evt-2', 2, ['stripe']),
+    ]);
+    expect(pulses).toEqual([]);
+  });
+});
+
+// The board is now told to the page whole and put in place of what the page held, so
+// reset genuinely empties the list. That turned the rule above into a hole at the
+// worst moment: after a reset the visitor presses send and watches, and their order
+// was compared against an empty list and travelled silently.
+//
+// An empty previous list is two different things. Before the first board arrives it
+// means "we have not looked", and every order on the board would read as new. Once
+// the page has watched the board go from full to empty it means the board is empty,
+// which is a fact and not an absence of one. Only the caller can tell them apart, so
+// the caller says which it is holding.
+describe('pulsesFrom, on a board the page watched empty', () => {
+  const order = (
+    eventId: string, firstId: number, targets: DeliveryView['target'][],
+  ): DeliveryView[] => targets.map((target, index) => ({
+    ...delivery(firstId + index, target, 'pending', 0), eventId,
+  }));
+
+  it('announces the first order after the reset', () => {
+    const pulses = pulsesFrom([], order('evt-new', 10, ['hubspot', 'stripe']), {
+      boardWasEmptied: true,
+    });
+    expect(pulses).toEqual([{ id: 10, target: 'shop', kind: 'arrival' }]);
+  });
+
+  it('announces each of two orders, once each', () => {
+    const pulses = pulsesFrom([], [
+      ...order('evt-a', 10, ['hubspot', 'stripe']),
+      ...order('evt-b', 20, ['slack']),
+    ], { boardWasEmptied: true });
+    expect(pulses).toEqual([
+      { id: 10, target: 'shop', kind: 'arrival' },
+      { id: 20, target: 'shop', kind: 'arrival' },
+    ]);
+  });
+
+  it('draws the delivery too, on an order that was already through when first seen', () => {
+    // This used to assert the arrival alone, on the grounds that a row already
+    // confirmed the first time it is seen was not watched travelling. That reads well
+    // and was wrong about the commonest case on the page: the first order after a
+    // reset is sent, fanned out and delivered inside one board interval, so its rows
+    // are never seen queued. The page did watch that order go through. It sampled the
+    // board late, which is a fact about the sampling and not about the delivery.
+    const pulses = pulsesFrom([], [delivery(1, 'hubspot', 'done')], {
+      boardWasEmptied: true,
+    });
+    expect(pulses).toEqual([
+      { id: 1, target: 'shop', kind: 'arrival' },
+      { id: 1, target: 'hubspot', kind: 'delivered' },
+    ]);
+  });
+
+  it('has nothing to say about an empty board that stays empty', () => {
+    expect(pulsesFrom([], [], { boardWasEmptied: true })).toEqual([]);
+  });
+
+  it('stays quiet when the caller does not claim to have watched it', () => {
+    // The default is the careful one: a caller that says nothing is a caller that
+    // cannot tell an empty board from a board it has not seen.
+    expect(pulsesFrom([], order('evt-new', 10, ['hubspot']))).toEqual([]);
+  });
+});
+

@@ -1,0 +1,127 @@
+# .github/workflows/deploy.yml
+#
+# where: runs on GitHub, reaches the demo host over SSH and nothing else.
+# what: after CI has gone green on main, park until a human approves, then make one
+#   SSH call. The far side runs /usr/local/bin/ngl-deploy, which is the only command
+#   this key is allowed to run (see tools/deploy/README.md).
+# why: there is no staging. Every merge to main is immediately public, so the gate
+#   is a required reviewer on the `production` environment rather than a branch
+#   protection rule. A merge alone changes nothing that a visitor can see.
+#
+# This file is chained behind CI with `workflow_run` rather than by adding a deploy
+# job to ci.yml, because ci.yml also runs on pull_request, including from forks. A
+# deploy job living in there would have to be guarded by an `if:` on every run and
+# would still show up as a skipped job on every PR. `workflow_run` also gates on the
+# conclusion of the CI workflow as a whole, so the `stack` job counts without this
+# file having to name it, and a fourth CI job added later is covered for free.
+#
+# Gotcha worth knowing: `workflow_run` only fires for a version of this file that
+# is on the default branch, and the run it produces always uses the copy of this
+# file from the default branch. Edits on a topic branch have no effect until merged.
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit to run. Empty means the head of main. Fill it in to roll back.'
+        required: false
+        default: ''
+
+# No write access is needed anywhere: nothing is committed, tagged or published.
+permissions:
+  contents: read
+
+# Deploys queue behind each other instead of cancelling. Cancelling half way through
+# would leave the host with new code, partly rebuilt images and an unknown schema.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A CI run that failed, was cancelled or came from a pull_request event must not
+    # reach the approval queue at all. A manual dispatch is allowed from main only,
+    # since ngl-deploy always fast-forwards to origin/main regardless.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      || (github.event_name == 'workflow_run'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == 'main')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # The gate. With a required reviewer configured on this environment the job
+    # parks here, before any step runs, until the owner approves in the UI.
+    environment:
+      name: production
+      url: https://ngl.danielsolves.ai
+
+    steps:
+      # The only credential in this workflow is an SSH key for the demo host. No
+      # Stripe, HubSpot, Slack, SMTP, Anthropic or database secret is present in
+      # this repository's settings, and none is needed: they live in the .env on
+      # the host, which is gitignored and which ngl-deploy never writes to.
+      - name: Install the deploy key and the host key
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      # One call, and deliberately nothing else. There is no rsync, no scp, no
+      # second command and no heredoc, because the far side does not run what is
+      # requested here: authorized_keys pins this key to ngl-deploy with
+      # `command="..."`, and sshd puts the request in SSH_ORIGINAL_COMMAND instead.
+      #
+      # ngl-deploy reads one thing out of it, an optional commit for a rollback, and
+      # refuses anything that is not an ancestor of main. So this key can replay code
+      # that was merged and passed all four required checks, and nothing else: not an
+      # arbitrary registry tag, not an unreviewed commit, not another program.
+      # The rollback input is checked here rather than trusted. It reaches a remote
+      # command line, and it arrives from a form field, so it is pinned to the only
+      # shape a commit can have before it goes anywhere. The far side checks it again
+      # and refuses anything that is not an ancestor of main; this is the near half of
+      # the same rule, and it also keeps the value out of a `run:` expansion, which is
+      # where workflow inputs turn into script injection.
+      - name: Check the requested commit
+        env:
+          REQUESTED: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          if [ -n "${REQUESTED:-}" ] && ! printf '%s' "$REQUESTED" | grep -Eq '^[0-9a-f]{7,40}$'; then
+            echo "not a commit sha: $REQUESTED" >&2
+            exit 1
+          fi
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          REQUESTED: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/deploy_key" \
+              -o IdentitiesOnly=yes \
+              -o IdentityAgent=none \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "ngl-deploy ${REQUESTED:-}"

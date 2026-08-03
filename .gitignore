@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.DS_Store
+*.log
+
+# Every .env variant, not just .env, because the file that gets committed by
+# accident is never the one called .env: it is .env.local or .env.production.bak,
+# made in a hurry on the day something is broken. .env.example is the exception and
+# has to stay tracked, since `cp .env.example .env` is the first line of the README.
+.env*
+!.env.example
+
+# Frames for the README GIF, rebuilt by tools/demo-gif/record.cjs on demand.
+tools/demo-gif/frames/

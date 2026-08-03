@@ -1,0 +1,24 @@
+-- packages/db/migrations/013_delivery_sent_at.sql
+-- When the call to a system actually went out.
+--
+-- The page draws a delivery as two things that happened, a call going out and an
+-- answer coming back, and says how long the pair took. That needs both ends of the
+-- hop on our own clock.
+--
+-- The answer end already exists: updated_at on a row that reached 'done' is the
+-- moment markDone ran. The sending end did not. locked_at looks like it, and it is
+-- set at exactly the right moment, but it is a lock and not a record: every one of
+-- markDone, markFailed and markDead clears it, deliveries_stuck_idx is defined on
+-- it being non-null, and releaseStuck reads it to find workers that died mid-call.
+-- Borrowing it would have meant a column that is null on precisely the settled rows
+-- the timing is wanted for, and a lock that no longer means locked.
+--
+-- So a column of its own, written beside locked_at when the row is claimed and never
+-- cleared. It is the attempt that is being timed, so a retry overwrites it: what the
+-- page shows is how long the hop that finally worked took, not how long the first
+-- one failed for.
+--
+-- Null for every row written before this migration. The page says nothing at all
+-- about those rather than guessing a duration, because a made-up number on a page
+-- whose entire claim is that its numbers are real costs more than a blank line.
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS sent_at timestamptz;

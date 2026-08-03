@@ -1,0 +1,174 @@
+name: CI
+# Once per change, not twice.
+#
+# `on: [push, pull_request]` looks like it covers two situations. On a branch with
+# an open pull request it is one situation seen twice: the push event and the
+# pull_request event both fire for the same commit, so the whole suite runs twice
+# and the checklist shows every job as a pair. That is double the minutes and
+# double the wall clock for no second opinion.
+#
+# Restricting push to main keeps the two events doing different work. A branch is
+# covered by pull_request, which is the only context that matters there, since
+# nothing reaches main except through a pull request. A merge to main is a push,
+# and that is the event the deploy workflow listens for.
+#
+# The one thing this gives up: pushing a branch with no pull request open now runs
+# nothing. Feedback starts when the pull request does, which is also when anybody
+# would look at it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Nothing here commits, tags or publishes. Declaring it in the file rather than
+# relying on the repository default means a settings change elsewhere cannot widen
+# what these jobs are allowed to do.
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  # A credential that reaches this repository cannot be taken back. Rotating it is
+  # the only real remedy, and rotating a Stripe or HubSpot token means an outage.
+  # So the check runs on every push and every pull request, and it reads the whole
+  # history rather than the diff: a secret added and removed again is still sitting
+  # in the commit that added it, and that commit is what a stranger clones.
+  #
+  # fetch-depth: 0 is what makes that possible. The default checkout is a single
+  # commit, and a scanner pointed at one commit finds nothing and reports success,
+  # which is the worst of both worlds.
+  #
+  # --redact is not optional. This log is public, and a scanner that prints the
+  # credential it found has published it a second time, to an audience that is
+  # actually looking.
+  #
+  # The image is deliberately not pinned. Pinning a scanner pins its rules, and the
+  # rules are the entire value: a version frozen today cannot recognise a token
+  # format introduced tomorrow. The risk a pin protects against, a build breaking
+  # because upstream changed, is the acceptable one here.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - name: Refuse any credential in the tree or anywhere in the history
+        run: |
+          set -euo pipefail
+          log=$(mktemp)
+          docker run --rm --volume "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo --redact --verbose --exit-code 1 2>&1 | tee "$log"
+
+          # A scan that read nothing is not a pass, and this is not a hypothetical.
+          # Run against a mount it could not open, gitleaks printed "0 commits
+          # scanned" and then "no leaks found", and exited 0. A green tick that
+          # means the check never ran is worse than no check, because it is the one
+          # nobody looks behind. So the count is read back and an empty scan fails.
+          scanned=$(grep -o '[0-9][0-9]* commits scanned' "$log" | tail -1 | cut -d' ' -f1)
+          if [ -z "${scanned:-}" ] || [ "$scanned" -lt 1 ]; then
+            echo "gitleaks reported no commits scanned, so it proved nothing" >&2
+            exit 1
+          fi
+          echo "clean, and it really looked: $scanned commits scanned"
+
+  # Its own job: the soak run takes minutes and must not slow the fast loop down.
+  # The number printed in the README comes from here, so it is regenerated on
+  # every push rather than being a figure somebody typed once.
+  soak:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx vitest run --config vitest.load.config.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: load-test-result
+          path: docs/load-test-result.txt
+
+  # The headline promise is `git clone && docker compose up`. It is checked here
+  # with no .env at all, which is exactly how a stranger arrives.
+  stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose up -d --build --wait
+      - run: curl --fail --silent --show-error http://localhost:3001/api/state
+      - run: curl --fail --silent --show-error http://localhost:5173/ -o /dev/null
+      - run: curl --fail --silent --show-error http://localhost:3007/health
+      # The port answering is not the same as the server working: the tools are
+      # listed over the real transport, which is the first thing a client does.
+      - name: List the MCP tools the way a client would
+        run: |
+          curl --fail --silent --show-error http://localhost:3007/mcp \
+            -H 'content-type: application/json' \
+            -H 'accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | grep -q backlog_list
+      - if: always()
+        run: docker compose logs --no-color --tail 50
+      - if: always()
+        run: docker compose down -v
+
+  # Build once, here, and let the host pull the result. Before this the runner built
+  # nine images and tested them, then the host built nine *different* images from the
+  # same source and served those. Same commit, but a base image or an npm tarball can
+  # move between the two builds, so what faced the public was never the thing the
+  # tests ran against.
+  #
+  # Only on a push to main, and only behind all four checks: an image in the registry
+  # is a thing the deploy can reach, so nothing untested should ever get a tag.
+  #
+  # The images are tagged with the commit and nothing else. No rolling `latest`: the
+  # deploy names the commit it wants, and a rollback is the same command with an older
+  # one. A moving tag would take that away and put "whatever was newest" back in.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, soak, stack, secrets]
+    runs-on: ubuntu-latest
+    # The only job in this file that writes anything, and it writes packages, not code.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Sign in to the registry
+        run: |
+          echo '${{ secrets.GITHUB_TOKEN }}' \
+            | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+      - name: Build and publish the nine images
+        env:
+          NGL_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker compose build
+          docker compose push
+      # A push that half succeeded would leave the deploy able to pull some services at
+      # this commit and not others, which is worse than not publishing at all. So the
+      # tags are read back from the registry before the job goes green.
+      - name: Prove every service is really there
+        env:
+          NGL_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for svc in migrate egress-gate ledger mailer extractor mediator api mcp ui; do
+            ref="ghcr.io/danielsolves/ngl-$svc:$NGL_TAG"
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "ok   $ref"
+            else
+              echo "MISSING $ref" >&2
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || { echo 'the registry is missing images this commit needs' >&2; exit 1; }

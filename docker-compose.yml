@@ -1,0 +1,258 @@
+# docker-compose.yml
+# The one command: `docker compose up`. Seven services, the page, Postgres and a
+# one-shot migration that finishes before anything else starts. Nothing but Docker
+# has to be installed and no variable has to be filled in first — the integrations
+# that need a key degrade visibly instead of keeping the demo from starting.
+#
+# Ports on the host: 5173 the page, 3001 the api, 3007 the MCP server, 5432
+# Postgres. The services talk to each other by service name on the private network;
+# those names are the hostnames the code and the frozen egress contract already
+# expect, so renaming a service here breaks delivery.
+
+name: nothing-gets-lost
+
+# .env is read when it exists and skipped when it does not. Everything in it is
+# optional: no model key means recorded extractions, no Stripe key means unverified
+# webhooks, no SMTP account means a send that fails where you can watch it happen.
+x-env-file: &env-file
+  - path: .env
+    required: false
+
+# The database url from .env.example points at localhost, which is right for
+# `npm run dev` on the host and wrong inside a container. It is overridden here
+# rather than in .env so that both ways of running the demo keep working.
+#
+# The passwords fall back to the demo values so that a clone still starts on one
+# command, and a public host sets DATABASE_PASSWORD and DATABASE_READONLY_PASSWORD in
+# .env instead. Postgres only reads POSTGRES_PASSWORD when it initialises an empty
+# volume, so changing it on a database that already exists changes nothing: set it
+# before the first `up`, or drop the volume.
+x-db-env: &db-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://ngl:${DATABASE_PASSWORD:-ngl}@db:5432/ngl
+
+# Every built service carries both an `image:` name and a `build:` section, and the
+# combination is the point.
+#
+# `docker compose up --build` still builds from source, so the promise on the front of
+# the README, clone it and bring it up, is unchanged for a stranger and for the `stack`
+# job that checks that promise on every pull request. The image name is just the tag
+# the build gets.
+#
+# On the demo host nothing is built at all. NGL_TAG is set to the commit that CI built
+# and published, `docker compose pull` fetches exactly those images, and what serves
+# traffic is byte-identical to what the tests ran against. Before this, the runner
+# built nine images and tested them, then the host built nine *different* images and
+# served those: same source, but a base image or an npm tarball could have moved in
+# between, and nobody would have known.
+#
+# It also takes the heaviest build off a host that is short on memory, and it makes a
+# rollback a matter of pointing NGL_TAG at an older commit.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ngl
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-ngl}
+      POSTGRES_DB: ngl
+    # Published so the tests and `npm run dev` on the host reach the same database
+    # the containers use. Bound to the loopback address on purpose: on a public host
+    # a bare 5432:5432 would put Postgres on the internet, and the demo has no reason
+    # to be reachable from anywhere but the machine it runs on.
+    ports: ['127.0.0.1:${DB_PORT:-5432}:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ngl -d ngl']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Runs once and exits. Every service below waits for that exit, so none of them
+  # can meet a half-built schema. Applied files are recorded, so a second `up` is
+  # a no-op rather than a conflict.
+  migrate:
+    image: ghcr.io/danielsolves/ngl-migrate:${NGL_TAG:-local}
+    build: { context: ., dockerfile: packages/db/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: on-failure
+
+  egress-gate:
+    image: ghcr.io/danielsolves/ngl-egress-gate:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/egress-gate/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3003/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # Reachable only through the gate, on the hostname the frozen contract names.
+  # It reports unhealthy while a visitor has the ledger switched off: that is the
+  # truth, and nothing restarts it — the process is alive, only its socket is shut.
+  ledger:
+    image: ghcr.io/danielsolves/ngl-ledger:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/ledger/Dockerfile }
+    env_file: *env-file
+    environment: *db-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3004/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mailer:
+    image: ghcr.io/danielsolves/ngl-mailer:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/mailer/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+      # The service refuses to boot without these two. The defaults point nowhere
+      # on purpose: with no mail account the send fails and is recorded as failed,
+      # which is a better demo than a stack that will not start.
+      SMTP_URL: ${SMTP_URL:-smtp://demo:demo@127.0.0.1:587}
+      MAIL_FROM: ${MAIL_FROM:-demo@example.invalid}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3005/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  extractor:
+    image: ghcr.io/danielsolves/ngl-extractor:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/extractor/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+      # The model key, named here rather than left to arrive with the rest of .env.
+      # It only arrived that way before, which worked and hid the one variable that
+      # decides whether this service calls out at all. Empty is a supported state and
+      # not a forgotten setting: the extractor then answers from fixtures (spec 8.5).
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3006/').then(()=>process.exit(0),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mediator:
+    image: ghcr.io/danielsolves/ngl-mediator:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/mediator/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+    depends_on:
+      egress-gate: { condition: service_healthy }
+      ledger: { condition: service_healthy }
+      mailer: { condition: service_healthy }
+      extractor: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3002/internal/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/danielsolves/ngl-api:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    env_file: *env-file
+    environment:
+      <<: *db-env
+      # The read-only url is not set here any more. It belonged to the public SQL
+      # console, and the console has gone: the read-only role now has exactly one
+      # user, the mcp service below.
+      #
+      # Not set is not the same as not present, and the comment used to claim the
+      # stronger of the two. `env_file` hands this container the whole .env, so if an
+      # operator still has DATABASE_URL_READONLY in theirs it arrives here regardless.
+      # What actually holds is that nothing in services/api reads it. That is the
+      # guarantee worth stating, because it is the one that is enforced.
+      #
+      # The model key is passed straight through. The page derives what it says
+      # about the extraction from whether this is set, so there is no second
+      # label to keep in sync and no way for the two to disagree.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Where the Stripe webhook comes back to. Behind a domain this is the public
+      # https url, not localhost.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
+    # Published so a reverse proxy, or a curl, can reach the api without the page.
+    # The host side is a variable because a shared machine has its own idea of what
+    # 3001 is for; inside the network the port never moves, so nothing else has to
+    # know. Same for the page below.
+    ports: ['${API_PORT:-3001}:3001']
+    depends_on:
+      mediator: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/api/state').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # The backlog, readable by an MCP client. It is handed the read-only url and no
+  # other credential at all: not the writing one, not a model key, not a token key.
+  # That is what makes an open port defensible here.
+  #
+  # It waits for the api rather than for the migration, only so that a machine
+  # coming up cold does not answer questions about a database nothing has written
+  # to yet.
+  mcp:
+    image: ghcr.io/danielsolves/ngl-mcp:${NGL_TAG:-local}
+    build: { context: ., dockerfile: services/mcp/Dockerfile }
+    # No env_file, unlike every other service. .env is where the writing database
+    # url and the keys live, and this is the one process that should not be able to
+    # pick one up by accident.
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_READONLY: postgres://ngl_ro:${DATABASE_READONLY_PASSWORD:-ngl_ro}@db:5432/ngl
+    ports: ['${MCP_PORT:-3007}:3007']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3007/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  ui:
+    image: ghcr.io/danielsolves/ngl-ui:${NGL_TAG:-local}
+    build: { context: ., dockerfile: ui/Dockerfile }
+    ports: ['${UI_PORT:-5173}:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  pgdata:

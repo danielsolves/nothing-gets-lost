@@ -1,0 +1,20 @@
+# .dockerignore
+# Keeps the build context to what the images need: manifests, lockfile, sources,
+# migrations and fixtures. A secret that never enters the context cannot end up
+# in a layer, so .env is excluded here as well as in .gitignore.
+.git
+.github
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.env
+.env.*
+*.log
+test
+**/test
+docker-compose.yml
+**/Dockerfile
+.dockerignore

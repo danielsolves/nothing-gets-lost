@@ -1,0 +1,2934 @@
+/* ui/src/styles.css
+   The whole page in one sheet. Tokens and type are lifted from danielsolves.ai so
+   the demo reads as part of that body of work rather than as a stray tool.
+   Fonts are self-hosted: no visitor IP reaches a font CDN on page load. */
+
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/space-grotesk-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1E00-1E9F, U+2020, U+20A0-20AB, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1E00-1E9F, U+2020, U+20A0-20AB, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg: oklch(0.15 0.012 260);
+  --surface: oklch(0.21 0.012 260 / 0.6);
+  --surface-sunken: oklch(0.12 0.012 260 / 0.7);
+
+  --line: oklch(0.95 0.01 260 / 0.09);
+  --line-strong: oklch(0.95 0.01 260 / 0.16);
+  --line-input: oklch(0.95 0.01 260 / 0.34);
+  --wash: oklch(0.95 0.01 260 / 0.05);
+
+  --text: oklch(0.97 0.008 260);
+  --muted: oklch(0.72 0.015 260);
+  --faint: oklch(0.63 0.015 260);
+
+  --accent: oklch(0.82 0.14 195);
+  --accent-soft: oklch(from var(--accent) l c h / 0.1);
+  --on-accent: oklch(0.16 0.01 260);
+  --glow: oklch(from var(--accent) l c h / 0.5);
+
+  --good: oklch(0.8 0.15 155);
+  --warn: oklch(0.83 0.15 85);
+  --bad: oklch(0.7 0.2 25);
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
+
+  /* The page heading is the portfolio heading. danielsolves.ai sets its case-page
+     h1 at clamp(38px, 6.2vw, 76px), and this page was a step under that at
+     clamp(34px, 5.4vw, 62px), which read as a subpage of a subpage. Matched
+     exactly rather than approximately, so the two sites are one voice. */
+  --fs-display: clamp(38px, 6.2vw, 76px);
+  --fs-section: clamp(21px, 2.5vw, 27px);
+  --fs-lede: clamp(16px, 1.8vw, 19px);
+
+  --r-shell: 24px;
+  --r-card: 18px;
+  --r-control: 12px;
+  --r-pill: 999px;
+
+  --aurora-opacity: 0.45;
+  --grain-opacity: 0.035;
+}
+
+/* The light palette lives twice, and that is not a copy-paste slip.
+ *
+ * A media query cannot be widened with an attribute selector, so a page that wants
+ * to honour a chosen theme as well as the operating system's needs both rules. The
+ * `:not([data-theme="dark"])` is what lets an explicit dark choice win on a machine
+ * set to light, which is the case that breaks if you only write the attribute rule.
+ *
+ * The choice arrives in a cookie on .danielsolves.ai rather than in localStorage,
+ * because localStorage is per origin and this page is a different one from the site
+ * that carries the switch. index.html reads it before first paint. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: oklch(0.985 0.003 260);
+    --surface: oklch(1 0 0 / 0.86);
+    --surface-sunken: oklch(0.965 0.004 260 / 0.9);
+    --line: oklch(0.25 0.02 260 / 0.12);
+    --line-strong: oklch(0.25 0.02 260 / 0.2);
+    --line-input: oklch(0.25 0.02 260 / 0.36);
+    --wash: oklch(0.25 0.02 260 / 0.045);
+    --text: oklch(0.22 0.02 260);
+    --muted: oklch(0.44 0.02 260);
+    --faint: oklch(0.5 0.02 260);
+    --accent: oklch(0.58 0.13 195);
+    --on-accent: oklch(0.99 0 0);
+    --good: oklch(0.52 0.14 155);
+    --warn: oklch(0.55 0.13 75);
+    --bad: oklch(0.53 0.2 25);
+    --aurora-opacity: 0.18;
+    --grain-opacity: 0.02;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: oklch(0.985 0.003 260);
+  --surface: oklch(1 0 0 / 0.86);
+  --surface-sunken: oklch(0.965 0.004 260 / 0.9);
+  --line: oklch(0.25 0.02 260 / 0.12);
+  --line-strong: oklch(0.25 0.02 260 / 0.2);
+  --line-input: oklch(0.25 0.02 260 / 0.36);
+  --wash: oklch(0.25 0.02 260 / 0.045);
+  --text: oklch(0.22 0.02 260);
+  --muted: oklch(0.44 0.02 260);
+  --faint: oklch(0.5 0.02 260);
+  --accent: oklch(0.58 0.13 195);
+  --on-accent: oklch(0.99 0 0);
+  --good: oklch(0.52 0.14 155);
+  --warn: oklch(0.55 0.13 75);
+  --bad: oklch(0.53 0.2 25);
+  --aurora-opacity: 0.18;
+  --grain-opacity: 0.02;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Two fixed, pointer-transparent layers. Never on a scrolling container: a grain
+   filter over scrolling content repaints on the GPU every frame. */
+.aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.aurora::before, .aurora::after {
+  content: ""; position: absolute; border-radius: 50%;
+  filter: blur(90px); opacity: var(--aurora-opacity);
+}
+.aurora::before {
+  width: 52vw; height: 52vw; top: -20vw; right: -10vw;
+  background: radial-gradient(circle, var(--accent), transparent 65%);
+}
+.aurora::after {
+  width: 42vw; height: 42vw; top: 46vw; left: -14vw;
+  background: radial-gradient(circle, var(--good), transparent 65%);
+}
+.grain {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.page {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 72px) clamp(16px, 4vw, 32px) 96px;
+  display: grid;
+  gap: clamp(40px, 5vw, 72px);
+}
+
+/* The stage: claim, proof that it is live, one thing to press ---------------- */
+
+.stage { display: grid; gap: 20px; }
+
+.stage h1 {
+  margin: 0;
+  max-width: 26ch;
+  font-size: var(--fs-display);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  /* 600, not 700. The portfolio pages set their headings at 600 and Space Grotesk
+     has a real weight axis, so 700 here was a heavier cut of the same face rather
+     than the same face. */
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+/* Who made this, before what it is. The page is a piece of work in a portfolio and
+   said so nowhere: a visitor arriving from the case list met a claim about orders
+   with no idea whose claim it was. Monospace because it is a label rather than a
+   sentence, which is the one job monospace still has outside the machine. */
+.stage-who {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.stage .sub {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--fs-lede);
+  line-height: 1.6;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.status {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 13.5px;
+  color: var(--faint);
+  max-width: 74ch;
+}
+
+/* The badge keeps the monospace, because it is the one thing in this header that is
+   a reading off the machine rather than a sentence about it. Everything beside it
+   went back to the body face: five stacked lines in four different treatments was
+   what made a header of five short paragraphs look like five separate voices. */
+.status .live, .status .offline { font-family: var(--mono); font-size: 12px; }
+
+.status .live, .status .offline {
+  display: inline-flex; align-items: center; gap: 7px;
+  text-transform: uppercase; letter-spacing: 0.14em;
+}
+.status .live { color: var(--good); }
+.status .offline { color: var(--warn); }
+.status .live::before, .status .offline::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.status .status-note { color: var(--muted); }
+
+.stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+}
+
+.stage-cta {
+  padding: 15px 28px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--mono);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 0 24px var(--glow);
+  transition: box-shadow 0.25s ease, transform 0.12s ease;
+}
+.stage-cta:hover { box-shadow: 0 0 34px var(--glow); }
+.stage-cta:active { transform: translateY(1px); }
+.stage-cta:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.stage-cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.stage-hint { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 52ch; }
+
+/* The order form ------------------------------------------------------------
+   It lives on the shop tile inside the drawing. It was at the foot of the page as
+   a section called "Place your own order", then at the top under the claim, and
+   both were wrong for the same reason: an order sent from outside the picture
+   appears in the middle of it, skipping the one hop the picture exists to show.
+
+   Everything except the button is folded away. Most people press once and watch,
+   and the detail opens over the drawing rather than inside the tile: a tile that
+   grows by the height of a catalogue rearranges the whole machine the moment
+   somebody is curious. */
+
+/* It sat on a tile in the middle of the drawing and had to fill that tile's width,
+   which is why it was a full-width block at twelve point. It stands at the top of
+   the machine now, in a row of its own, so it goes back to being a button: as wide
+   as its label and read at the size of a thing you are meant to press first. */
+.order-form { display: grid; gap: 9px; justify-items: start; }
+.order-form .stage-actions { display: grid; gap: 7px; justify-items: start; }
+.order-form .stage-cta { padding: 14px 26px; font-size: 14px; letter-spacing: 0.01em; }
+
+.order-disclosure {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-input);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.order-disclosure:hover { color: var(--text); border-color: var(--accent); }
+.order-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.order-panel {
+  text-align: left;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 11px;
+  width: min(22rem, 88vw);
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(15px, 1.8vw, 20px);
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-card);
+  background: var(--bg);
+  box-shadow: 0 18px 40px oklch(0 0 0 / 0.45);
+}
+
+.order-why { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+/* A radio group, never checkboxes: one order is paid once. */
+/* Says how the order is paid. It is context, not a warning, so it keeps the quiet
+   colour it had while it sat inside the payment fieldset that has gone. */
+.order-hint { margin: 0; color: var(--warn); font-size: 13.5px; }
+.order-form .error { margin: 0; font-size: 13px; }
+
+/* The queue --------------------------------------------------------------------
+   One card per order, five checkpoints, quiet until opened. This is the panel the
+   whole hand-built queue exists to make visible. */
+
+.queue-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: clamp(18px, 2.4vw, 28px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-shell);
+}
+
+.queue-panel h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* align-content matters more than it looks. The list fills a panel of a definite
+   height, and a grid whose rows are auto stretches them to share that height, so
+   two orders in the queue became two cards half a panel tall each. Cards are the
+   size of what is in them; the space left over stays empty. */
+.queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.queue-empty {
+  margin: 0;
+  padding: 22px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+/* The backlog. Deliberately not styled like the mediator: the hub is the machine
+   working and gets the accent and the glow, this is the tray the machine could not
+   empty and gets a plain box. It is the same weight as a system tile because that
+   is what it is about. */
+.backlog {
+  display: grid;
+  gap: 12px;
+  padding: clamp(16px, 1.6vw, 22px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-shell);
+  background: var(--surface-sunken);
+}
+.backlog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.backlog-titles { display: grid; gap: 3px; }
+.backlog-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.backlog-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+/* Only drawn when it is not zero. A backlog with a big 0 on it invites a reader to
+   watch a number rather than to read the sentence under it, and the sentence is the
+   claim. The count carries the warning colour because a number here means work. */
+.backlog-count {
+  flex: none;
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: oklch(from var(--bad) l c h / 0.16);
+  color: var(--bad);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.backlog-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* The list brings nothing of its own. It is .queue, because the entries in it are
+   the queue's cards, and a second set of gaps and a second scroll height for the
+   same list of the same boxes could only ever drift away from the first.
+
+   What was here was a row: three columns, its own red box, its own font size. Two
+   notations for one thing, one tab apart. */
+
+/* The fault, standing where the queue card puts its headline. The reason a delivery
+   is here is the one thing this panel exists to carry, so it is at the top of the
+   card and it is the loudest thing on it. It used to be the tail of a grey sentence,
+   in brackets, behind the attempt count. */
+.backlog-fault {
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border-left: 2px solid var(--bad);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  background: oklch(from var(--bad) l c h / 0.09);
+}
+/* Whatever the driver said, whole, in the face the rest of the page keeps for words
+   that came from a machine. Broken anywhere rather than clipped or ellipsised: an
+   error with its ending cut off is the thing that sends a reader to the database,
+   and half a message is worse than none because it looks like the whole one. */
+.backlog-fault-why {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--bad);
+  overflow-wrap: anywhere;
+}
+.backlog-fault-how { font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+/* The handle for asking somebody who is not this page. Quiet, because it is a thing
+   to do after reading rather than a thing to read. */
+.backlog-ids {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.backlog-check {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.backlog-check code,
+.backlog-ids code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--wash);
+  color: var(--muted);
+}
+
+/* The card is the box, and the box is what grows. Everything that draws it lives
+   here rather than on the button inside it: the detail cannot be a child of a
+   button, so a card whose border belonged to the button could only ever have put
+   the detail outside its own outline. */
+.order-card {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.order-card:hover { border-color: var(--line-input); }
+.order-card[data-open='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The head, and the only part of the card that can be pressed. */
+.order-summary {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.order-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.order-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.order-id {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+/* Tabular figures so a column of arrival times lines up on the colon and the eye
+   can run down it. Quieter than the number: the number says which order, the time
+   only says when, and only one of those is what a visitor is scanning for. */
+.order-at {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+/* Five checkpoints, and each one is the mark of the system it is about: the same
+   Stripe S, HubSpot sprocket and Slack hash the tiles wear, so the card and the
+   drawing are one picture seen twice. They were coloured dots, then anonymous
+   checkboxes, and both left a visitor to open the card to learn which box was which.
+
+   The gap and the padding leave room for the overlay to sit at the corner of a mark
+   without touching the next one or the headline below. */
+.order-checks { display: flex; gap: 8px; padding-bottom: 2px; }
+.order-check {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+/* Smaller than the 30px a tile gives it. Both sizes were built and looked at: at the
+   tile's size five marks and their gaps want about 190px, which is more than a card
+   head has on a phone, and a row that wide stops reading as one line of state and
+   starts reading as five buttons. The outline survives being shrunk in a way a
+   wordmark would not have, so the recognition is not what is paid for it. */
+.order-check .system-mark {
+  width: 21px;
+  height: 21px;
+  border-radius: 8px;
+  transition: color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
+}
+.order-check .system-mark svg { width: 13px; height: 13px; }
+
+/* Grey until the step has actually reached somewhere. The brand's colour is what
+   arriving looks like, so a card half way through says so from across the room.
+   Written on colour and background rather than on --mark-tint, because the tint is
+   an inline style on the mark and nothing in a sheet can outrank it. */
+.order-check[data-look='waiting'] .system-mark,
+.order-check[data-look='queued'] .system-mark,
+.order-check[data-look='sending'] .system-mark {
+  color: var(--faint);
+  background: oklch(from var(--faint) l c h / 0.13);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+/* The queue has not made the row at all (spec 6.7), which is not the same fact as a
+   row that is queued and untried. Both are a grey mark with nothing on it, so the
+   edge is what holds them apart, and a dashed edge is the one thing that reads as
+   "not yet" rather than as "not done". */
+.order-check[data-look='waiting'] .system-mark {
+  background: none;
+  box-shadow: none;
+  border: 1px dashed var(--line-strong);
+}
+/* Failed once and sitting out its backoff. Its own colour, because the system has
+   been reached and has answered, and held back, because it has not been reached this
+   time round. The hourglass in the corner is what actually says so. */
+.order-check[data-look='retrying'] .system-mark { opacity: 0.5; }
+/* In the backlog. The one place on the page a mark is not drawn in the colour it
+   belongs to: the row has stopped moving and a person has to pick it up, and that
+   matters more about it now than whose logo it is. */
+.order-check[data-look='parked'] .system-mark {
+  color: var(--bad);
+  background: oklch(from var(--bad) l c h / 0.16);
+  box-shadow: inset 0 0 0 1px oklch(from var(--bad) l c h / 0.4);
+}
+
+/* The state, in the corner, as a shape. Colour agrees with it and never carries it
+   alone: a screenshot in black and white and a reader who cannot separate red from
+   green both lose the tint, and neither may lose the state.
+
+   A cross is deliberately not among these. A cross says failed, and failed is the
+   state before the backlog, which the hourglass already holds. What is different
+   about a parked row is that it has been handed to a person, so it gets a person.
+
+   Sized against the mark rather than against the glyph inside it, and allowed to
+   hang past the corner by 3px: inside a 21px mark it would cover most of the shape
+   it is meant to be annotating. The row above reserves the space it overhangs. */
+.order-check-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  color: var(--on-accent);
+}
+.order-check-badge[data-badge='delivered'] { background: var(--good); }
+.order-check-badge[data-badge='retrying'] { background: var(--warn); }
+.order-check-badge[data-badge='parked'] { background: var(--bad); }
+.order-check-badge[data-badge='sending'] { background: var(--accent); }
+.order-check-badge[data-badge='sending'] svg {
+  animation: order-check-spin 0.9s linear infinite;
+}
+@keyframes order-check-spin { to { transform: rotate(1turn); } }
+/* Spelled out here as well as in the blanket rule at the foot of this sheet, because
+   this is the one thing on a card that a visitor reads as "still working" and the
+   fallback has to be deliberate rather than inherited: the notched ring stays and
+   stops turning. A notched ring is the shape everything else on a screen uses for
+   this, whether or not it is moving. */
+@media (prefers-reduced-motion: reduce) {
+  .order-check-badge[data-badge='sending'] svg { animation: none; }
+}
+
+.order-headline { font-size: 13.5px; color: var(--muted); }
+
+/* How long anything on a card or on the order form takes to fold, written once. The
+   builder's way in has to leave and come back in step with the panel it opens, and
+   two durations that have to agree by hand will disagree the first time one of them
+   is touched. Declared on the two things that host a fold, because a custom property
+   only reaches downwards. */
+.order-card, .order-form {
+  --fold-time: 0.32s;
+  --fold-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The fold. A grid whose single row goes from 0fr to 1fr is the one way to
+   animate to a height nobody has measured, and the detail is a different height on
+   every card. The child clips, or the content spills out while the row is short.
+
+   The order builder under "Create order" opens with this too, rather than with a
+   second way of unfolding a block, which is why the rule sits on a class of its own
+   and not on the card. */
+.order-fold {
+  display: grid;
+  /* minmax(0, ...) and not a bare 0fr. A bare fr track is minmax(auto, 0fr), and
+     that auto minimum is the item's own min-content, so the fold stayed 28px tall
+     while shut and every card wore a sliver of its own detail. */
+  grid-template-rows: minmax(0, 0fr);
+  /* Hidden as well as clipped, and not for tidiness. A shut fold holds real
+     controls: the proof buttons on a card, and the whole basket and both address
+     fields in the builder. Something clipped to no height is still in the tab order
+     and still read out. visibility takes it out of both, and it flips at the end of
+     the fold rather than at the start, which is the only reason it is in the
+     transition at all: switched immediately, closing would blink shut. */
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--fold-time) var(--fold-ease),
+    visibility 0s linear var(--fold-time);
+}
+.order-fold[data-open='true'] {
+  grid-template-rows: minmax(0, 1fr);
+  visibility: visible;
+  transition: grid-template-rows var(--fold-time) var(--fold-ease), visibility 0s;
+}
+
+/* The way in: the "Create order" button, and the row it stands in.
+
+   It folds too, but not on the same schedule, because opening and closing are not
+   symmetric in what a visitor should see. Opening: the button is gone before the
+   panel starts, so the panel has the space to itself. Closing: the button waits out
+   the whole fold and comes back only once the panel has gone, which is opening run
+   backwards. Both waits are var(--fold-time), so there is one duration on the page
+   and not two that have to be kept level.
+
+   Folded rather than taken out of the markup, for the reason the panel is: a button
+   that is put back on the click is on screen while the panel is still collapsing
+   underneath it, which is what this rule exists to stop. */
+.order-way {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  /* No overflow: hidden, unlike the fold. The row here snaps rather than easing, so
+     there is never a frame with a half-clipped button, and clipping would cut the
+     focus ring off the one control the page most wants a keyboard to find. */
+  visibility: visible;
+  transition:
+    grid-template-rows 0s linear var(--fold-time),
+    visibility 0s linear var(--fold-time);
+}
+.order-way[data-open='true'] {
+  grid-template-rows: minmax(0, 0fr);
+  visibility: hidden;
+  transition: grid-template-rows 0s, visibility 0s;
+}
+.order-way > * { min-height: 0; }
+/* min-height: 0 as well as the clip. A row of 0fr takes none of the leftover
+   space, but its base size is still the item's content minimum, so without this the
+   fold sits 28px tall while shut and every card carries a sliver of its own detail. */
+/* The clip belongs on the fold, not on the child. A child clipping its own overflow
+   still paints its padding, so a shut card wore a 24px strip of the detail's
+   background below it. min-height: 0 as well, or the grid item refuses to go under
+   its content height. */
+.order-fold { overflow: hidden; }
+/* align-self: start as well, or the fold squashes its child instead of clipping it,
+   and a box that draws itself cannot be squashed without the drawing moving.
+
+   Stretched, the builder's height was the row's height, so on the way shut its border
+   box shrank while its contents kept their places and spilled out below it. Its bottom
+   border rode up through the panel: one grey hairline travelling across the product
+   list, behind the rows, because a parent paints its border before its children. It
+   could not shrink past its own padding either, so it parked 34px down and sat there
+   for the last third of the fold.
+
+   Started rather than stretched, the child keeps its natural height the whole way and
+   the clip above takes it off the bottom, which is what the fold looked like it was
+   doing all along. Nothing is newly hidden: open, the row is the child's own height,
+   so the clip and the child's bottom edge are the same edge. */
+.order-fold > * { min-height: 0; align-self: start; }
+
+/* Inside the card now, so it brings no border, no corners and no colour of its own.
+   A hairline says where the head ends; the box around both is the card. */
+.order-detail {
+  margin: 0 15px;
+  padding: 12px 0 13px;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+/* What was in the order sits above how it is being delivered, because a visitor
+   asks what it is before asking how it is going. */
+.order-contents { display: grid; gap: 5px; }
+.order-origin { margin: 0; color: var(--faint); }
+.order-basket { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.order-basket li, .order-total {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+/* The figure on the Stripe receipt, so it is the one thing here that is not muted. */
+.order-total {
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 600;
+}
+.order-line { color: var(--muted); }
+.order-total .order-line { color: var(--text); }
+.order-money { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* The step name above what happened to it, rather than beside it. Two columns fitted
+   while a step said "delivered"; it stopped fitting when the step gained a foreign
+   id and a check with the answer under it, and a 150px label column against a 27rem
+   panel left the id to overflow the panel sideways. */
+.order-steps { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.order-steps > div { display: grid; gap: 3px; min-width: 0; }
+.order-steps dt { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+/* A foreign id is one unbroken token longer than any column here. Broken anywhere
+   rather than pushed past the edge: a proof that has scrolled out of sight proves
+   nothing. */
+.order-steps dd { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.order-steps > div[data-state='done'] dd { color: var(--good); }
+.order-steps > div[data-state='dead'] dd { color: var(--bad); }
+.order-steps > div[data-state='pending'] dd { color: var(--warn); }
+
+/* The machine: hub in the middle, systems around it ------------------------- */
+
+/* Flush with every other box on the page. It was pulled wider than the text
+   column for a while and read as a different site pasted into the middle. */
+.board {
+  display: grid;
+  gap: clamp(16px, 2vw, 26px);
+}
+
+/* One box. A heading and the one way in at the top, the mediator on the left, and
+   the systems it delivers to filling the space beside and below it.
+
+   It was three fixed columns for a long time: sources left, mediator centre, systems
+   right, money underneath. That drawing put two kinds of thing in one row, and it
+   could not be made small. Three tiles across at 1440px came out narrower than two
+   across at 768px, so a name overran its column on a desktop and not on a phone. The
+   mediator has a column of its own now and the systems flow into what is left, which
+   is what lets them be smaller without any of them being cut. */
+.machine {
+  display: grid;
+  gap: clamp(22px, 3vw, 34px);
+  padding: clamp(20px, 3vw, 40px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-shell);
+}
+
+/* The cap belongs to the prose, not to the whole head. Applied to the head it also
+   held the order builder to 70ch, which left the basket a narrow strip beside a
+   column of text that did not need the room. */
+.machine-head { display: grid; gap: 14px; }
+.machine-title, .machine-lede { max-width: 70ch; }
+
+/* One step below the page heading rather than level with it. Two headings of the
+   same size in a row read as a repetition, and the visitor is left working out which
+   of them the page is. */
+.machine-title {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.machine-lede { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
+
+/* The way in, and the menu of odd things to send through it. A grid rather than a
+   flex row, because the way in changes size: closed it is a button, open it is a
+   two-column builder, and in a wrapping row the menu was pushed onto a line of its
+   own and sat under the builder looking like it had come loose from something. Two
+   named columns keep it beside whatever is in the first one. */
+.machine-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: start;
+  gap: 10px 14px;
+}
+.machine-entry > .said { grid-column: 1 / -1; }
+
+/* What the endpoint said about an order that was never going to parse. Quiet, and
+   beside the button rather than under the whole head: it is an answer to the press,
+   not a statement the machine makes about itself. */
+.machine-entry .said { font-size: 13px; color: var(--faint); max-width: 44ch; }
+
+/* The tiles wrap around the mediator, so a line between them has to turn a corner,
+   and a corner is not something a strip of CSS can draw. Every line is one path in
+   a single SVG laid over the body, measured from the boxes after layout (wires.ts).
+   Behind the tiles in paint order and transparent to the pointer, so a line can
+   never eat a click meant for the system it points at. */
+.machine-body {
+  position: relative;
+  display: grid;
+  /* The mediator takes about a third more than it did. Two systems fit beside it
+     now instead of three, which is what stops the branch lines stacking: with three
+     columns the line to the third crossed two lanes to get there, and three lanes
+     in one corridor is the thing that read as a tangle however far apart they were.
+     Two columns means one lane, and five systems then fall as 2 + 2 + 1. */
+  grid-template-columns: minmax(360px, 36rem) minmax(0, 1fr);
+  gap: clamp(28px, 3vw, 44px);
+  /* The drop from the send button into the hub. It was 52px, and with the gap this
+     box already sits below the head that came to about 86px of bare line: long
+     enough to read as a journey rather than as a connection, and it pushed the whole
+     machine down the page to say nothing. Nothing here leaves the head-to-body gap
+     as the entire drop, which is about a third of what it was. */
+  padding-top: 0;
+}
+
+.wires, .packets {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.wires { overflow: visible; }
+
+/* Every line is drawn in an opaque colour mixed down against the page, never in a
+   translucent one. The five outgoing wires all leave the mediator at the same point
+   and share their first leg and part of the vertical run before they fork. Drawn
+   with alpha, that shared stretch carried five strokes on top of each other and
+   composited into something visibly darker and fatter than the same line further
+   along, so the drawing appeared to have a thick trunk and thin branches when every
+   segment is in fact one wire at one weight. Mixed rather than hand-picked so both
+   themes stay derived from their own tokens. */
+.wire {
+  fill: none;
+  stroke: color-mix(in oklab, var(--accent) 45%, var(--bg));
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transition: stroke 0.25s ease;
+}
+/* Grey while the line is simply up, which is nearly always. It was green, and a
+   drawing where five lines are lit the moment the page loads spends its loudest
+   colour on the state that carries no news: green then meant "this exists" rather
+   than "something is happening here", and the packets travelling along it had
+   nothing left to stand out against. Colour is kept for the states a reader has to
+   do something about.
+
+   Derived from a token rather than written as a colour, because the page has a light
+   theme: a fixed near-white grey is a line on the dark background and nothing at all
+   on the light one. */
+.wire[data-state='up'] { stroke: color-mix(in oklab, var(--faint) 55%, var(--bg)); }
+.wire[data-state='slow'] { stroke: color-mix(in oklab, var(--warn) 60%, var(--bg)); }
+.wire[data-state='error'] { stroke: color-mix(in oklab, var(--bad) 60%, var(--bg)); }
+/* A cut line is drawn broken, so an unreachable system reads as a severed
+   connection and not only as a differently coloured tile. */
+.wire[data-state='cut'] { stroke: var(--bad); stroke-dasharray: 5 6; }
+.wire[data-tracked='open'] { filter: drop-shadow(0 0 6px var(--glow)); }
+
+/* A grid rather than a plain block, so the mediator inside it fills the row instead
+   of ending wherever its content did. `align-self: stretch` on the panel had nothing
+   to stretch against: a block parent gives a block child no height to answer to.
+
+   That is what settles the empty space in this box. The two columns are as tall as
+   the taller of them either way; the question was only which of them got to use it.
+   The mediator does, and it spends it on the queue, which is the one list here that
+   is always longer than the room it has. */
+.machine-hub { position: relative; display: grid; }
+
+
+/* Two across, and five systems then fall as 2 + 2 + 1. Named rather than
+   auto-filled: auto-fill decides the count from whatever width is going spare, so
+   the drawing rearranged itself between one desktop and the next, and a picture of a
+   machine should be the same picture on every screen that can hold it.
+
+   The rows are further apart than the columns on purpose. The line to a tile in the
+   second column runs along a lane above its row, and a lane in a 16px gap grazes the
+   tiles on both sides of it: nothing overlaps, but everything touches, and touching
+   reads as overlapping.
+
+   The block starts below the top of the mediator. That gap is the corridor the first
+   row's lane runs in, and it exists so that no wire has to climb over the mediator's
+   roof to reach anything: everything here leaves the mediator, and a line arriving
+   from above says the opposite. */
+.systems {
+  list-style: none;
+  margin: 0;
+  padding: 34px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(12px, 1.2vw, 18px);
+  row-gap: 34px;
+  align-content: start;
+  /* Each tile keeps its own height. Stretched to the row, the one tile showing an
+     answer made the three beside it four hundred pixels tall with their check button
+     floating at the bottom of an empty box. */
+  align-items: start;
+}
+.system { position: relative; display: grid; }
+
+/* A packet exists because a delivery changed state, never because a timer came
+   round (see pulses.ts). One packet, one real event.
+
+   It runs the very path the line is drawn on, handed to it as an offset-path, so
+   the motion and the drawing cannot drift apart: there is one geometry and both
+   read it. And each one ends by being dealt with rather than by stopping where it
+   ran out of animation. Delivered is absorbed at the system, a failed attempt comes
+   back to the queue, a parked one falls short and fades where it gave up. A packet
+   left standing on the wire would say the machine is stuck, which is the opposite
+   of what is happening. */
+.packet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  /* The middle of the dot rides the line. Left to the default it does too, and the
+     -4.5px margins that used to sit here then moved it off again by half its own
+     width: measured, every impulse ran 4.6px beside its wire. Pinned rather than
+     inherited, because this is the one thing about a travelling dot that has to be
+     exactly true. */
+  offset-anchor: 50% 50%;
+  offset-rotate: 0deg;
+  /* A bright core that falls off into its own light, rather than a flat disc with a
+     shadow. Written once against a colour each kind sets, so the four of them cannot
+     drift into four different glows. */
+  background: radial-gradient(
+    circle at 50% 50%,
+    oklch(from var(--quantum) calc(l + 0.32) c h) 0 20%,
+    var(--quantum) 42%,
+    oklch(from var(--quantum) l c h / 0.45) 64%,
+    transparent 74%
+  );
+  box-shadow:
+    0 0 5px oklch(from var(--quantum) l c h / 0.95),
+    0 0 13px oklch(from var(--quantum) l c h / 0.65),
+    0 0 26px oklch(from var(--quantum) l c h / 0.35);
+  animation-duration: 880ms;
+  animation-timing-function: cubic-bezier(0.33, 0.1, 0.2, 1);
+  animation-fill-mode: both;
+}
+.packet-delivered { --quantum: var(--good); animation-name: packet-through; }
+.packet-parked { --quantum: var(--bad); animation-name: packet-short; }
+/* An order arriving wears the wire's own colour. Delivered green would say that an
+   order coming in is a delivery going out, and the two would then be one restyling
+   away from each other for good. */
+.packet-arrival { --quantum: var(--accent); animation-name: packet-through; }
+
+/* Delivered: travels the wire and is taken in at the far end. */
+@keyframes packet-through {
+  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
+  14%  { opacity: 1; transform: scale(1); }
+  82%  { offset-distance: 100%; opacity: 1; transform: scale(1); }
+  to   { offset-distance: 100%; opacity: 0; transform: scale(2.1); }
+}
+
+/* Parked: gets partway, gives up, fades where it stopped. */
+@keyframes packet-short {
+  from { offset-distance: 0%; opacity: 0; transform: scale(0.6); }
+  14%  { opacity: 1; transform: scale(1); }
+  55%  { offset-distance: 52%; opacity: 1; }
+  70%  { offset-distance: 52%; transform: scale(1.35); }
+  to   { offset-distance: 52%; opacity: 0; transform: scale(0.7); }
+}
+
+/* The packet is the one thing on this page that has to move to mean anything, so
+   it is not simply hidden: it appears at the far end and fades, which still says a
+   delivery happened without anything sliding across the screen. */
+@media (prefers-reduced-motion: reduce) {
+  .packet { animation-duration: 1ms; animation-name: packet-still; }
+  @keyframes packet-still {
+    from { offset-distance: 100%; opacity: 1; }
+    to   { offset-distance: 100%; opacity: 0; }
+  }
+}
+
+/* Every system carries the menu that breaks it. Squarish tiles, because these are
+   connectors rather than list rows.
+
+   A flex column rather than fixed rows: a tile shows between three and five lines
+   depending on what is happening to it, and a fixed row template left a gap where
+   the missing line would have been. */
+.target {
+  position: relative;
+  /* So the head below can ask how wide this tile is rather than how wide the window
+     is. Inline-size only: the height still comes from what the tile has to say. */
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  /* Heading at the top, everything the tile has to say lined up under it. Anchored
+     to the top rather than centred: vertically centred, the mark sat in a different
+     place on every tile depending on how much that system currently had to report,
+     so a column of seven of them never settled. */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 3px;
+  /* Neither a fixed width nor a square any more. Both come from the drawing this
+     tile used to live in, where it stood in a column of its own and had to reserve
+     room for the longest activity line it might ever show. It stands in a grid now,
+     so the column already says how wide it is, and the fixed width fought that: at
+     1920 the two produced a 216px square holding a mark, two short lines and about
+     a hundred pixels of nothing. Five of those read as a wall of empty boxes with
+     the wires threading between them, which is the opposite of a diagram.
+
+     Height from content, so a tile is as tall as what it has to say. They still end
+     up level with each other, because they are grid items and a grid row is as tall
+     as its tallest cell. */
+  padding: 13px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface-sunken);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.25s ease, opacity 0.25s ease;
+}
+.target:hover { border-color: var(--line-input); }
+
+/* Sources are drawn, not driven. Nothing about them can be in a fault state, so
+   they carry no border colour of their own, only a dashed one that says they are
+   not somewhere we call. Otherwise they are ordinary tiles: the order mail is a
+   part of the machine like any other and reads wrong drawn larger than the systems
+   it feeds. */
+.target.source { border-style: dashed; }
+
+/* Every tile is the same width, including the one that carries the button. A row
+   of systems drawn at two different sizes reads as two different kinds of thing,
+   and they are not. The shop is simply taller, because it has more in it. */
+
+/* The mark, then the name with its note beneath. A two-column head rather than
+   three stacked children: the note belongs to the name, and stacked they read as
+   the first line of the report underneath. minmax(0, 1fr) so a long name wraps
+   inside its column instead of pushing the mark out of the tile. */
+.target-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  /* The menu button floats over this corner instead of sitting in the grid, so the
+     heading has to leave it the room. Every name here ran 20px under it, which went
+     unseen only because the names are short and the button is faint until you reach
+     for it.
+     22 and not more: the button is 30px wide and inset 8px from the tile edge, and
+     the tile already holds 18px of padding, so 22px is exactly what sticks out into
+     the heading. Anything wider is width taken from the names for nothing, and the
+     names on this tile have little enough of it. */
+  padding-right: 22px;
+}
+/* Tighter than the tracking this note carries elsewhere. It has a column roughly
+   half the tile wide to live in now, and uppercase mono at full tracking broke
+   two-word notes over two lines on nearly every tile. */
+.target-head .note { letter-spacing: 0.04em; }
+.target-titles { display: grid; gap: 1px; min-width: 0; }
+
+.system-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
+  color: var(--mark-tint);
+  background: color-mix(in oklch, var(--mark-tint) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--mark-tint) 34%, transparent);
+}
+
+.target .name { font-weight: 600; font-size: 15px; line-height: 1.25; }
+.target .note {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+/* What this system is doing, in words, always. It replaced a bare count, which was
+   a number to interpret rather than an answer: a visitor watching an outage wants
+   the verb and the countdown, not "3". */
+.target .doing {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.target .doing[data-tone='work'] { color: var(--good); }
+.target .doing[data-tone='wait'] { color: var(--warn); }
+.target .doing[data-tone='bad'] { color: var(--bad); font-weight: 600; }
+
+/* Named in words, and only when there is a fault to name. Five tiles all saying
+   "Reachable" would be five lines announcing that nothing happened. */
+.target .fault {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bad);
+}
+.target[data-state='slow'] .fault { color: var(--warn); }
+
+/* What the endpoint answered. The two malformed orders create no event, so this
+   line is the only evidence that pressing them did anything at all. */
+.target .said {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.target[data-state='slow'] { border-color: var(--warn); }
+.target[data-state='error'] { border-color: var(--bad); }
+.target[data-state='cut'] { border-color: var(--bad); opacity: 0.62; }
+
+.target[data-tracked] { border-color: var(--accent); }
+.target[data-tracked='done'] { border-color: oklch(from var(--good) l c h / 0.7); }
+
+/* Taken in. A dot ran to the edge of a tile and disappeared against a box that never
+   moved, so the drawing showed a thing approaching a system and never a system
+   receiving one, and the arrival was the one part of the journey a visitor had to
+   infer. The tile takes the hit in the dot's own colour, which is also the difference
+   between a delivery landing and a delivery giving up.
+
+   Drawn on an overlay rather than on the tile's own border and background. The border
+   already carries the state of the connection and the tracked order, all of which are
+   lasting facts, and an animation that borrowed it would fight three rules and leave
+   the tile the wrong colour whenever it happened to be cut. This owns nothing. */
+.target[data-struck]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  --hit: var(--good);
+  animation: tile-hit 420ms ease-out both;
+}
+.target[data-struck='parked']::after { --hit: var(--bad); }
+
+@keyframes tile-hit {
+  from {
+    background: oklch(from var(--hit) l c h / 0.16);
+    box-shadow: inset 0 0 0 1px var(--hit), 0 0 14px oklch(from var(--hit) l c h / 0.4);
+  }
+  to {
+    background: oklch(from var(--hit) l c h / 0);
+    box-shadow: inset 0 0 0 1px oklch(from var(--hit) l c h / 0), 0 0 0 transparent;
+  }
+}
+
+/* The menu ------------------------------------------------------------------
+   Three dots in the corner of the tile. Always rendered, never hover-gated: hover
+   is a pointer, and the specification says the visitor may well be on a phone.
+   Quiet until the tile is approached, loud enough to find without being told. */
+
+/* On a tile it hangs in the corner the mark does not use. The one at the entrance
+   has no tile to hang in: it stands next to the button as a control of its own, so
+   the positioning is scoped to the tile rather than applied to every menu. Left
+   absolute for both, it anchored itself to the page and ended up in the top right
+   corner of the browser window. */
+.target .tile-menu { position: absolute; top: 8px; right: 8px; }
+.tile-menu { position: relative; }
+
+.tile-menu-toggle {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--faint);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+/* 30px is what the glyph needs and 44px is what a fingertip needs, which is the
+   floor both Apple and WCAG put on a touch target. The difference is taken from
+   the space around the button rather than from its box, so it looks unchanged and
+   is half again as easy to hit. This is the control that opens a system's menu,
+   and opening that menu is the thing the whole demo asks a visitor to do. */
+.tile-menu-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+.target:hover .tile-menu-toggle { opacity: 1; }
+
+/* A touch screen never hovers, so on the devices the spec says most visitors
+   arrive on, the rule above never fires and the way into the menu stays at half
+   opacity in the faintest colour on the tile. */
+@media (hover: none) {
+  .tile-menu-toggle { opacity: 1; color: var(--muted); }
+}
+.tile-menu-toggle:hover, .tile-menu-toggle[aria-expanded='true'] {
+  opacity: 1;
+  color: var(--text);
+  border-color: var(--line-input);
+}
+.tile-menu-toggle:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tile-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: max(17rem, 100%);
+  padding: 10px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-card);
+  background: var(--bg);
+  box-shadow: 0 18px 40px oklch(0 0 0 / 0.45);
+}
+
+.tile-menu-section { display: grid; gap: 2px; }
+.tile-menu-section + .tile-menu-section {
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+.tile-menu-heading {
+  padding: 2px 10px 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.tile-menu-item {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tile-menu-item:hover { background: var(--wash); }
+.tile-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tile-menu-item[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.tile-menu-item[aria-checked='true'] .tile-menu-label { color: var(--accent); }
+
+.tile-menu-label { font-size: 14px; font-weight: 600; }
+.tile-menu-means { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+
+/* The hub. Biggest element on the page, and it shows its own state rather than
+   asking to be believed. Content starts at the top: the panel grows downward as
+   the queue fills, and centring made everything shuffle on every delivery. */
+/* Tall enough to hold a working queue and no taller. It was stretched to the
+   height of the column of systems beside it, which made two thirds of the biggest
+   box on the page empty space with a short list floating at the top of it. The
+   panel below names a height instead, and the hub sits centred against the
+   systems rather than racing them. */
+/* As tall as its row, which is what lets the payment row below it draw a stub of a
+   known length. The panel underneath takes whatever is left over, so stretching
+   costs no empty space: the queue inside it is out of flow and fills whatever it is
+   given. Head, counts, the current-work line and the tabs take what they need. */
+.mediator {
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(17rem, 1fr);
+  gap: 14px;
+  padding: clamp(20px, 2.2vw, 30px);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-shell);
+  background:
+    radial-gradient(120% 70% at 50% 0%, oklch(from var(--accent) l c h / 0.14), transparent 68%),
+    var(--surface-sunken);
+  box-shadow: inset 0 1px 0 oklch(from var(--accent) l c h / 0.28);
+}
+
+.mediator-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.mediator-titles { display: grid; gap: 3px; margin-right: auto; }
+
+/* Quiet on purpose. It is the one control here that throws work away, so it must
+   be findable and must not be the thing a visitor reaches for first. */
+.mediator-reset {
+  position: relative;
+  flex: none;
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.mediator-reset:hover { color: var(--text); border-color: var(--line-input); }
+.mediator-reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Wide enough already, short enough to miss: the pill is 27px tall against a 44px
+   floor, so the target grows upward and downward only. Kept off the sides because
+   the help circle sits right next to it and two overlapping targets are worse than
+   one small one. */
+.mediator-reset::after {
+  content: '';
+  position: absolute;
+  inset-block: -9px;
+  inset-inline: 0;
+}
+
+.mediator-title {
+  font-size: clamp(19px, 1.7vw, 23px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.mediator-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* What a mediator is never changes, so it does not compete with the numbers that
+   change every second. It waits behind a question mark. */
+.mediator-help-anchor { position: relative; flex: none; }
+.mediator-help-toggle {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+/* Same reasoning as the tile menu: the circle stays 26px because that is the size
+   a quiet question mark should be, and the finger gets 44. */
+.mediator-help-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+}
+.mediator-help-toggle:hover, .mediator-help-toggle:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.mediator-help {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  width: min(21rem, 70vw);
+  display: grid;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--bg);
+  box-shadow: 0 18px 44px oklch(0 0 0 / 0.45);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.mediator-help b {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.mediator-help ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.mediator-help li { display: flex; gap: 9px; align-items: baseline; }
+.mediator-help li::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateY(-2px);
+}
+
+.mediator-counts {
+  display: grid;
+  /* One row whatever the count, rather than a fixed four. The duplicate tally only
+     appears once something has been dropped, and a fixed four sent it to a second
+     row on its own, where the 1px gaps drew a box around a single number. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  overflow: hidden;
+}
+.mediator-count {
+  display: grid;
+  gap: 1px;
+  padding: 10px 8px;
+  background: var(--surface-sunken);
+  text-align: center;
+}
+.mediator-count b {
+  font-family: var(--mono);
+  font-size: 21px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mediator-count i {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.mediator-count[data-tone='wait'] b { color: var(--warn); }
+.mediator-count[data-tone='done'] b { color: var(--good); }
+.mediator-count[data-tone='human'] b { color: var(--bad); }
+.mediator-count[data-tone='lost'] b { color: var(--accent); }
+
+/* The queue and the log, the two things the hub actually holds. */
+/* Outside the tabs on purpose: four numbers with no verb among them cannot tell a
+   busy machine from a stopped one, and a visitor who never opens the Log had only
+   the numbers. The counters say how much, this says what. */
+.mediator-doing {
+  margin: 0;
+  padding: 9px 13px;
+  border-radius: var(--r-control);
+  background: var(--wash);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mediator-doing[data-tone='work'] { color: var(--good); }
+.mediator-doing[data-tone='bad'] { color: var(--bad); }
+/* Never the tone of the line it shares. The colour on that line says how the work
+   is going; who else is here is not news of that kind, and colouring it red because
+   a delivery is parked would say the visitors were the problem. */
+.mediator-doing-others {
+  flex: none;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* Two strips wear this: the integration hub, and the order box above it. They were
+   different controls doing one job, which made the page carry two shapes for one
+   idea. */
+.tab-strip {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+/* One bar for all the tabs, told where to go from the selected tab's own
+   measurements. Each tab used to carry its own bottom border, which could only
+   switch on and off: the mark vanished on one side of the panel and reappeared on
+   the other, and the tabs read as separate places rather than views of one thing. */
+.tab-underline {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-strip button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+/* How much is waiting behind a shut panel. It carries the warning colour whether or
+   not its tab is selected, because the point of it is to be read by somebody who is
+   looking at a different tab. */
+.hub-tab-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: oklch(from var(--bad) l c h / 0.18);
+  color: var(--bad);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-align: center;
+}
+.tab-strip button:hover { color: var(--muted); }
+.tab-strip button[aria-selected='true'] { color: var(--accent); }
+.tab-strip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* A window onto a list, of a size that does not move. The queue is taken out of
+   flow inside it, because in flow it did one of two wrong things: it either
+   stopped at a height of its own and left the rest of the panel empty, or it grew
+   and the whole drawing changed shape every time an order arrived. Out of flow it
+   fills the window and never sets its size. */
+/* A window onto a list, of a size that does not move. It was briefly made to grow
+   while a card was open, and that was the wrong reading of the same complaint: the
+   hub stretched, left a field of empty panel under the one open card, and the whole
+   drawing changed shape every time somebody opened an order. The card grows; the
+   cards below it move down; the window stays where it is and the list scrolls.
+
+   overflow: hidden is also what makes the sideways travel a slide rather than two
+   panels briefly side by side in a wider box. */
+/* overflow: hidden is what makes the sideways travel a slide rather than two panels
+   briefly side by side in a wider box. Which side each one waits on is set from the
+   markup, worked out from its position in the strip: with three tabs the middle one
+   has to be able to leave in either direction, and no static rule can say that. */
+.tab-panels {
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-panel {
+  /* Off to one side, and out of reach once it gets there. visibility is what takes
+     the parked panel out of the tab order: the queue is a list of buttons, and
+     parked off-screen while still focusable it would swallow a dozen tab stops into
+     content nobody can see. Delayed by the length of the slide on the way out so the
+     panel is still visible while it travels, and undelayed on the way in. */
+  visibility: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0s linear 0.3s;
+}
+.tab-panel[data-current='true'] {
+  visibility: visible;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
+}
+
+/* A window onto a list, of a size that does not move. The queue is taken out of flow
+   inside it, because in flow it did one of two wrong things: it either stopped at a
+   height of its own and left the rest of the panel empty, or it grew and the whole
+   drawing changed shape every time an order arrived.
+
+   It was briefly made to grow while a card was open, and that was the wrong reading
+   of the same complaint: the hub stretched, left a field of empty panel under the one
+   open card, and the drawing changed shape whenever somebody opened an order. The
+   card grows; the cards below it move down; the window stays where it is and the list
+   scrolls. */
+.tab-panels[data-fit='window'] { min-height: 17rem; }
+.tab-panels[data-fit='window'] .tab-panel {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The other kind: no window, no scroll of its own, the box is as tall as the pane on
+   screen. The height is measured in the markup and eased here, so switching panes
+   grows or shrinks the box in the same movement as the slide rather than snapping to
+   the new height before the old pane has left.
+
+   The panes are stacked in one grid cell rather than taken out of flow, and that is
+   load-bearing rather than a matter of taste. Positioned absolutely they gave the box
+   no width to take from them, and the order builder collapsed to a third of the page
+   with every product name broken over two lines. Stacked, the box is as wide as its
+   widest pane and as tall as whichever one is on screen. */
+.tab-panels[data-fit='content'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-panels[data-fit='content'] .tab-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.extractor-note {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-control);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.endpoint-form button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Sections ------------------------------------------------------------------ */
+
+.outside-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: clamp(18px, 2.4vw, 28px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-shell);
+}
+
+.outside-panel h3 {
+  margin: 0;
+  font-size: clamp(17px, 1.7vw, 20px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.connections > p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 68ch;
+}
+
+.fine-print {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--faint);
+}
+
+/* Timeline ------------------------------------------------------------------ */
+
+/* Fixed height with its own scrollbar. Left in normal flow the log pushed the
+   counters, the diagram and the walkthrough off the first screen inside a minute,
+   which turned the strongest evidence into the reason nobody sees it. */
+.timeline-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r-card);
+}
+
+.timeline-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 14px;
+  padding: 11px 14px;
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--line-strong);
+  font-size: 14.5px;
+}
+.timeline time { font-family: var(--mono); font-size: 12.5px; color: var(--faint); }
+.timeline .level-success { border-left-color: var(--good); }
+.timeline .level-warn { border-left-color: var(--warn); }
+.timeline .level-error { border-left-color: var(--bad); }
+
+.timeline-empty {
+  margin: 0;
+  padding: 26px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Catalogue and inputs ------------------------------------------------------- */
+
+/* The row height is declared rather than observed, so the window below can be five
+   of them exactly. Left to the content it was 58px today and something else the day
+   a product name wraps or a font loads differently, and the arithmetic that shows
+   five whole rows would have drifted with it. */
+.catalog {
+  --catalog-row: 58px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-rows: var(--catalog-row);
+  gap: 1px;
+}
+
+.catalog li {
+  display: grid;
+  /* The last column takes whatever the stepper needs rather than a number written
+     down here. Fixed at 84px it was narrower than the three buttons in it, so the
+     overflow came out of the product name and "Large plate" broke over two lines. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--surface-sunken);
+}
+.catalog .item { display: grid; gap: 1px; min-width: 0; }
+.catalog .item-name { line-height: 1.25; }
+.catalog .price {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Text fields only. It used to say `input` and caught the payment radios, which
+   came out as full width circles with the label pushed to the far edge. */
+.order-who input,
+.endpoint-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+}
+/* Minus, the count, plus. Sized so each button clears the 44px floor the two
+   controls that carry the demo already keep to: a basket is changed by ones, and a
+   target that needs aiming at turns that into work. */
+.qty {
+  display: grid;
+  grid-template-columns: 34px minmax(2.5ch, auto) 34px;
+  align-items: center;
+  justify-self: end;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.qty button {
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.qty button:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.qty button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Quiet rather than hidden at zero and at the ceiling. A control that disappears
+   makes the row jump; one that greys out says the same thing and stays still. */
+.qty button:disabled { opacity: 0.3; cursor: default; }
+.qty-count {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.order-who input::placeholder,
+.endpoint-form input::placeholder { color: var(--faint); }
+
+.order-who input:focus-visible,
+.endpoint-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.placed {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-card);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* The visitor's own endpoint ------------------------------------------------
+   The panel held three rows: connect your Slack, connect your HubSpot, and this
+   field. The two connections are gone, so the grid that lined three rows up went
+   with them and what is left is set as a block: heading, then the reason at full
+   width, then the control.
+
+   The description used to sit in a column beside the field, where it broke into
+   four short lines against an input that had the rest of the row. That read as a
+   caption for the input rather than as the reason to use it at all. */
+
+.endpoint-lede {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* Left aligned and only as wide as it needs to be. Stretched across the panel the
+   field said "this is a long url" about a field most people paste twenty characters
+   into. */
+.endpoint-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* A small basis, not the width the field wants. It sits in half a row now rather
+   than across a whole panel, and a basis wide enough to be comfortable there pushed
+   the button onto a line of its own, which read as two controls instead of one. */
+.endpoint-form input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 38rem;
+}
+.endpoint-form button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.endpoint-form button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.endpoint-saved {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--good);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* A url this service will not accept, said where the field is. The guard behind it
+   refuses anything that would let a visitor aim our retries at somebody else's
+   network (ssrf.guard.ts), so this message is read more often than most. */
+.connections .error {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--bad);
+  font-size: 14px;
+}
+
+/* Mobile -------------------------------------------------------------------- */
+
+@media (max-width: 62rem) {
+  /* Queue and diagram no longer fit side by side. Left as two columns they overflow
+     the container and draw on top of each other.
+
+     The same width decides the drawing. The mediator wants 320px and a row of tiles
+     beside it wants two of about 158px plus the gaps, which is roughly 880px before
+     the box's own padding. Below that the tile column gave way to nothing while the
+     tiles kept their width, so they ran over the mediator instead of wrapping.
+
+     Stacked, the mediator goes first and the systems follow, in the order the work
+     travels. What that must not become is a chain: these five deliveries go out in
+     parallel, and a layout that fits but says something false about the machine is
+     worse than one that needs a scroll. So the tiles stay side by side in pairs and
+     no one of them looks like the next one's cause. */
+  .board { grid-template-columns: 1fr; }
+
+  .tab-panels[data-fit='window'] .tab-panel { height: 17rem; }
+  .mediator { grid-template-rows: none; }
+
+  /* Four things in the head and room for three. Given a phone's width the badge
+     took enough off the title for "The mediator" to break across two lines, which
+     is a worse trade than one more row: the name of the panel is the thing a reader
+     lands on. The title takes the row, the rest share the next one. */
+  .mediator-head { flex-wrap: wrap; }
+  .mediator-titles { flex: 1 1 100%; }
+
+  .machine-body {
+    grid-template-columns: minmax(0, 1fr);
+    /* Held to a readable column rather than stretched across a tablet. */
+    max-width: 34rem;
+    margin-inline: auto;
+    padding-top: 0;
+  }
+
+  /* Nothing left to connect in a straight line: stacked, every tile sits under the
+     mediator rather than beside it, and a measured path between them would run back
+     up through the panel it just left. The order of the boxes carries the direction
+     here, which is what a stacked layout is for. */
+  .wires, .packets { display: none; }
+
+  /* Two across a phone, and tall enough that a tile with nothing to report is not
+     a strip. There is no square left to undo here: the tile takes its height from
+     its content everywhere now. */
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; padding-top: 0; }
+  .target { min-height: 7rem; }
+
+  /* The menu hangs off the tile here rather than off the three dots. Anchored to
+     a 44px button on a 390px screen, a menu wide enough to read runs off one edge
+     or the other whatever you do; anchored to the tile it has a whole column to
+     start from. Which edge it opens from depends on which of the two columns the
+     tile is in, and the tiles fill the grid in order, so the position in the row
+     is the position on the screen. */
+  /* Scoped to the tile, so it beats the .target .tile-menu rule that puts the menu
+     in the tile's corner on a wide screen. Unscoped it lost on specificity and the
+     menu stayed anchored to a 30px button on a 390px screen. */
+  .target .tile-menu { position: static; }
+  .target .tile-menu-toggle { position: absolute; top: 4px; right: 4px; }
+  .tile-menu-list { top: calc(100% + 6px); width: min(20rem, 84vw); }
+  .system:nth-child(odd) .tile-menu-list { left: 0; right: auto; }
+  .system:nth-child(even) .tile-menu-list { right: 0; left: auto; }
+}
+
+/* Two tiles across a phone leave each of them about 146px, and a mark, a name and
+   a menu button do not fit on one line of that: the mark takes 38, the button
+   takes 30, and the name is left with 39 to say "notification" in. The mark moves
+   above the name here and the whole width goes to the words.
+
+   Beside the mark is the better arrangement wherever it fits, because it reads as
+   one heading rather than as the first line of the report below it. That is why
+   this is the narrow case only and not the rule. */
+/* The mark moves above the name when the name has no room beside it. This used to
+   hang off the window width at 25rem, which asked the wrong question: what decides
+   whether a name fits is the width of its own tile, and the tile is not a fixed
+   fraction of the window. Three tiles across at 1440px are narrower than two across
+   at 768px, so "Confirmation" overran its 77px column on a desktop while the same
+   name sat comfortably on a phone.
+   12.5rem, because "Confirmation" draws 94px at 15px and the head spends about
+   105px on the mark, the gaps and the room the menu button needs. Under that the
+   longest name we have cannot fit beside the mark, whatever the window is doing. */
+@container (max-width: 12.5rem) {
+  .target-head { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-right: 0; }
+  /* The button sits in the corner the mark does not use, so the name below it
+     needs none of the width back. */
+  .system-mark { width: 32px; height: 32px; }
+}
+
+@media (max-width: 40rem) {
+  .timeline li { grid-template-columns: 1fr; gap: 2px; }
+
+  /* Five counts share about 270px here, so the labels have to give a little rather
+     than be cut off mid-word by the panel's own overflow. Tightening the tracking
+     buys more room than the point size does, and costs less to read. */
+  .mediator-count { padding: 10px 4px; }
+  .mediator-count i { font-size: 9px; letter-spacing: 0.02em; }
+
+  .catalog li { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+/* The 44px floor for the two controls that carry the demo: the button that sends
+   an order and the tabs that switch between the queue and the log.
+   Unconditional rather than behind (hover: none), for two reasons. A 44px primary
+   button is the right size on a desktop too, so nothing is given up. And the
+   pointer media query is the one thing a headless browser will not tell the truth
+   about, so a rule that only fires on real hardware is a rule nothing checks. */
+/* The button on the shop tile is deliberately compact, because it lives inside a
+   tile rather than on the page, and that made it 38px tall. A minimum height
+   rather than more padding: the label is what sets the height otherwise, so
+   padding arithmetic would have to be redone the next time the wording changes.
+   This is the control the whole demo asks a visitor to press first. */
+.order-form .stage-cta { min-height: 44px; }
+.tab-strip button { padding-block: 13px; }
+
+/* A 17px line of text is a link, not a target. It reveals the form for ordering
+   something other than the default basket, which is the second thing the page
+   invites a visitor to do, so it grows the same way the icon buttons did: around
+   itself, leaving the underline where it was. */
+.order-disclosure { position: relative; }
+.order-disclosure::after {
+  content: '';
+  position: absolute;
+  inset-block: -14px;
+  inset-inline: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  /* The dots carry information, so they stay: shown at the far end instead of
+     travelling to it. Removing them would remove the evidence, not the motion. */
+  .dot { left: calc(100% - 8px); opacity: 1; transform: none; }
+}
+
+/* Check it without us --------------------------------------------------------
+   Both panels open, side by side. They were behind tabs and closed by default,
+   which was right while five of them competed for one strip and wrong the moment
+   only these two were left: a closed tab in front of a single panel charges a click
+   for nothing, and these two carry what is left of the page's whole argument. */
+
+.outside { display: grid; gap: 18px; }
+.outside-head { display: grid; gap: 8px; }
+.outside-head h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.outside-head p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* They were equal columns while both were a paragraph and a field, and the pair read
+   as one offer with two halves. The MCP panel has since grown a console: a tool to
+   choose, arguments to fill in, and the server's answer printed as it arrived. Half a
+   row is the wrong shape for that. A raw JSON body folded into a narrow column is
+   unreadable, which takes away the reason the console exists at all, and it left the
+   endpoint panel padded out with empty space to match a height it never needed.
+
+   So the endpoint keeps its column and the MCP server takes the width. They are still
+   one offer, met in the order that costs the reader least: the short one first. */
+.outside-panels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* The url is the whole point of the panel, so it is set to be copied by eye as well
+   as by button: mono, on its own surface, and allowed to break rather than to push
+   the panel wider than its column. */
+.mcp-url {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.mcp-url code {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+}
+.mcp-url button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.mcp-url button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.mcp-url button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The console. It replaced a definition list that named the tools and described
+   them, which was a list of things a reader could do somewhere else. The names are
+   all still here, on the buttons that run them. */
+
+.mcp-console {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface-sunken);
+}
+
+/* A wrapping row rather than a select. Four names is few enough to show at once, and
+   the names are the interesting part: a collapsed control would hide three quarters
+   of what this server offers behind a click. */
+.mcp-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.mcp-picker button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.mcp-picker button:hover { border-color: var(--accent); color: var(--accent); }
+.mcp-picker button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.mcp-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mcp-summary {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* The arguments and the run button on one wrapping line. They belong together: the
+   fields are meaningless without the button and the button is a mystery without the
+   fields, and stacking them put a heading's worth of space between the two. */
+.mcp-args {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.mcp-arg { display: grid; gap: 4px; }
+.mcp-arg > span {
+  color: var(--faint);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.mcp-arg select,
+.mcp-arg input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.mcp-arg input { width: 7rem; }
+.mcp-arg select:focus-visible,
+.mcp-arg input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.mcp-go {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mcp-go:disabled { opacity: 0.55; cursor: progress; }
+.mcp-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mcp-answer { display: grid; gap: 14px; }
+.mcp-status,
+.mcp-failed,
+.mcp-provenance {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.mcp-status { color: var(--faint); }
+.mcp-failed { color: var(--bad); }
+/* Where the number in the box came from. Quiet, and directly under the box it is
+   about, because it is a footnote to one field and not a second instruction. */
+.mcp-provenance { color: var(--faint); }
+
+/* Three blocks, stacked in the order the derivation runs: what went out, what came
+   back byte for byte, and the same bytes decoded. Each one says what it is out loud,
+   because two blocks of JSON under one heading are two answers to a reader who cannot
+   tell which is which. */
+.mcp-pane { display: grid; gap: 5px; }
+.mcp-pane-label {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.mcp-pane-caption {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+/* pre-wrap, not pre. The server's own newlines are kept, which is the part that must
+   not be touched, and a line too long for the column is soft-wrapped rather than
+   pushed onto a horizontal scrollbar. A tools/call answer is one line of event-stream
+   framing a few thousand characters long: with `pre` the box stood two lines tall and
+   the reader had to drag sideways through all of it, which is a way of showing the
+   response body that nobody reads. */
+.mcp-sent,
+.mcp-response,
+.mcp-decoded {
+  margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.mcp-sent { max-height: 12rem; color: var(--faint); }
+.mcp-response { max-height: 14rem; color: var(--text); }
+/* The one rule that says this block was made out of the one above it. It is the same
+   box in the same type, with a line down the side that the raw body does not have. */
+.mcp-decoded {
+  max-height: 26rem;
+  color: var(--text);
+  border-left: 3px solid var(--accent);
+}
+
+/* An empty answer, in words, beside the empty answer. It sits inside the answer block
+   rather than under the whole console, because it is about this reply and not about
+   the panel. */
+.mcp-empty-note {
+  margin: 0;
+  max-width: 68ch;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.mcp-note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.mcp-note code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* A whole shell command, so it is longer than the url above it and has to be allowed
+   to break inside its box rather than to widen the panel. */
+.mcp-install code { flex-basis: 22rem; font-size: 12.5px; }
+
+@media (max-width: 52rem) {
+}
+
+
+/* Going and looking, on the step it is about ---------------------------------
+   The check reads back from the real system, so what it renders is an answer and
+   has to look like one: monospace, because every value in it was written by
+   somebody else. The button above it is quiet until it is wanted. A loud button on
+   every delivered step of every card would be forty loud buttons. */
+.step-proof { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
+
+.step-proof-ask {
+  padding: 6px 12px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.step-proof-ask:hover { border-color: var(--accent); color: var(--text); }
+.step-proof-ask:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.step-proof-ask:disabled { opacity: 0.5; cursor: progress; }
+
+.step-proof-answer {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken, transparent);
+}
+/* Label above value, not beside it. The queue lives in a 27rem column, so a label
+   column wide enough to read left about 50px for the value, and a receipt url wrapped
+   at one character per line. Stacked, the value gets the whole width at every size
+   this panel is ever given. */
+.step-proof-answer dl { display: grid; gap: 7px; margin: 0; min-width: 0; }
+.step-proof-answer dl > div { display: grid; gap: 1px; min-width: 0; }
+.step-proof-answer dt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+/* The values wrap rather than being cut: a receipt url is longer than any column
+   this panel can offer, and a truncated proof is not one. */
+.step-proof-answer dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.step-proof-link {
+  justify-self: start;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+  overflow-wrap: anywhere;
+}
+
+/* Not styled as a warning. It is the sentence that makes the Stripe receipt worth
+   something, so it reads as a note rather than as an apology for a fault. */
+.step-proof-caveat {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+  max-width: 56ch;
+}
+
+
+/* Creating the order, before sending it ---------------------------------------
+   The button used to send a fixed basket on one press, with a quiet link beside it
+   that opened the detail. Two controls, and the quiet one was the interesting one:
+   a visitor pressed the loud button and never saw what they had just sent.
+
+   So it is two steps. "Create order" opens this, the basket sits on the left and
+   who it is for on the right, and the send button is inside. What goes into the
+   machine is on screen before it goes. */
+/* The fold takes the full width and the builder takes the fold. The row the button
+   sits in is justify-items: start, so without this the panel would be sized by its
+   own content and one long product name would set the width of the whole machine. */
+.order-form > .order-fold { width: 100%; }
+
+/* The shell only. There are two ways of composing the same order and they are two
+   panes of this box, so what both need lives here: the border, the padding, the close
+   button in the corner and the tabs that choose between them. Each pane brings its
+   own columns, because the two are not laid out alike and pretending otherwise would
+   have made one of them wear the other's grid. */
+.order-builder {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  width: 100%;
+  padding: 16px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+/* The strip is the shared one now, so the only thing left to say here is where it
+   sits. The right padding clears the close button, which the "who it is for" heading
+   used to have to do. */
+.order-builder > .tab-strip { padding-right: 34px; }
+
+.order-articles {
+  display: grid;
+  min-width: 0;
+  /* The basket takes the larger share. Split evenly, the name column came out at
+     86px and three of the eight products wrapped over two lines, which turned a
+     price list into a ragged block. The right side is prose and wraps without
+     anybody minding. */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-areas: "basket who" "foot foot";
+  gap: clamp(16px, 2vw, 26px);
+}
+
+.order-basket { grid-area: basket; }
+.order-who { grid-area: who; }
+.order-basket, .order-who { display: grid; gap: 10px; align-content: start; min-width: 0; }
+
+.order-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--faint);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.order-close:hover { color: var(--text); border-color: var(--line-input); }
+.order-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The send button bottom left, the fine print beside it. The button ends the panel
+   because it is the last thing you do in it, and it stands on the left because that
+   is the side the integration hub is on: the wire runs down rather than across. */
+.order-foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.order-foot-said { display: grid; gap: 6px; max-width: 46ch; }
+
+.order-ph {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Exactly five products, and nothing of the sixth. Five rows and the four gaps
+   between them, computed rather than written down, so the window stays whole rows
+   whatever the row turns out to measure.
+
+   This is also what sets the height of the whole builder: the right-hand column is
+   shorter and only stretches to match, so a row taken off here is a row off the
+   panel. */
+.order-basket .catalog {
+  max-height: calc(var(--catalog-row) * 5 + 4px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+
+
+@media (max-width: 48rem) {
+  .order-articles { grid-template-columns: minmax(0, 1fr); }
+}
+
+
+/* The check, sized for a tile ------------------------------------------------
+   Same component as the one in the queue card, in a 198px box. The button is quiet
+   and sits at the foot of the tile; the tile keeps its 127px until somebody presses
+   it, and grows from there, which pushes the row down rather than reflowing the
+   drawing sideways. */
+.step-proof[data-layout='tile'] { margin-top: auto; padding-top: 8px; width: 100%; }
+
+.step-proof[data-layout='tile'] .step-proof-ask {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.step-proof[data-layout='tile'] .step-proof-answer {
+  gap: 6px;
+  padding: 8px 9px;
+}
+.step-proof[data-layout='tile'] dt { font-size: 9.5px; }
+.step-proof[data-layout='tile'] dd { font-size: 10.5px; }
+.step-proof[data-layout='tile'] .step-proof-link { font-size: 10.5px; }
+.step-proof[data-layout='tile'] .step-proof-caveat { font-size: 10.5px; line-height: 1.45; }
+.step-proof[data-layout='tile'] .step-proof-error { font-size: 10.5px; }
+
+
+
+/* The way out of "you have our word for this". A button that reads as a link,
+   because it goes somewhere on this page rather than doing something here. */
+.step-proof-own {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.step-proof-own:hover { color: var(--text); }
+.step-proof-own:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+
+/* Built with -----------------------------------------------------------------
+   The foot of the page, and the only part of it that is a shape rather than a
+   paragraph. Everything above is dense text; one more block of prose at the end is
+   the least attractive place a stack could be put, and a reader scanning it for
+   five seconds would come away knowing nothing.
+
+   So: tiles, on the page's own card surface, four across where the width allows.
+   The name is loud, the figure beside it is a chip, and the line under it is one
+   line. Nothing here is pressable and nothing pretends to be: no shadow, no
+   pointer, and a hover that only lifts the border, which is the least a grid can
+   do to acknowledge a cursor without promising a click. */
+
+.built { display: grid; gap: 22px; }
+.built-intro { display: grid; gap: 6px; }
+
+.built-intro h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.built-intro p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* auto-fill and not auto-fit: with twelve tiles the last row is short, and auto-fit
+   would stretch the survivors across the full width and break the grid the eye has
+   just learned. 15rem gives four columns at the page's full width, two on a tablet
+   and one on a phone. */
+.built-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.built-item {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-items: start;
+  padding: 16px 18px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  transition: border-color 0.2s ease;
+}
+
+.built-item:hover { border-color: var(--line-strong); }
+
+.built-head-row {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.built-name {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+/* The version is the one thing in a tile the machine would say, so it keeps the
+   mono. Set faint on purpose: a reader looking for "React" must not have to read
+   "18" on the way past it. */
+.built-version {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+/* The number, or the one word that does a number's job. This is where the counts
+   that used to sit inside sentences live now. */
+.built-figure {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.built-role {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* The admission about the queue, and the only argument left in this section. Under
+   the grid and quieter than it, so it reads as a footnote to the stack rather than
+   as a thirteenth tile. */
+.built-note {
+  margin: 0;
+  max-width: 74ch;
+  color: var(--faint);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.built-note code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  color: var(--muted);
+}
+
+
+/* An order that arrives as a mail ---------------------------------------------
+   It brought its own shell while it was a section of its own below the machine: a
+   border, a radius and a background, so it could be mounted anywhere on the page. It
+   is a pane of the order builder now, which already draws all three, so what is left
+   here is the layout and nothing that says "box".
+
+   The mail on the left and what becomes of it on the right, the same way the article
+   pane puts the basket on the left and who it is for on the right. The answer runs
+   under both, because a reading is wider than either column and it is the thing being
+   waited for.
+
+   Everything below is set so a reading is read in the order it happened: what the
+   model said, what the checks made of it, what would be placed. The answer is
+   monospace because it is somebody else's writing; the proposal is not, because it
+   is ours. */
+.mail-order {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-areas: "write about" "answer answer";
+  gap: clamp(16px, 2vw, 26px);
+  align-content: start;
+}
+
+.mail-write { grid-area: write; }
+.mail-about { grid-area: about; }
+.mail-answer { grid-area: answer; }
+.mail-write, .mail-about, .mail-answer {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.mail-lede {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* The two mails that get refused sit beside the ordinary one rather than behind a
+   "more examples" control. They are the demonstration, and a demonstration one
+   click further away than the happy path is one most readers never see. */
+.mail-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mail-samples button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.mail-samples button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.mail-samples button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Mono, because it holds a quotation of somebody's mail rather than page copy, and
+   resizable vertically only: a field that can be dragged wider than its column
+   takes the panel with it. */
+.mail-text {
+  width: 100%;
+  min-height: 9rem;
+  padding: 12px 14px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--r-control);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.mail-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mail-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+/* One column, top to bottom, and it was tried as two. Side by side the answer and the
+   verdict fit in half the height, and the button that confirms an order ended up in
+   the right-hand column: the wire into the integration hub hangs on that button, the
+   hub is on the left, and the line came down beside the hub instead of into it. A
+   drawing that points at the wrong box is worse than a panel that is tall. */
+.mail-reading {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface-sunken);
+}
+
+/* Above the answer rather than under it, and dashed like the other note on this page
+   that admits something instead of reporting it. A reader who takes in the JSON and
+   is told afterwards that it was replayed has already believed something. */
+.mail-mode {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-control);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.mail-mode[data-mode='live'] { color: var(--accent); border-color: var(--accent); }
+
+.mail-ph {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Scrolls rather than grows. A model that answers with prose instead of JSON can
+   fill a screen, and the verdict underneath is the part being waited for. Eleven rems
+   and not sixteen since this moved inside the order builder: the first lines are the
+   ones a reader checks against their own mail, and five rems of them were pushing the
+   verdict off the bottom of a box that has a mail above it as well. */
+.mail-raw {
+  margin: 0;
+  max-height: 11rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mail-stopped {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--bad);
+  border-radius: var(--r-control);
+}
+.mail-verdict { margin: 0; color: var(--bad); font-weight: 700; line-height: 1.5; }
+/* The check's own words, kept as the check wrote them. */
+.mail-detail {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.mail-nothing { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+.mail-proposal {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+}
+.mail-buyer { margin: 0; font-weight: 700; }
+
+.mail-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mail-lines li {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+/* The quantity first and in its own colour. It is the field a reader checks against
+   their own mail, and the one no check downstream can be wrong about safely. */
+.mail-qty { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.mail-item { color: var(--text); min-width: 0; }
+.mail-total { margin: 0; font-family: var(--mono); font-size: 14px; font-weight: 600; }
+
+/* The argument, next to the button it is about. Not fine print: it is the reason the
+   button exists, and the one thing here a reader should leave with. */
+.mail-why {
+  margin: 0;
+  max-width: 64ch;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.mail-decide { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+/* Throwing a proposal away is not the other half of a choice, so it is not drawn as
+   one. Two buttons of equal weight would put a decision where there is none. */
+.mail-quiet {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.mail-quiet:hover { color: var(--text); border-color: var(--line-input); }
+.mail-quiet:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mail-placed {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--good);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.mail-order .error { margin: 0; max-width: 68ch; color: var(--bad); font-size: 14px; }
+
+/* One column on a narrow screen, the same width the article pane collapses to. It has
+   to sit after the rules above and not up with the other breakpoint: same specificity,
+   later wins, and up there it lost to the two-column rule it was meant to replace. */
+@media (max-width: 48rem) {
+  .mail-order {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "write" "about" "answer";
+  }
+}
