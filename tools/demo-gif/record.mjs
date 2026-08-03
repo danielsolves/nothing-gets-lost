@@ -11,7 +11,9 @@
 //
 // Usage:
 //   docker compose up -d --wait          # the stack has to be running
-//   node tools/demo-gif/record.mjs       # writes frames, then calls ffmpeg
+//   node tools/demo-gif/record.mjs       # writes frames, calls ffmpeg, clears frames
+//
+// KEEP_FRAMES=1 leaves the frames on disk for inspection. They are not small.
 //
 // Playwright is not a dependency of this repository. It is only needed to refresh the
 // GIF, and adding a browser download to every `npm ci` for that is a bad trade. Point
@@ -159,3 +161,19 @@ execFileSync('ffmpeg', ['-v', 'error', '-y', '-framerate', String(FPS), '-i', in
 
 const kb = Math.round(fs.statSync(GIF).size / 1024);
 console.log(`done, ${kb} KB`);
+
+// The frames are an intermediate and a heavy one: a run leaves roughly 190 PNGs at
+// device scale 2, and two runs in one afternoon were enough to fill a boot disk to
+// the point where no command would start.
+//
+// The wipe at the top of this file does not cover it. That one clears the previous
+// run when a new one begins, so the last run of the day always stays on disk, which
+// is exactly the run nobody comes back to.
+//
+// Kept when KEEP_FRAMES is set, because the one occasion they are worth having is a
+// clip that came out wrong and the question of which frame it went wrong on.
+if (process.env.KEEP_FRAMES) {
+  console.log(`frames kept in ${OUT}`);
+} else {
+  fs.rmSync(OUT, { recursive: true, force: true });
+}
