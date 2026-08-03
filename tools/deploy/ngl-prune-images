@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# tools/deploy/ngl-prune-images
+#
+# where: installed on the deploy host as /usr/local/bin/ngl-prune-images, run weekly
+#   from root's crontab.
+# what: delete old ngl images from the local docker cache, keeping whatever is running
+#   and the newest few commits behind it.
+# why: since the host stopped building and started pulling, every deploy leaves nine
+#   more images on disk and none of them are ever removed. The disk was already at
+#   55 percent with nine gigabytes of reclaimable images before this existed.
+#
+# The obvious tool is `docker image prune -af --filter until=...`, and it is the wrong
+# one here. This host is not dedicated to this demo. It carries other applications
+# too, and between them far more images than this project has services. `-a` deletes
+# any image no container is currently using, which on a shared host means deleting
+# somebody else's rollback target.
+#
+# So the tagged half is scoped: only ngl images are ever removed by name, and only
+# beyond the newest few. The one thing done host-wide is `prune` without `-a`, which
+# removes dangling images only. Those are untagged layers left by any project's
+# rebuild, referenced by nothing and restorable by nobody, and on this host they were
+# nine gigabytes of the eleven in use.
+
+set -euo pipefail
+export LC_ALL=C
+
+# Two prefixes: what the registry publishes now, and what the host built for itself
+# before the switch. The old ones are dead the moment a registry deploy runs, and
+# nothing else would ever clear them.
+PREFIX=ghcr.io/danielsolves/ngl-
+LEGACY_PREFIX=nothing-gets-lost-
+# The running set plus this many older commits per service. Three is enough for the
+# rollback the runbook describes, which goes back one deploy, with room to be wrong
+# twice.
+KEEP=3
+
+log() { printf '==> %s\n' "$*"; }
+
+command -v docker >/dev/null 2>&1 || { echo 'docker is not on PATH' >&2; exit 1; }
+
+# Image ids in use by any container, running or stopped. Stopped counts: a container
+# that exited is still a thing somebody may restart, and `migrate` exits every deploy
+# by design.
+in_use="$(docker ps -aq | xargs -r docker inspect --format '{{.Image}}' | sort -u)"
+
+removed=0
+kept=0
+
+# One service at a time, so "the newest three" means three per service rather than
+# three across all nine.
+for repo in $(docker images --format '{{.Repository}}' \
+  | grep -E "^(${PREFIX}|${LEGACY_PREFIX})" | sort -u); do
+  # Newest first. CreatedAt sorts correctly as a string in docker's format.
+  mapfile -t rows < <(
+    docker images --format '{{.CreatedAt}}\t{{.ID}}\t{{.Repository}}:{{.Tag}}' "$repo" \
+      | sort -r
+  )
+
+  seen=0
+  for row in "${rows[@]}"; do
+    id="$(printf '%s' "$row" | cut -f2)"
+    ref="$(printf '%s' "$row" | cut -f3)"
+
+    # Never touch the local build tag: it belongs to whoever ran a build by hand.
+    case "$ref" in *:local) kept=$((kept + 1)); continue ;; esac
+
+    if printf '%s\n' "$in_use" | grep -q "^sha256:${id}" \
+      || printf '%s\n' "$in_use" | grep -q "${id}"; then
+      kept=$((kept + 1))
+      continue
+    fi
+
+    seen=$((seen + 1))
+    if [ "$seen" -le "$KEEP" ]; then
+      kept=$((kept + 1))
+      continue
+    fi
+
+    if docker rmi "$ref" >/dev/null 2>&1; then
+      log "removed $ref"
+      removed=$((removed + 1))
+    fi
+  done
+done
+
+log "kept $kept, removed $removed"
+
+# Dangling images: untagged layers left behind whenever any project rebuilds. They are
+# referenced by nothing, on this host they were nine gigabytes of the eleven in use,
+# and removing them cannot cost anybody a rollback. `prune` without `-a` touches only
+# these, which is why it is safe to run here and `-a` is not.
+log 'removing dangling images (all projects, they are referenced by nothing)'
+docker image prune --force >/dev/null 2>&1 || true
+
+# Build cache is ours alone and rebuilds itself. Nothing else on the host depends on
+# it, so this one can be swept without qualification.
+docker builder prune --force --filter 'until=168h' >/dev/null 2>&1 || true
+
+log 'done'
