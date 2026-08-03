@@ -79,7 +79,7 @@ const PARTS: ReadonlyArray<Part> = [
   {
     name: 'Vitest',
     version: '2',
-    figure: '10,000 events',
+    figure: '5,000 events',
     role: 'Unit, integration, and a soak run that ends on zero lost.',
   },
   {

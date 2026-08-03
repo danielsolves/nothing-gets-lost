@@ -44,7 +44,7 @@ If you are building something real and under load, use a proven library. This is
 
 **It has one dial and no others.** There are no priorities, no per target rate limits, no concurrency caps, no delayed jobs beyond `next_at`, no cron, no job groups, no pause and resume, no queue metrics. Every one of those is a real requirement in a real system, and every one of them is a week of work and a new class of bug if you write it yourself.
 
-**Its failure envelope is narrow and known.** It has been exercised at 10,000 events in one process with a fixed pseudo random failure pattern (`test/load/soak.test.ts`). BullMQ, Sidekiq and Kafka have been exercised by thousands of production systems for years, including the failure shapes nobody thinks to write a test for. That difference is not something a careful author can close by being careful.
+**Its failure envelope is narrow and known.** It has been exercised at 5,000 events in one process with a fixed pseudo random failure pattern (`test/load/soak.test.ts`). BullMQ, Sidekiq and Kafka have been exercised by thousands of production systems for years, including the failure shapes nobody thinks to write a test for. That difference is not something a careful author can close by being careful.
 
 **Postgres as a queue has a ceiling.** `SKIP LOCKED` is a genuinely good pattern and it holds up to a real amount of traffic, but dead tuples from a high churn queue table put pressure on autovacuum, long running readers block cleanup, and the table that was a convenience at a thousand jobs an hour becomes the thing your DBA pages you about. When you get there, moving the queue out of the database is the right answer, not tuning the hand written one.
 

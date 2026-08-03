@@ -1,6 +1,11 @@
 // test/load/soak.test.ts
-// Proves the number printed on the sheet: 10,000 events through randomly failing
+// Proves the number printed on the sheet: 5,000 events through randomly failing
 // targets, nothing lost, nothing duplicated.
+//
+// 5,000 rather than more because the failure pattern is `i % 7`, `i % 11` and
+// `i % 13`, and those are coprime: every combination of reachable targets has been
+// seen once after 1,001 events. Five full cycles is the coverage; anything beyond
+// that is the same matrix again at the price of CI minutes.
 //
 // Runs on recorded extractions, never on live model calls — the run would otherwise
 // cost real money every time CI fires.
@@ -8,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { startHarness } from '../integration/harness';
 
-const EVENTS = 10_000;
+const EVENTS = 5_000;
 
 let harness: Awaited<ReturnType<typeof startHarness>>;
 
@@ -16,7 +21,7 @@ beforeAll(async () => { harness = await startHarness(); }, 180_000);
 afterAll(async () => { await harness.stop(); });
 
 describe('soak', () => {
-  it('loses nothing and duplicates nothing across 10,000 events', async () => {
+  it('loses nothing and duplicates nothing across 5,000 events', async () => {
     const started = Date.now();
 
     for (let i = 0; i < EVENTS; i++) {
