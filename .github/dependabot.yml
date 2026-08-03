@@ -1,0 +1,43 @@
+# .github/dependabot.yml
+#
+# where: read by GitHub, opens pull requests against main.
+# what: watch npm and the GitHub actions used by the workflows, weekly.
+# why: the actions in ci.yml and deploy.yml are pinned to commit SHAs, which is the
+#   point of the pin: a moving tag can be repointed at code nobody reviewed. A pin
+#   without something to refresh it is only a slower kind of stale, so the two belong
+#   together and neither is worth having alone.
+#
+# Weekly rather than daily. This repository has one maintainer, and a queue of
+# dependency pull requests nobody reads is not safety, it is noise that trains you to
+# ignore the label.
+#
+# Grouped rather than one pull request per package. Every one of these has to pass the
+# same four required checks, including a ten thousand event soak run, so twelve small
+# pull requests cost twelve full suites to review the same class of change once.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Patch and minor together: these are the ones that are usually a glance and a
+      # merge. Majors stay on their own, because they are the ones worth reading.
+      routine:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
