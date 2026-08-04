@@ -27,6 +27,33 @@ updates:
       # merge. Majors stay on their own, because they are the ones worth reading.
       routine:
         update-types: [minor, patch]
+    # Two majors are parked rather than merged, and parked here rather than by
+    # closing the pull request every Monday. A closed dependabot pull request comes
+    # back the following week, so closing it is not a decision, it is a chore that
+    # looks like one.
+    #
+    # React 19 fails 157 tests across six files. The shape of that is a changed
+    # testing-library environment rather than 157 broken behaviours, so it is an
+    # afternoon rather than a rewrite. It buys this demo nothing today.
+    #
+    # TypeScript 7 is the rewritten compiler. That is not an afternoon and it is not
+    # something to walk into because a bot opened a pull request.
+    #
+    # Minor and patch still arrive for all of them, so a security fix inside the
+    # current major still reaches us. What this gives up is a fix that exists only in
+    # the next major, which for these two is worth reviewing by hand when it happens
+    # rather than pre-empting weekly.
+    ignore:
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/react'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/react-dom'
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: chore
       include: scope
