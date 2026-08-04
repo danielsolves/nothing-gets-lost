@@ -1,0 +1,69 @@
+# docker-compose.ci.yml
+#
+# where: layered over docker-compose.yml by the publish job in .github/workflows/ci.yml,
+#   and nowhere else.
+# what: give every built service a layer cache that survives between CI runs.
+# why: the nine images share one dependency stage, so the first build fills a cache the
+#   other eight reuse. That worked inside a run and was thrown away at the end of it, so
+#   every push to main re-ran the same install from nothing.
+#
+# It is a separate file rather than an addition to docker-compose.yml because
+# `type=gha` only resolves inside a GitHub Actions runner. Written into the main file
+# it would break the promise the README makes, which is that a stranger can clone this
+# and run `docker compose up` with nothing configured.
+#
+# The values are quoted on purpose. Written as a bare flow list, `[type=gha,scope=api]`
+# is two YAML entries rather than one cache specification, and bake rejects the second
+# half with a type error that names neither the file nor the cause.
+#
+# mode=max exports the intermediate stages too, not only the final layer. The stage
+# worth keeping here is the dependency install, and that one is intermediate.
+#
+# The scope is per service. One shared scope would have the nine builds overwrite each
+# other's entry within a single run, which is the failure mode that makes a cache look
+# like it is working while it never hits.
+services:
+  migrate:
+    build:
+      cache_from: ['type=gha,scope=migrate']
+      cache_to: ['type=gha,scope=migrate,mode=max']
+
+  egress-gate:
+    build:
+      cache_from: ['type=gha,scope=egress-gate']
+      cache_to: ['type=gha,scope=egress-gate,mode=max']
+
+  ledger:
+    build:
+      cache_from: ['type=gha,scope=ledger']
+      cache_to: ['type=gha,scope=ledger,mode=max']
+
+  mailer:
+    build:
+      cache_from: ['type=gha,scope=mailer']
+      cache_to: ['type=gha,scope=mailer,mode=max']
+
+  extractor:
+    build:
+      cache_from: ['type=gha,scope=extractor']
+      cache_to: ['type=gha,scope=extractor,mode=max']
+
+  mediator:
+    build:
+      cache_from: ['type=gha,scope=mediator']
+      cache_to: ['type=gha,scope=mediator,mode=max']
+
+  api:
+    build:
+      cache_from: ['type=gha,scope=api']
+      cache_to: ['type=gha,scope=api,mode=max']
+
+  mcp:
+    build:
+      cache_from: ['type=gha,scope=mcp']
+      cache_to: ['type=gha,scope=mcp,mode=max']
+
+  ui:
+    build:
+      cache_from: ['type=gha,scope=ui']
+      cache_to: ['type=gha,scope=ui,mode=max']
