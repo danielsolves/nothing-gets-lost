@@ -11,11 +11,15 @@
 //
 // Usage:
 //   docker compose up -d --wait          # the stack has to be running
-//   node tools/demo-gif/record.mjs       # writes frames, then calls ffmpeg
+//   node tools/demo-gif/record.mjs       # writes frames, calls ffmpeg, clears frames
+//
+// KEEP_FRAMES=1 leaves the frames on disk for inspection. They are not small.
 //
 // Playwright is not a dependency of this repository. It is only needed to refresh the
-// GIF, and adding a browser download to every `npm ci` for that is a bad trade. Point
-// PLAYWRIGHT at an installation if the default is not there.
+// GIF, and adding a browser download to every `npm ci` for that is a bad trade. So it
+// is resolved the ordinary way and, when it is not there, PLAYWRIGHT points at an
+// installation elsewhere:
+//   PLAYWRIGHT=/path/to/node_modules/playwright node tools/demo-gif/record.mjs
 import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -24,8 +28,7 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-const PLAYWRIGHT = process.env.PLAYWRIGHT
-|| '/Volumes/CORSAIR/WebstormProjects/upwork/node_modules/playwright';
+const PLAYWRIGHT = process.env.PLAYWRIGHT || 'playwright';
 const URL = process.env.DEMO_URL || 'http://localhost:2520/';
 const OUT = process.env.OUT_DIR || path.join(HERE, 'frames');
 const GIF = process.env.OUT_GIF || path.join(HERE, '..', '..', 'docs', 'demo.gif');
@@ -35,12 +38,27 @@ const GIF = process.env.OUT_GIF || path.join(HERE, '..', '..', 'docs', 'demo.gif
 const FPS = 10;
 const FRAME_MS = 1000 / FPS;
 
-// Loaded by path rather than by name, because Playwright is deliberately not a
-// dependency of this repository. createRequire is the way in: Playwright is
-// CommonJS, and a bare import() of a package directory is not something ESM
-// resolves.
+// createRequire rather than import(), because Playwright is CommonJS and a bare
+// import() of a package directory is not something ESM resolves.
+//
+// The failure is caught and named. Playwright is deliberately absent from this
+// repository, so "cannot find module" is the expected first run for anybody who
+// clones it, and an unhandled resolution error is a poor way to say "install this".
 const load = createRequire(import.meta.url);
-const pw = load(PLAYWRIGHT);
+let pw;
+try {
+  pw = load(PLAYWRIGHT);
+} catch {
+  console.error(
+    `Playwright could not be loaded from "${PLAYWRIGHT}".\n` +
+    'It is not a dependency of this repository, because a browser download on every\n' +
+    'npm ci is a bad trade for a script that refreshes one GIF. Either\n' +
+    '  npm i -D playwright && npx playwright install chromium\n' +
+    'or point PLAYWRIGHT at an existing installation:\n' +
+    '  PLAYWRIGHT=/path/to/node_modules/playwright node tools/demo-gif/record.mjs',
+  );
+  process.exit(1);
+}
 
 /**
  * Captures frames for a while, so a wait is never a dead frame.
@@ -159,3 +177,19 @@ execFileSync('ffmpeg', ['-v', 'error', '-y', '-framerate', String(FPS), '-i', in
 
 const kb = Math.round(fs.statSync(GIF).size / 1024);
 console.log(`done, ${kb} KB`);
+
+// The frames are an intermediate and a heavy one: a run leaves roughly 190 PNGs at
+// device scale 2, and two runs in one afternoon were enough to fill a boot disk to
+// the point where no command would start.
+//
+// The wipe at the top of this file does not cover it. That one clears the previous
+// run when a new one begins, so the last run of the day always stays on disk, which
+// is exactly the run nobody comes back to.
+//
+// Kept when KEEP_FRAMES is set, because the one occasion they are worth having is a
+// clip that came out wrong and the question of which frame it went wrong on.
+if (process.env.KEEP_FRAMES) {
+  console.log(`frames kept in ${OUT}`);
+} else {
+  fs.rmSync(OUT, { recursive: true, force: true });
+}
