@@ -104,7 +104,7 @@ The risk is that the scoreboard reads 40 agreements and no disagreements and loo
 
 ### Size and cost
 
-A migration, a small advisor client in the mediator that never blocks a delivery, a tile, a panel and a query. Around 250 lines. Two days. One model call per failed attempt is the cost driver, and a visitor who cuts a line generates six per delivery, so it needs a cap and it must be off in `test/load/soak.test.ts`, which pushes 10,000 events through deliberately failing targets. At demo volumes a few euros a month.
+A migration, a small advisor client in the mediator that never blocks a delivery, a tile, a panel and a query. Around 250 lines. Two days. One model call per failed attempt is the cost driver, and a visitor who cuts a line generates six per delivery, so it needs a cap and it must be off in `test/load/soak.test.ts`, which pushes 5,000 events through deliberately failing targets. At demo volumes a few euros a month.
 
 ## 4. A note about what just happened
 

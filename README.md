@@ -121,7 +121,7 @@ does it, nothing public calls it, and if it ever arrives here it arrives behind 
 
 ## The numbers on the box
 
-`10,000 events · 0 lost · 0 duplicated`, produced by
+`5,000 events · 0 lost · 0 duplicated`, produced by
 [`test/load/soak.test.ts`](test/load/soak.test.ts). The result is written to
 [docs/load-test-result.txt](docs/load-test-result.txt) by the run itself, and CI
 regenerates it as its own job.

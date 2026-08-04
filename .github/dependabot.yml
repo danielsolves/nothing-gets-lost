@@ -12,7 +12,7 @@
 # ignore the label.
 #
 # Grouped rather than one pull request per package. Every one of these has to pass the
-# same four required checks, including a ten thousand event soak run, so twelve small
+# same four required checks, including a five thousand event soak run, so twelve small
 # pull requests cost twelve full suites to review the same class of change once.
 version: 2
 updates:

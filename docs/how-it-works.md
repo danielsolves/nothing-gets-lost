@@ -215,5 +215,5 @@ The mediator does not know a switch exists. It sees a failed HTTP call and does 
 
 ## Checking it
 
-- Unit tests sit next to the code in `services/*/test/`. Nine integration tests run against a real Postgres via Testcontainers in `test/integration/pipeline.test.ts`, and `test/load/soak.test.ts` pushes 10,000 events through randomly failing targets and writes its result file.
+- Unit tests sit next to the code in `services/*/test/`. Nine integration tests run against a real Postgres via Testcontainers in `test/integration/pipeline.test.ts`, and `test/load/soak.test.ts` pushes 5,000 events through randomly failing targets and writes its result file.
 - Or ignore all of that and read the database. `DATABASE_URL_READONLY` in `.env.example` is the `ngl_ro` url, which is `SELECT` on six views and nothing else, and it works from `psql` exactly as it works from the MCP server. There was a SQL console on the page for a while and there is not any more, for a reason worth reading before rebuilding it: [what I deliberately did not build](what-we-deliberately-did-not-build.md).

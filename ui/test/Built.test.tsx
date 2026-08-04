@@ -60,7 +60,7 @@ describe('Built', () => {
       .map((node) => node.textContent);
     // The soak result, the integration scenarios, the migration count, and what
     // docker compose brings up. All four are counted in the repository.
-    expect(figures).toContain('10,000 events');
+    expect(figures).toContain('5,000 events');
     expect(figures).toContain('9 scenarios');
     expect(figures).toContain('16 migrations');
     expect(figures).toContain('10 services');
