@@ -8,9 +8,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "pg": "^8.13.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0"
+    "@types/pg": "^8.21.0"
   }
 }
