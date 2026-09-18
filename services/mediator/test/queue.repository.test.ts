@@ -51,6 +51,34 @@ describe('QueueRepository', () => {
     expect(claimed.map((c) => c.target)).toEqual(['hubspot']);
   });
 
+  it('shortens legacy retry deadlines without resetting attempts or delaying short retries', async () => {
+    const eventId = await seedEvent('evt_legacy_retry');
+    await pool.query(
+      `INSERT INTO deliveries (event_id, target, attempts, next_at)
+       VALUES ($1, 'hubspot', 5, now() + interval '10 minutes'),
+              ($1, 'slack', 2, now() + interval '4 seconds')`, [eventId],
+    );
+    const { rows: original } = await pool.query(
+      'SELECT target, next_at FROM deliveries WHERE event_id = $1', [eventId],
+    );
+    await repo.claimDue(10);
+    const { rows } = await pool.query(
+      `SELECT target, attempts, next_at, EXTRACT(EPOCH FROM (next_at - now())) AS wait
+         FROM deliveries WHERE event_id = $1`, [eventId],
+    );
+    const legacy = rows.find((r) => r.target === 'hubspot');
+    expect(Number(legacy.wait)).toBeLessThanOrEqual(5);
+    // A zero-jitter retry can already be claimed, but its history is never reset.
+    expect(legacy.attempts).toBeGreaterThanOrEqual(5);
+    const short = rows.find((r) => r.target === 'slack');
+    expect(short.next_at).toEqual(original.find((r) => r.target === 'slack').next_at);
+    await repo.claimDue(10);
+    const { rows: again } = await pool.query(
+      `SELECT next_at FROM deliveries WHERE event_id = $1 AND target = 'hubspot'`, [eventId],
+    );
+    expect(again[0].next_at).toEqual(legacy.next_at);
+  });
+
   it('increments attempts and locks on claim', async () => {
     const eventId = await seedEvent('evt_3');
     await repo.enqueue(eventId, 'ledger');

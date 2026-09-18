@@ -7,7 +7,7 @@
 // so a worker that dies mid-call still counts its attempt.
 import type { Pool } from 'pg';
 import type { Target } from '@ngl/contracts';
-import { nextDelaySeconds } from './backoff';
+import { MAX_RETRY_DELAY_SECONDS, nextDelaySeconds } from './backoff';
 
 export interface ClaimedDelivery {
   id: number;
@@ -31,6 +31,17 @@ export class QueueRepository {
   }
 
   async claimDue(limit: number): Promise<ClaimedDelivery[]> {
+    // Old releases persisted retry deadlines up to ten minutes away. Clamp those
+    // on every poll, including failures written by a worker during a rollout.
+    // Leave first deliveries, active calls and completed/dead records untouched.
+    await this.pool.query(
+      `UPDATE deliveries
+          SET next_at = now() + make_interval(secs => random() * $1),
+              updated_at = now()
+        WHERE state = 'pending' AND attempts > 0
+          AND next_at > now() + make_interval(secs => $1)`,
+      [MAX_RETRY_DELAY_SECONDS],
+    );
     const { rows } = await this.pool.query<{
       id: string; event_id: string; target: Target; attempts: number;
     }>(
