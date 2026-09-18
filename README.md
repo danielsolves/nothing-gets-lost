@@ -135,7 +135,7 @@ zero through arbitrary chaos.
 
 ## Honest caveats
 
-- **The retry schedule is compressed.** 2s, 8s, 30s, 2min, 10min. In production I would
+- **The retry schedule is compressed.** 1s, 2s, 3s, 4s, 5s maximum, with full jitter. In production I would
   start at 30s and stretch over hours. The first delays have to be visible inside a
   visitor's attention span.
 - **Your email address is optional, and the specification says it should not be.**

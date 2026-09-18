@@ -1,5 +1,5 @@
 // services/mediator/test/backoff.test.ts
-// Pins the retry schedule and its jitter. The first two delays have to stay
+// Pins the retry schedule and its jitter. All retry delays have to stay
 // short enough for a visitor to watch a recovery happen inside one page view.
 import { describe, it, expect } from 'vitest';
 import { nextDelaySeconds, MAX_ATTEMPTS, BACKOFF_SECONDS } from '../src/backoff';
@@ -10,7 +10,7 @@ const fullJitter = () => 0;
 
 describe('retry schedule', () => {
   it('follows the schedule from the spec', () => {
-    expect(BACKOFF_SECONDS).toEqual([2, 8, 30, 120, 600]);
+    expect(BACKOFF_SECONDS).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('gives up after six attempts', () => {
@@ -18,11 +18,11 @@ describe('retry schedule', () => {
   });
 
   it('returns the full delay when jitter is at its maximum', () => {
-    expect(nextDelaySeconds(1, noJitter)).toBe(2);
-    expect(nextDelaySeconds(2, noJitter)).toBe(8);
-    expect(nextDelaySeconds(3, noJitter)).toBe(30);
-    expect(nextDelaySeconds(4, noJitter)).toBe(120);
-    expect(nextDelaySeconds(5, noJitter)).toBe(600);
+    expect(nextDelaySeconds(1, noJitter)).toBe(1);
+    expect(nextDelaySeconds(2, noJitter)).toBe(2);
+    expect(nextDelaySeconds(3, noJitter)).toBe(3);
+    expect(nextDelaySeconds(4, noJitter)).toBe(4);
+    expect(nextDelaySeconds(5, noJitter)).toBe(5);
   });
 
   it('can shorten any delay down to zero — full jitter, not equal jitter', () => {
@@ -46,7 +46,7 @@ describe('retry schedule', () => {
 
   it('stays inside the scheduled bound', () => {
     for (let i = 0; i < 200; i++) {
-      expect(nextDelaySeconds(3)!).toBeLessThanOrEqual(30);
+      expect(nextDelaySeconds(3)!).toBeLessThanOrEqual(3);
     }
   });
 });

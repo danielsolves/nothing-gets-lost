@@ -90,7 +90,7 @@ Independently also means at the same time. The claimed batch goes through `Promi
 `services/mediator/src/backoff.ts`:
 
 ```ts
-export const BACKOFF_SECONDS = [2, 8, 30, 120, 600] as const;
+export const BACKOFF_SECONDS = [1, 2, 3, 4, 5] as const;
 export const MAX_ATTEMPTS = BACKOFF_SECONDS.length + 1;
 
 export function nextDelaySeconds(
@@ -103,6 +103,8 @@ export function nextDelaySeconds(
   return rand() * scheduled;
 }
 ```
+
+Existing pending retries from older releases are capped to at most five seconds on the next queue poll, without resetting their attempt count.
 
 This is full jitter, not equal jitter: the actual delay is uniform between zero and the scheduled value, so the scheduled numbers are upper bounds. A burst of failures against one target produces a burst of failures at the same moment, and without jitter every one of them would come back in lockstep and hammer the target again together. `backoff.test.ts` pins both ends, including the case where jitter shortens a delay to zero.
 
