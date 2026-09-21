@@ -11,12 +11,12 @@
     "@ngl/contracts": "*",
     "@ngl/db": "*",
     "@ngl/mediator": "*",
-    "pg": "^8.13.0",
+    "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "@types/pg": "^8.11.0"
+    "@types/pg": "^8.23.1"
   }
 }
